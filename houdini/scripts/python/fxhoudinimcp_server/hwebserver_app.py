@@ -19,7 +19,7 @@ import os
 import hwebserver
 
 # Internal
-from . import dispatcher
+from fxhoudinimcp_server import dispatcher
 
 
 @hwebserver.apiFunction(namespace="mcp")

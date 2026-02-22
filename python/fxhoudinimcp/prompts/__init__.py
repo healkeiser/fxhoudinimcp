@@ -3,4 +3,4 @@
 from __future__ import annotations
 
 # Internal
-from . import workflows  # noqa: F401
+from fxhoudinimcp.prompts import workflows  # noqa: F401

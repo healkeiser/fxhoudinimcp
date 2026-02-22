@@ -21,7 +21,7 @@ from typing import Any
 import httpx
 
 # Internal
-from .errors import ConnectionError, HoudiniCommandError
+from fxhoudinimcp.errors import ConnectionError, HoudiniCommandError
 
 logger = logging.getLogger(__name__)
 

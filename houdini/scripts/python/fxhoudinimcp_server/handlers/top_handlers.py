@@ -13,7 +13,7 @@ import logging
 import hou
 
 # Internal
-from ..dispatcher import register_handler
+from fxhoudinimcp_server.dispatcher import register_handler
 
 logger = logging.getLogger(__name__)
 

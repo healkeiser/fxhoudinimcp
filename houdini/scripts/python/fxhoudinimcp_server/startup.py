@@ -29,10 +29,10 @@ def start(port: int | None = None) -> None:
     _port = port or int(os.environ.get("FXHOUDINIMCP_PORT", "8100"))
 
     # Import handlers to trigger registration via register_handler() calls
-    from . import handlers  # noqa: F401
+    from fxhoudinimcp_server import handlers  # noqa: F401
 
     # Import hwebserver_app to register the API functions
-    from . import hwebserver_app  # noqa: F401
+    from fxhoudinimcp_server import hwebserver_app  # noqa: F401
 
     # Start hwebserver if not already running.
     # In Houdini 20.5+, hwebserver may already be running for built-in features.

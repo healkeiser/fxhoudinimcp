@@ -6,7 +6,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import Context
 
 # Internal
-from ..server import mcp, _get_bridge
+from fxhoudinimcp.server import mcp, _get_bridge
 
 
 @mcp.resource("houdini://scene/info")

@@ -13,7 +13,7 @@ import os
 import hou
 
 # Internal
-from ..dispatcher import register_handler
+from fxhoudinimcp_server.dispatcher import register_handler
 
 
 ###### scene.get_scene_info

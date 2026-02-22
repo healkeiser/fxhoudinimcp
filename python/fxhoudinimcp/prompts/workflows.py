@@ -6,7 +6,7 @@ These prompts guide AI assistants through multi-step Houdini tasks.
 from __future__ import annotations
 
 # Internal
-from ..server import mcp
+from fxhoudinimcp.server import mcp
 
 
 @mcp.prompt()

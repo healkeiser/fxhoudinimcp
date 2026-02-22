@@ -54,7 +54,7 @@ for _module_name in _HANDLER_MODULES:
         )
 
 # Internal
-from ..dispatcher import list_commands  # noqa: E402
+from fxhoudinimcp_server.dispatcher import list_commands  # noqa: E402
 
 _total = len(_HANDLER_MODULES)
 _command_count = len(list_commands())

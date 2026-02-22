@@ -13,7 +13,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 # Internal
-from ..server import mcp, _get_bridge
+from fxhoudinimcp.server import mcp, _get_bridge
 
 
 @mcp.tool()

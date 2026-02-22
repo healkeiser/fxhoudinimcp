@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 
 # Internal
-from .bridge import HoudiniBridge
+from fxhoudinimcp.bridge import HoudiniBridge
 
 logger = logging.getLogger(__name__)
 
