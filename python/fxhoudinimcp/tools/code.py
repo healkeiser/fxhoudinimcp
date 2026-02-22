@@ -23,19 +23,11 @@ from fxhoudinimcp.server import mcp, _get_bridge
 async def execute_python(
     ctx: Context, code: str, return_expression: str | None = None
 ) -> dict:
-    """Execute arbitrary Python code inside Houdini's Python interpreter.
-
-    The code runs via exec() in a namespace with `hou` pre-imported.
-    If return_expression is provided, it is evaluated after execution and
-    its result is included in the response.
-
-    stdout and stderr from print() calls are captured and returned.
-    Use print() liberally in your code to provide progress feedback.
+    """Execute Python code inside Houdini's interpreter.
 
     Args:
         code: Python source code to execute.
-        return_expression: Optional Python expression to evaluate after
-                           executing the code and return its result.
+        return_expression: Python expression to evaluate after execution.
     """
     bridge = _get_bridge(ctx)
     payload: dict[str, Any] = {"code": code}
@@ -51,10 +43,8 @@ async def execute_python(
 async def execute_hscript(ctx: Context, command: str) -> dict:
     """Execute an HScript command in Houdini.
 
-    Returns the command output and any error messages.
-
     Args:
-        command: The HScript command string to execute (e.g. "opparm /obj/geo1 tx 5").
+        command: HScript command string to execute.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("code.execute_hscript", {"command": command})
@@ -69,12 +59,9 @@ async def evaluate_expression(
 ) -> dict:
     """Evaluate an expression in Houdini and return its result.
 
-    Supports both HScript expressions (using hou.hscriptExpression) and
-    Python expressions (using eval).
-
     Args:
-        expression: The expression string to evaluate.
-        language: Expression language, "hscript" (default) or "python".
+        expression: Expression string to evaluate.
+        language: Expression language, "hscript" or "python".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -90,11 +77,8 @@ async def evaluate_expression(
 async def get_env_variable(ctx: Context, var_name: str) -> dict:
     """Get a Houdini environment variable value.
 
-    Reads the variable via hou.getenv(). Returns the value and whether
-    the variable exists.
-
     Args:
-        var_name: Name of the environment variable (e.g. "HIP", "JOB", "HOUDINI_PATH").
+        var_name: Name of the environment variable.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("code.get_env_variable", {"var_name": var_name})

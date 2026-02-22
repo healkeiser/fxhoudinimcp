@@ -14,10 +14,10 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_geometry_info(ctx: Context, node_path: str) -> dict:
-    """Get a summary of a SOP node's geometry: point/prim/vertex counts, attribute list (name, type, size for each class), bounding box, and primitive type breakdown.
+    """Get geometry summary for a SOP node.
 
     Args:
-        node_path: Path to the SOP node (e.g. "/obj/geo1/sphere1").
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -37,14 +37,14 @@ async def get_points(
     count: int = 1000,
     group: str | None = None,
 ) -> dict:
-    """Read point positions and attributes from a SOP node with pagination.
+    """Read point positions and attributes with pagination.
 
     Args:
-        node_path: Path to the SOP node.
-        attributes: List of attribute names to read (default: ["P"]).
-        start: Starting point index for pagination.
-        count: Maximum number of points to return per page.
-        group: Optional point group name to filter by.
+        node_path: Node path.
+        attributes: Attribute names to read.
+        start: Start index.
+        count: Max points per page.
+        group: Point group filter.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -68,14 +68,14 @@ async def get_prims(
     count: int = 1000,
     group: str | None = None,
 ) -> dict:
-    """Read primitive data and attributes from a SOP node with pagination.
+    """Read primitive data and attributes with pagination.
 
     Args:
-        node_path: Path to the SOP node.
-        attributes: List of prim attribute names to read (default: all prim attributes).
-        start: Starting primitive index for pagination.
-        count: Maximum number of primitives to return per page.
-        group: Optional primitive group name to filter by.
+        node_path: Node path.
+        attributes: Attribute names to read.
+        start: Start index.
+        count: Max prims per page.
+        group: Prim group filter.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -97,15 +97,12 @@ async def get_attrib_values(
     attrib_name: str,
     attrib_class: str = "point",
 ) -> dict:
-    """Read all values of a single geometry attribute efficiently as a flat array.
-
-    This uses Houdini's fast bulk attribute reading methods (e.g. pointFloatAttribValues)
-    for maximum performance on large geometry.
+    """Read all values of a single attribute.
 
     Args:
-        node_path: Path to the SOP node.
-        attrib_name: Name of the attribute to read.
-        attrib_class: Attribute class - "point", "prim", "vertex", or "detail".
+        node_path: Node path.
+        attrib_name: Attribute name.
+        attrib_class: "point", "prim", "vertex", or "detail".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -125,15 +122,12 @@ async def set_detail_attrib(
     attrib_name: str,
     value: Any,
 ) -> dict:
-    """Set a detail (global) attribute on a SOP node's geometry.
-
-    The attribute is created if it does not exist. Supports float, int, string,
-    and list (vector) values.
+    """Set a detail attribute on a SOP node.
 
     Args:
-        node_path: Path to the SOP node.
-        attrib_name: Name of the detail attribute.
-        value: Value to set (float, int, string, or list of floats).
+        node_path: Node path.
+        attrib_name: Attribute name.
+        value: Value to set.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -148,10 +142,10 @@ async def set_detail_attrib(
 
 @mcp.tool()
 async def get_groups(ctx: Context, node_path: str) -> dict:
-    """List all point, primitive, and edge groups on a SOP node's geometry with membership counts.
+    """List all geometry groups on a SOP node.
 
     Args:
-        node_path: Path to the SOP node.
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -169,12 +163,12 @@ async def get_group_members(
     group_name: str,
     group_type: str = "point",
 ) -> dict:
-    """Get the element indices that belong to a geometry group.
+    """Get element indices in a geometry group.
 
     Args:
-        node_path: Path to the SOP node.
-        group_name: Name of the group.
-        group_type: Type of group - "point", "prim", or "edge".
+        node_path: Node path.
+        group_name: Group name.
+        group_type: "point", "prim", or "edge".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -189,12 +183,10 @@ async def get_group_members(
 
 @mcp.tool()
 async def get_bounding_box(ctx: Context, node_path: str) -> dict:
-    """Get the axis-aligned bounding box (AABB) of a SOP node's geometry.
-
-    Returns min, max, size, and center vectors.
+    """Get the bounding box of a SOP node's geometry.
 
     Args:
-        node_path: Path to the SOP node.
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -212,12 +204,12 @@ async def get_attribute_info(
     attrib_name: str,
     attrib_class: str = "point",
 ) -> dict:
-    """Get detailed information about a geometry attribute (type, size, default value).
+    """Get metadata for a geometry attribute.
 
     Args:
-        node_path: Path to the SOP node.
-        attrib_name: Name of the attribute.
-        attrib_class: Attribute class - "point", "prim", "vertex", or "detail".
+        node_path: Node path.
+        attrib_name: Attribute name.
+        attrib_class: "point", "prim", "vertex", or "detail".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -237,15 +229,12 @@ async def sample_geometry(
     sample_count: int = 100,
     seed: int = 0,
 ) -> dict:
-    """Smart sampling: get N evenly distributed points from a SOP node's geometry.
-
-    Useful for inspecting large geometry without reading every point. Returns all
-    point attributes for each sampled point.
+    """Sample evenly distributed points from a SOP node's geometry.
 
     Args:
-        node_path: Path to the SOP node.
-        sample_count: Number of points to sample (default: 100).
-        seed: Random seed for reproducible sampling (default: 0).
+        node_path: Node path.
+        sample_count: Number of points to sample.
+        seed: Random seed.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -264,14 +253,11 @@ async def get_prim_intrinsics(
     node_path: str,
     prim_index: int | None = None,
 ) -> dict:
-    """Get intrinsic values for primitives (typename, measuredarea, measuredperimeter, etc.).
-
-    If prim_index is None, returns an aggregated summary across all primitives.
-    Otherwise returns intrinsics for the specific primitive.
+    """Get intrinsic values for primitives.
 
     Args:
-        node_path: Path to the SOP node.
-        prim_index: Specific primitive index, or None for a summary of all.
+        node_path: Node path.
+        prim_index: Primitive index, or None for a summary.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path}
@@ -287,12 +273,12 @@ async def find_nearest_point(
     position: list[float],
     max_results: int = 1,
 ) -> dict:
-    """Find the nearest point(s) in a SOP node's geometry to a given 3D position.
+    """Find the nearest point(s) to a given position.
 
     Args:
-        node_path: Path to the SOP node.
+        node_path: Node path.
         position: Query position as [x, y, z].
-        max_results: Maximum number of nearest points to return (default: 1).
+        max_results: Max nearest points to return.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

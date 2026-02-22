@@ -48,8 +48,9 @@ mcp = FastMCP(
     name="FXHoudini",
     instructions=(
         "Comprehensive MCP server for SideFX Houdini. "
-        "131 tools covering SOPs, LOPs/USD, DOPs, PDG/TOPs, COPs, HDAs, "
-        "animation, rendering, VEX, and more."
+        "156 tools across 20 categories covering SOPs, LOPs/USD, DOPs, "
+        "PDG/TOPs, COPs, CHOPs, HDAs, materials, animation, rendering, "
+        "VEX, viewport, caching, takes, workflows, and more."
     ),
     lifespan=lifespan,
 )

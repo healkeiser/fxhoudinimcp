@@ -21,14 +21,11 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
-    """Get the current value and metadata of a Houdini parameter.
-
-    Returns the evaluated value, raw value, any expression, keyframe count,
-    lock state, whether the parameter is at its default, and the parameter type.
+    """Get the value and metadata of a parameter.
 
     Args:
-        node_path: Absolute Houdini node path (e.g. "/obj/geo1/transform1").
-        parm_name: Name of the parameter (e.g. "tx", "divisions").
+        node_path: Node path.
+        parm_name: Parameter name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -44,15 +41,12 @@ async def get_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
 async def set_parameter(
     ctx: Context, node_path: str, parm_name: str, value: Any
 ) -> dict:
-    """Set a single Houdini parameter value.
-
-    The value type is auto-detected (int, float, string, etc.) and applied
-    to the parameter.
+    """Set a parameter value.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Name of the parameter to set.
-        value: The new value (int, float, string, bool, or list for tuples).
+        node_path: Node path.
+        parm_name: Parameter name.
+        value: New value (int, float, string, bool, or list).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -68,14 +62,11 @@ async def set_parameter(
 async def set_parameters(
     ctx: Context, node_path: str, params: dict[str, Any]
 ) -> dict:
-    """Batch-set multiple parameters on a single Houdini node.
-
-    More efficient than calling set_parameter repeatedly. Reports individual
-    successes and failures.
+    """Batch-set multiple parameters on a node.
 
     Args:
-        node_path: Absolute Houdini node path.
-        params: Mapping of parameter names to their new values.
+        node_path: Node path.
+        params: Mapping of parameter names to values.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -91,15 +82,11 @@ async def set_parameters(
 async def get_parameter_schema(
     ctx: Context, node_path: str, parm_name: str | None = None
 ) -> dict:
-    """Get the full template schema for parameter(s) on a Houdini node.
-
-    Returns type, range, menu items, default value, conditionals, and tags.
-    If parm_name is omitted, returns schema information for every parameter
-    on the node.
+    """Get the template schema for parameter(s) on a node.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Optional parameter name. If None, returns all parameters.
+        node_path: Node path.
+        parm_name: Parameter name. If None, returns all parameters.
     """
     bridge = _get_bridge(ctx)
     payload: dict[str, Any] = {"node_path": node_path}
@@ -119,13 +106,13 @@ async def set_expression(
     expression: str,
     language: str = "hscript",
 ) -> dict:
-    """Set an expression on a Houdini parameter.
+    """Set an expression on a parameter.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Name of the parameter.
-        expression: The expression string (e.g. "$F", "ch('../tx')").
-        language: Expression language, "hscript" (default) or "python".
+        node_path: Node path.
+        parm_name: Parameter name.
+        expression: Expression string.
+        language: "hscript" (default) or "python".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -144,14 +131,11 @@ async def set_expression(
 
 @mcp.tool()
 async def get_expression(ctx: Context, node_path: str, parm_name: str) -> dict:
-    """Get the current expression on a Houdini parameter.
-
-    Returns the expression string and its language, or null values if the
-    parameter has no expression.
+    """Get the expression on a parameter.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Name of the parameter.
+        node_path: Node path.
+        parm_name: Parameter name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -167,13 +151,11 @@ async def get_expression(ctx: Context, node_path: str, parm_name: str) -> dict:
 async def revert_parameter(
     ctx: Context, node_path: str, parm_name: str
 ) -> dict:
-    """Revert a Houdini parameter to its default value.
-
-    Removes any expression or keyframes and restores the factory default.
+    """Revert a parameter to its default value.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Name of the parameter to revert.
+        node_path: Node path.
+        parm_name: Parameter name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -195,14 +177,11 @@ async def link_parameters(
 ) -> dict:
     """Create a channel reference from one parameter to another.
 
-    The destination parameter will reference the source parameter via
-    an HScript ch() expression.
-
     Args:
-        source_path: Absolute path of the source node.
-        source_parm: Parameter name on the source node.
-        dest_path: Absolute path of the destination node.
-        dest_parm: Parameter name on the destination node.
+        source_path: Source node path.
+        source_parm: Source parameter name.
+        dest_path: Destination node path.
+        dest_parm: Destination parameter name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -223,13 +202,11 @@ async def link_parameters(
 async def lock_parameter(
     ctx: Context, node_path: str, parm_name: str, locked: bool
 ) -> dict:
-    """Lock or unlock a Houdini parameter.
-
-    Locked parameters cannot be edited by users in the UI.
+    """Lock or unlock a parameter.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Name of the parameter.
+        node_path: Node path.
+        parm_name: Parameter name.
         locked: True to lock, False to unlock.
     """
     bridge = _get_bridge(ctx)
@@ -253,19 +230,16 @@ async def create_spare_parameter(
     min_val: float | None = None,
     max_val: float | None = None,
 ) -> dict:
-    """Add a custom spare parameter to a Houdini node.
-
-    Supported parameter types: "float", "int", "string", "toggle", "menu".
+    """Add a spare parameter to a node.
 
     Args:
-        node_path: Absolute Houdini node path.
-        parm_name: Internal name for the new parameter.
-        parm_type: Parameter type (float, int, string, toggle, menu).
-        label: Human-readable label shown in the UI.
-        default_value: Default value. For float/int can be a number or list.
-                       For toggle, a bool. For menu, a list of menu item strings.
-        min_val: Optional minimum value (float/int types only).
-        max_val: Optional maximum value (float/int types only).
+        node_path: Node path.
+        parm_name: Internal parameter name.
+        parm_type: "float", "int", "string", "toggle", or "menu".
+        label: UI label.
+        default_value: Default value.
+        min_val: Minimum value (float/int only).
+        max_val: Maximum value (float/int only).
     """
     bridge = _get_bridge(ctx)
     payload: dict[str, Any] = {

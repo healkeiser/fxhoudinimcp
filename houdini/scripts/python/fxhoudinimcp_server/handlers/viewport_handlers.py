@@ -8,6 +8,7 @@ screenshot capture of various pane types.
 from __future__ import annotations
 
 # Built-in
+import base64
 import logging
 import os
 
@@ -221,29 +222,41 @@ def frame_all(pane_name: str = None) -> dict:
 ###### viewport.capture_screenshot
 
 def capture_screenshot(
-    pane_name: str,
     output_path: str,
+    pane_name: str = None,
 ) -> dict:
-    """Capture a screenshot of a specific pane tab.
+    """Capture a screenshot of a specific pane tab, or the active viewport.
 
     Args:
-        pane_name: Name of the pane tab to capture.
         output_path: Destination image path.
+        pane_name: Name of the pane tab to capture. If not provided,
+            captures the first Scene Viewer found.
     """
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    pane_tab = _find_pane_by_name(pane_name)
+    if pane_name is not None:
+        pane_tab = _find_pane_by_name(pane_name)
+    else:
+        # Default to first Scene Viewer
+        pane_tab = _find_scene_viewer()
+
+    cur_frame = hou.frame()
 
     # For scene viewers, use flipbook for capture
     if pane_tab.type() == hou.paneTabType.SceneViewer:
         viewport = pane_tab.curViewport()
         settings = pane_tab.flipbookSettings().stash()
-        settings.frameRange((hou.frame(), hou.frame()))
+        settings.frameRange((cur_frame, cur_frame))
         settings.output(output_path)
         pane_tab.flipbook(viewport, settings)
+
+        # Handle frame number that flipbook may insert
+        from fxhoudinimcp_server.handlers.rendering_handlers import _find_flipbook_output
+        actual_path = _find_flipbook_output(output_path, cur_frame)
     else:
+        actual_path = output_path
         # For other pane types, try the saveAsImage approach
         try:
             pane_tab.saveAsImage(output_path)
@@ -254,10 +267,28 @@ def capture_screenshot(
                 f"for network editors."
             )
 
+    # Read the captured image and base64-encode it so the MCP client
+    # can display it inline (Claude Desktop needs embedded image data).
+    image_base64 = None
+    mime_type = "image/png"
+    actual_lower = actual_path.lower()
+    if actual_lower.endswith((".jpg", ".jpeg")):
+        mime_type = "image/jpeg"
+
+    if os.path.isfile(actual_path):
+        try:
+            with open(actual_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("ascii")
+        except Exception as e:
+            logger.warning("Could not read captured image: %s", e)
+
     return {
         "success": True,
-        "pane_name": pane_name,
-        "output_path": output_path,
+        "pane_name": pane_tab.name(),
+        "output_path": actual_path,
+        "file_exists": os.path.isfile(actual_path),
+        "image_base64": image_base64,
+        "mime_type": mime_type,
     }
 
 
@@ -309,10 +340,21 @@ def capture_network_editor(
                 f"Failed to capture network editor screenshot: {e}"
             )
 
+    image_base64 = None
+    mime_type = "image/png"
+    if os.path.isfile(output_path):
+        try:
+            with open(output_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("ascii")
+        except Exception as e:
+            logger.warning("Could not read captured network editor image: %s", e)
+
     return {
         "success": True,
         "output_path": output_path,
         "node_path": node_path,
+        "image_base64": image_base64,
+        "mime_type": mime_type,
     }
 
 

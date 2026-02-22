@@ -7,6 +7,7 @@ operations including Karma, OpenGL, and other Houdini renderers.
 from __future__ import annotations
 
 # Built-in
+import base64
 import logging
 import os
 
@@ -20,6 +21,37 @@ logger = logging.getLogger(__name__)
 
 
 ###### rendering.render_viewport
+
+def _find_flipbook_output(output_path: str, frame: float) -> str:
+    """Find the actual output file after flipbook, handling frame number insertion.
+
+    Houdini's flipbook may insert a frame number into the filename
+    (e.g. "output.0001.png" instead of "output.png") even for single-frame
+    captures. This helper locates the actual file and optionally renames it.
+    """
+    if os.path.isfile(output_path):
+        return output_path
+
+    # Try common frame-number patterns
+    base, ext = os.path.splitext(output_path)
+    frame_int = int(frame)
+    candidates = [
+        f"{base}.{frame_int:04d}{ext}",
+        f"{base}.{frame_int:03d}{ext}",
+        f"{base}.{frame_int}{ext}",
+        f"{base}_{frame_int:04d}{ext}",
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            # Rename to the originally requested path
+            try:
+                os.rename(candidate, output_path)
+                return output_path
+            except OSError:
+                return candidate
+
+    return output_path
+
 
 def render_viewport(
     output_path: str,
@@ -59,25 +91,49 @@ def render_viewport(
             raise ValueError(f"Camera node not found: {camera}")
         viewport.setCamera(cam_node)
 
+    cur_frame = hou.frame()
+
     # Build the flipbook settings for image capture
     settings = scene_viewer.flipbookSettings().stash()
-    settings.frameRange((hou.frame(), hou.frame()))
+    settings.frameRange((cur_frame, cur_frame))
     settings.output(output_path)
 
     if resolution is not None:
         if len(resolution) != 2:
             raise ValueError("resolution must be a list of [width, height]")
+        settings.useResolution(True)
         settings.resolution(tuple(resolution))
 
     # Use the flipbook approach for a single-frame capture
     scene_viewer.flipbook(viewport, settings)
 
+    # Handle frame number that flipbook may insert into the filename
+    actual_path = _find_flipbook_output(output_path, cur_frame)
+
+    # Read the captured image and base64-encode it so the MCP client
+    # can display it inline.
+    image_base64 = None
+    mime_type = "image/png"
+    actual_lower = actual_path.lower()
+    if actual_lower.endswith((".jpg", ".jpeg")):
+        mime_type = "image/jpeg"
+
+    if os.path.isfile(actual_path):
+        try:
+            with open(actual_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("ascii")
+        except Exception as e:
+            logger.warning("Could not read captured viewport image: %s", e)
+
     return {
         "success": True,
-        "output_path": output_path,
+        "output_path": actual_path,
+        "file_exists": os.path.isfile(actual_path),
         "resolution": resolution,
         "camera": camera,
-        "frame": hou.frame(),
+        "frame": cur_frame,
+        "image_base64": image_base64,
+        "mime_type": mime_type,
     }
 
 

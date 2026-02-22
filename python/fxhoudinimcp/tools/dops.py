@@ -14,11 +14,10 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_simulation_info(ctx: Context, node_path: str) -> dict:
-    """Get DOP network simulation state including simulation time, timestep,
-    object count, memory usage, and whether the simulation is active.
+    """Get DOP network simulation state.
 
     Args:
-        node_path: Path to the DOP network node (e.g. "/obj/dopnet1").
+        node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -28,10 +27,10 @@ async def get_simulation_info(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def list_dop_objects(ctx: Context, node_path: str) -> dict:
-    """List all DOP objects in a simulation and their types.
+    """List all DOP objects in a simulation.
 
     Args:
-        node_path: Path to the DOP network node.
+        node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -43,12 +42,11 @@ async def list_dop_objects(ctx: Context, node_path: str) -> dict:
 async def get_dop_object(
     ctx: Context, node_path: str, object_name: str
 ) -> dict:
-    """Get detailed data for a specific simulation object, including all
-    records (fields) and the subdata hierarchy.
+    """Get detailed data for a specific DOP object.
 
     Args:
-        node_path: Path to the DOP network node.
-        object_name: Name of the DOP object to inspect.
+        node_path: DOP network node path.
+        object_name: DOP object name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -68,11 +66,10 @@ async def get_dop_field(
     """Read a specific field value from a DOP record.
 
     Args:
-        node_path: Path to the DOP network node.
-        object_name: Name of the DOP object.
-        data_path: Dot-separated path to the subdata (e.g. "Geometry" or
-            "Forces/Gravity"). Use empty string for root data.
-        field_name: Name of the field to read.
+        node_path: DOP network node path.
+        object_name: DOP object name.
+        data_path: Dot-separated subdata path (e.g. "Geometry", "Forces/Gravity").
+        field_name: Field name to read.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -88,10 +85,10 @@ async def get_dop_field(
 
 @mcp.tool()
 async def get_dop_relationships(ctx: Context, node_path: str) -> dict:
-    """List all relationships between DOP objects in the simulation.
+    """List all relationships between DOP objects.
 
     Args:
-        node_path: Path to the DOP network node.
+        node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -104,8 +101,8 @@ async def step_simulation(ctx: Context, node_path: str, steps: int = 1) -> dict:
     """Advance the simulation by a number of frames.
 
     Args:
-        node_path: Path to the DOP network node.
-        steps: Number of frames to advance (default 1).
+        node_path: DOP network node path.
+        steps: Number of frames to advance.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -116,11 +113,10 @@ async def step_simulation(ctx: Context, node_path: str, steps: int = 1) -> dict:
 
 @mcp.tool()
 async def reset_simulation(ctx: Context, node_path: str) -> dict:
-    """Reset the simulation to its initial state, clearing the cache and
-    returning to the start frame.
+    """Reset the simulation to its initial state.
 
     Args:
-        node_path: Path to the DOP network node.
+        node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -130,11 +126,10 @@ async def reset_simulation(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def get_sim_memory_usage(ctx: Context, node_path: str) -> dict:
-    """Get a detailed memory breakdown for the simulation, including
-    per-object memory consumption.
+    """Get detailed memory breakdown for the simulation.
 
     Args:
-        node_path: Path to the DOP network node.
+        node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

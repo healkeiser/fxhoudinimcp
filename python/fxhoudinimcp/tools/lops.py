@@ -14,10 +14,10 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_stage_info(ctx: Context, node_path: str) -> dict:
-    """Get a summary of the USD stage on a LOP node: prim count, layers, default prim, up axis, and meters per unit.
+    """Get USD stage info from a LOP node.
 
     Args:
-        node_path: Path to the LOP node (e.g. "/stage/sublayer1").
+        node_path: LOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -34,11 +34,11 @@ async def get_usd_prim(
     node_path: str,
     prim_path: str,
 ) -> dict:
-    """Get detailed information about a USD prim: type, kind, all attributes with values, and children list.
+    """Get detailed info about a USD prim.
 
     Args:
-        node_path: Path to the LOP node.
-        prim_path: USD prim path on the stage (e.g. "/World/Cube").
+        node_path: LOP node path.
+        prim_path: USD prim path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -59,14 +59,14 @@ async def list_usd_prims(
     kind: str | None = None,
     depth: int | None = None,
 ) -> dict:
-    """List USD prims on a stage, optionally filtered by type, kind, or depth.
+    """List USD prims on a stage with filtering.
 
     Args:
-        node_path: Path to the LOP node.
-        root_path: Root prim path to start listing from (default: "/").
-        prim_type: Filter to prims of this USD type (e.g. "Mesh", "Xform").
-        kind: Filter to prims with this kind (e.g. "component", "group").
-        depth: Maximum traversal depth from root_path (None = unlimited).
+        node_path: LOP node path.
+        root_path: Root prim path to list from.
+        prim_type: USD type filter (e.g. "Mesh", "Xform").
+        kind: Kind filter (e.g. "component", "group").
+        depth: Max traversal depth.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -90,13 +90,13 @@ async def get_usd_attribute(
     attr_name: str,
     time: float | None = None,
 ) -> dict:
-    """Read a USD attribute value from a prim, optionally at a specific time code.
+    """Read a USD attribute value from a prim.
 
     Args:
-        node_path: Path to the LOP node.
+        node_path: LOP node path.
         prim_path: USD prim path.
-        attr_name: Name of the attribute to read.
-        time: Optional time code (frame number). None for the default time.
+        attr_name: Attribute name.
+        time: Time code (frame number).
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -111,12 +111,10 @@ async def get_usd_attribute(
 
 @mcp.tool()
 async def get_usd_layers(ctx: Context, node_path: str) -> dict:
-    """List all layers used in the USD stage on a LOP node.
-
-    Returns layer identifiers, display names, resolved paths, and dirty status.
+    """List all layers in a USD stage.
 
     Args:
-        node_path: Path to the LOP node.
+        node_path: LOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -133,11 +131,11 @@ async def get_usd_prim_stats(
     node_path: str,
     prim_path: str = "/",
 ) -> dict:
-    """Get prim counts broken down by USD type under a root path.
+    """Get prim counts by USD type under a root path.
 
     Args:
-        node_path: Path to the LOP node.
-        prim_path: Root prim path to gather stats from (default: "/").
+        node_path: LOP node path.
+        prim_path: Root prim path to gather stats from.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -151,10 +149,10 @@ async def get_usd_prim_stats(
 
 @mcp.tool()
 async def get_last_modified_prims(ctx: Context, node_path: str) -> dict:
-    """Get the list of USD prims that were modified by the last LOP node cook.
+    """Get prims modified by the last LOP node cook.
 
     Args:
-        node_path: Path to the LOP node.
+        node_path: LOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -173,13 +171,13 @@ async def create_lop_node(
     name: str | None = None,
     prim_path: str | None = None,
 ) -> dict:
-    """Create a new LOP node in Houdini with optional presets.
+    """Create a new LOP node.
 
     Args:
-        parent_path: Path to the parent node where the LOP will be created.
-        lop_type: Type of LOP node to create (e.g. "sphere", "cube", "sublayer", "merge").
-        name: Optional name for the new node.
-        prim_path: Optional USD prim path to set on the node (if it has a primpath parameter).
+        parent_path: Parent node path.
+        lop_type: LOP node type (e.g. "sphere", "sublayer", "merge").
+        name: Node name.
+        prim_path: USD prim path to set on the node.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -201,16 +199,13 @@ async def set_usd_attribute(
     attr_name: str,
     value: Any,
 ) -> dict:
-    """Set a USD attribute value via an auto-generated inline Python LOP.
-
-    Creates a Python LOP node wired after the specified node that sets the
-    attribute on the stage.
+    """Set a USD attribute value via an inline Python LOP.
 
     Args:
-        node_path: Path to the LOP node to connect after.
-        prim_path: USD prim path containing the attribute.
-        attr_name: Name of the attribute to set.
-        value: Value to set on the attribute.
+        node_path: LOP node path to connect after.
+        prim_path: USD prim path.
+        attr_name: Attribute name.
+        value: Value to set.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -226,10 +221,10 @@ async def set_usd_attribute(
 
 @mcp.tool()
 async def get_usd_materials(ctx: Context, node_path: str) -> dict:
-    """List all USD materials on a stage with their shader connections and geometry bindings.
+    """List all USD materials on a stage.
 
     Args:
-        node_path: Path to the LOP node.
+        node_path: LOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -246,11 +241,11 @@ async def find_usd_prims(
     node_path: str,
     pattern: str,
 ) -> dict:
-    """Search USD prims by path pattern (supports * and ** wildcards, and substring matching).
+    """Search USD prims by path pattern.
 
     Args:
-        node_path: Path to the LOP node.
-        pattern: Search pattern (e.g. "*/Cube*", "**/materials/*", or a substring).
+        node_path: LOP node path.
+        pattern: Glob pattern (supports *, **) or substring.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -268,11 +263,11 @@ async def get_usd_composition(
     node_path: str,
     prim_path: str,
 ) -> dict:
-    """Get the composition arcs for a USD prim: references, payloads, inherits, specializes, and variant selections.
+    """Get composition arcs for a USD prim.
 
     Args:
-        node_path: Path to the LOP node.
-        prim_path: USD prim path to inspect.
+        node_path: LOP node path.
+        prim_path: USD prim path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -290,11 +285,11 @@ async def get_usd_variants(
     node_path: str,
     prim_path: str,
 ) -> dict:
-    """Get variant sets and current selections for a USD prim.
+    """Get variant sets and selections for a USD prim.
 
     Args:
-        node_path: Path to the LOP node.
-        prim_path: USD prim path to inspect.
+        node_path: LOP node path.
+        prim_path: USD prim path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -312,13 +307,11 @@ async def inspect_usd_layer(
     node_path: str,
     layer_index: int = 0,
 ) -> dict:
-    """Inspect a specific USD layer in the stage by its index.
-
-    Returns the layer identifier, authored prims, sublayers, default prim, and more.
+    """Inspect a USD layer by index.
 
     Args:
-        node_path: Path to the LOP node.
-        layer_index: Index of the layer to inspect (0 = root layer).
+        node_path: LOP node path.
+        layer_index: Layer index (0 = root layer).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -340,20 +333,15 @@ async def create_light(
     color: list[float] | None = None,
     position: list[float] | None = None,
 ) -> dict:
-    """Create a USD light node in a Houdini LOP network.
-
-    Supports dome, distant, rect, sphere, disk, and cylinder light types
-    with configurable intensity, color, and position.
+    """Create a USD light in a LOP network.
 
     Args:
-        ctx: MCP context.
-        parent_path: Parent LOP network path (default: "/stage").
-        light_type: Type of light: "dome", "distant", "rect", "sphere",
-            "disk", or "cylinder".
-        name: Optional name for the light node.
-        intensity: Light intensity (default: 1.0).
-        color: Optional [r, g, b] color values (0.0 to 1.0).
-        position: Optional [x, y, z] world position.
+        parent_path: Parent LOP network path.
+        light_type: "dome", "distant", "rect", "sphere", "disk", or "cylinder".
+        name: Light node name.
+        intensity: Light intensity.
+        color: [r, g, b] color values.
+        position: [x, y, z] world position.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -372,14 +360,10 @@ async def create_light(
 
 @mcp.tool()
 async def list_lights(ctx: Context, node_path: str) -> dict:
-    """List all USD lights on a Houdini LOP stage.
-
-    Cooks the LOP node and traverses the USD stage to find all UsdLux
-    light prims, returning their type, intensity, color, and enabled state.
+    """List all USD lights on a LOP stage.
 
     Args:
-        ctx: MCP context.
-        node_path: Path to the LOP node (e.g. "/stage/domelight1").
+        node_path: LOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -397,16 +381,12 @@ async def set_light_properties(
     prim_path: str,
     properties: dict[str, Any],
 ) -> dict:
-    """Set properties on a USD light prim in Houdini via an inline Python LOP.
-
-    Supports properties like intensity, color, exposure, diffuse, specular,
-    shadow_enable, temperature, and enable_temperature.
+    """Set properties on a USD light prim via an inline Python LOP.
 
     Args:
-        ctx: MCP context.
-        node_path: Path to the LOP node to connect after.
-        prim_path: USD prim path of the light (e.g. "/lights/key_light").
-        properties: Dict of property name -> value to set.
+        node_path: LOP node path to connect after.
+        prim_path: USD light prim path.
+        properties: Property name-value pairs to set.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -426,19 +406,12 @@ async def create_light_rig(
     preset: str = "three_point",
     intensity_mult: float = 1.0,
 ) -> dict:
-    """Create a preset lighting rig in a Houdini LOP network.
-
-    Available presets:
-    - "three_point": Key + fill + rim lights
-    - "studio": Softbox-style rect light setup
-    - "outdoor": Dome light + distant sun light
-    - "hdri": Single dome light
+    """Create a preset lighting rig in a LOP network.
 
     Args:
-        ctx: MCP context.
-        parent_path: Parent LOP network path (default: "/stage").
-        preset: Lighting preset name (default: "three_point").
-        intensity_mult: Multiplier applied to all light intensities (default: 1.0).
+        parent_path: Parent LOP network path.
+        preset: "three_point", "studio", "outdoor", or "hdri".
+        intensity_mult: Multiplier for all light intensities.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

@@ -67,6 +67,185 @@ def _set_parm_safe(node: hou.Node, parm_name: str, value: Any) -> bool:
 
 ###### workflow.setup_pyro_sim
 
+def _setup_pyro_sim_sop(
+    geo: "hou.Node",
+    objmerge: "hou.Node",
+    substeps: int,
+    all_nodes: list[str],
+) -> dict:
+    """Build a SOP-level Pyro simulation (Houdini 20+).
+
+    Uses the modern pyrosource + pyrosolver SOP workflow.
+
+    Args:
+        geo: Parent geometry node.
+        objmerge: Object Merge SOP referencing the source geometry.
+        substeps: Number of solver substeps.
+        all_nodes: Accumulator list for created node paths.
+    """
+    # -- Pyro Source: converts geometry to source volumes
+    print("[workflow] Creating Pyro Source SOP")
+    pyrosource = geo.createNode("pyrosource", "pyro_source1")
+    pyrosource.setInput(0, objmerge, 0)
+    all_nodes.append(pyrosource.path())
+
+    # -- Pyro Solver SOP (SOP-level, Houdini 20+)
+    print("[workflow] Creating Pyro Solver SOP")
+    try:
+        pyrosolver = geo.createNode("pyrosolver::3.0", "pyro_solver1")
+    except hou.OperationFailed:
+        pyrosolver = geo.createNode("pyrosolver", "pyro_solver1")
+    pyrosolver.setInput(0, pyrosource, 0)
+    all_nodes.append(pyrosolver.path())
+
+    # Set substeps
+    _set_parm_safe(pyrosolver, "substeps", substeps)
+
+    # -- File Cache
+    print("[workflow] Creating File Cache SOP")
+    try:
+        filecache = geo.createNode("filecache::2.0", "file_cache1")
+    except hou.OperationFailed:
+        filecache = geo.createNode("filecache", "file_cache1")
+    filecache.setInput(0, pyrosolver, 0)
+    all_nodes.append(filecache.path())
+
+    try:
+        filecache.setDisplayFlag(True)
+        filecache.setRenderFlag(True)
+    except Exception:
+        pass
+
+    geo.layoutChildren()
+    print("[workflow] SOP-level Pyro setup complete")
+
+    return {
+        "success": True,
+        "geo_path": geo.path(),
+        "solver_path": pyrosolver.path(),
+        "source_path": pyrosource.path(),
+        "cache_path": filecache.path(),
+        "approach": "sop",
+        "all_nodes": all_nodes,
+    }
+
+
+def _setup_pyro_sim_dop(
+    geo: "hou.Node",
+    objmerge: "hou.Node",
+    substeps: int,
+    all_nodes: list[str],
+) -> dict:
+    """Build a DOP-level Pyro simulation (fallback for older Houdini).
+
+    Uses a DOP Network with smokeobject, sourcevolume, pyrosolver,
+    and gasresizefluiddynamic.
+
+    Args:
+        geo: Parent geometry node.
+        objmerge: Object Merge SOP referencing the source geometry.
+        substeps: Number of DOP substeps.
+        all_nodes: Accumulator list for created node paths.
+    """
+    # -- DOP Network
+    print("[workflow] Creating DOP Network inside geo")
+    dopnet = geo.createNode("dopnet", "dopnet1")
+    all_nodes.append(dopnet.path())
+    _set_parm_safe(dopnet, "substep", substeps)
+
+    # -- Smoke Object
+    print("[workflow] Creating smokeobject DOP")
+    try:
+        smokeobj = dopnet.createNode("smokeobject", "smokeobject1")
+    except hou.OperationFailed:
+        smokeobj = dopnet.createNode("smokeconfigureobject", "smokeobject1")
+    all_nodes.append(smokeobj.path())
+
+    # -- Source Volume
+    print("[workflow] Creating source volume DOP")
+    source_vol = None
+    try:
+        source_vol = dopnet.createNode("sourcevolume", "source_volume1")
+        all_nodes.append(source_vol.path())
+        # Point the source volume at the Object Merge SOP
+        for parm_name in ("sop_path", "soppath", "geometry"):
+            if _set_parm_safe(source_vol, parm_name, objmerge.path()):
+                print(f"[workflow] Set source volume {parm_name} = {objmerge.path()}")
+                break
+    except hou.OperationFailed:
+        print("[workflow] Warning: sourcevolume not available, skipping")
+
+    # -- Pyro Solver
+    print("[workflow] Creating pyrosolver DOP")
+    try:
+        pyrosolver = dopnet.createNode("pyrosolver::2.0", "pyrosolver1")
+    except hou.OperationFailed:
+        pyrosolver = dopnet.createNode("pyrosolver", "pyrosolver1")
+    all_nodes.append(pyrosolver.path())
+
+    # -- Resize Container
+    print("[workflow] Creating resize container DOP")
+    resize = None
+    try:
+        resize = dopnet.createNode("gasresizefluiddynamic", "resize_container1")
+        all_nodes.append(resize.path())
+    except hou.OperationFailed:
+        print("[workflow] Warning: gasresizefluiddynamic not available, skipping")
+
+    # -- Merge DOP to combine smoke object and source volume
+    print("[workflow] Creating merge DOP and wiring solver chain")
+    try:
+        merge_dop = dopnet.createNode("merge", "merge1")
+        merge_dop.setInput(0, smokeobj, 0)
+        if source_vol is not None:
+            merge_dop.setInput(1, source_vol, 0)
+        pyrosolver.setInput(0, merge_dop, 0)
+        all_nodes.append(merge_dop.path())
+    except Exception as e:
+        print(f"[workflow] Warning: merge DOP failed, wiring directly: {e}")
+        pyrosolver.setInput(0, smokeobj, 0)
+
+    if resize is not None:
+        try:
+            resize.setInput(0, pyrosolver, 0)
+        except Exception as e:
+            print(f"[workflow] Warning: could not wire resize container: {e}")
+
+    # -- DOP Import SOP
+    print("[workflow] Creating DOP Import SOP")
+    dopimport = geo.createNode("dopimport", "dop_import1")
+    _set_parm_safe(dopimport, "doppath", dopnet.path())
+    all_nodes.append(dopimport.path())
+
+    # -- File Cache
+    print("[workflow] Creating File Cache SOP")
+    try:
+        filecache = geo.createNode("filecache::2.0", "file_cache1")
+    except hou.OperationFailed:
+        filecache = geo.createNode("filecache", "file_cache1")
+    filecache.setInput(0, dopimport, 0)
+    all_nodes.append(filecache.path())
+
+    try:
+        filecache.setDisplayFlag(True)
+        filecache.setRenderFlag(True)
+    except Exception:
+        pass
+
+    geo.layoutChildren()
+    dopnet.layoutChildren()
+    print("[workflow] DOP-level Pyro setup complete")
+
+    return {
+        "success": True,
+        "geo_path": geo.path(),
+        "dop_path": dopnet.path(),
+        "cache_path": filecache.path(),
+        "approach": "dop",
+        "all_nodes": all_nodes,
+    }
+
+
 def _setup_pyro_sim(
     source_geo: str = "/obj/geo1/sphere1",
     container: str = "box",
@@ -77,130 +256,78 @@ def _setup_pyro_sim(
 ) -> dict:
     """Build a complete Pyro smoke/fire simulation network.
 
-    Creates a geometry node with a DOP Network containing a Pyro solver,
-    smoke object, source volume, and resize container.  Optionally merges
-    source geometry and adds a File Cache for the output.
+    Tries the modern SOP-level approach first (Houdini 20+, using
+    pyrosource + pyrosolver SOPs).  Falls back to the classic DOP
+    approach (smokeobject + sourcevolume + pyrosolver DOPs) for
+    older Houdini versions.
 
     Args:
         source_geo: Path to the source geometry SOP to drive the simulation.
         container: Container type hint (reserved for future use).
         res_scale: Resolution scale multiplier for the simulation.
-        substeps: Number of DOP substeps.
+        substeps: Number of DOP substeps or solver substeps.
         name: Name for the top-level geometry node.
     """
     obj = _ensure_obj_context()
     all_nodes: list[str] = []
 
-    # -- Step 1: Create top-level geo container
+    # -- Create top-level geo container
     print(f"[workflow] Creating geo node '{name}' under /obj")
     geo = obj.createNode("geo", name)
-    # Remove default children
     for child in geo.children():
         child.destroy()
     all_nodes.append(geo.path())
 
-    # -- Step 2: Create DOP Network inside the geo
-    print("[workflow] Creating DOP Network inside geo")
-    dopnet = geo.createNode("dopnet", "dopnet1")
-    all_nodes.append(dopnet.path())
-
-    # -- Step 3: Create Pyro solver inside DOPnet
-    print("[workflow] Creating pyrosolver DOP")
-    try:
-        pyrosolver = dopnet.createNode("pyrosolver", "pyrosolver1")
-    except hou.OperationFailed:
-        pyrosolver = dopnet.createNode("pyrosolver::2.0", "pyrosolver1")
-    all_nodes.append(pyrosolver.path())
-
-    # -- Step 4: Create smoke object
-    print("[workflow] Creating smokeobject DOP")
-    try:
-        smokeobj = dopnet.createNode("smokeobject", "smokeobject1")
-    except hou.OperationFailed:
-        smokeobj = dopnet.createNode("smokeconfigureobject", "smokeobject1")
-    all_nodes.append(smokeobj.path())
-
-    # -- Step 5: Create source volume
-    print("[workflow] Creating source volume DOP")
-    try:
-        source_vol = dopnet.createNode("sourcevolume", "source_volume1")
-        all_nodes.append(source_vol.path())
-    except hou.OperationFailed:
-        print("[workflow] Warning: sourcevolume not available, skipping")
-        source_vol = None
-
-    # -- Step 6: Create resize container
-    print("[workflow] Creating resize container DOP")
-    try:
-        resize = dopnet.createNode("gasresizefluiddynamic", "resize_container1")
-        all_nodes.append(resize.path())
-    except hou.OperationFailed:
-        print("[workflow] Warning: gasresizefluiddynamic not available, skipping")
-        resize = None
-
-    # -- Step 7: Wire solver chain
-    print("[workflow] Wiring DOP solver chain")
-    try:
-        if source_vol is not None:
-            pyrosolver.setInput(0, smokeobj, 0)
-            if resize is not None:
-                resize.setInput(0, pyrosolver, 0)
-        else:
-            pyrosolver.setInput(0, smokeobj, 0)
-    except Exception as e:
-        print(f"[workflow] Warning: Could not auto-wire DOP chain: {e}")
-
-    # Set substeps
-    _set_parm_safe(dopnet, "substep", substeps)
-
-    # -- Step 8: Object Merge for source geometry
+    # -- Object Merge for source geometry
     print(f"[workflow] Creating Object Merge for source: {source_geo}")
     objmerge = geo.createNode("object_merge", "source_geo")
     _set_parm_safe(objmerge, "objpath1", source_geo)
     all_nodes.append(objmerge.path())
 
-    # Check if source exists
     if hou.node(source_geo) is not None:
         print(f"[workflow] Source geometry found at {source_geo}")
     else:
-        print(f"[workflow] Warning: source geometry '{source_geo}' not found -- Object Merge created but path may need updating")
+        print(f"[workflow] Warning: source geometry '{source_geo}' not found, Object Merge created but path may need updating")
 
-    # -- Step 9: DOP Import for output
-    print("[workflow] Creating DOP Import SOP")
-    dopimport = geo.createNode("dopimport", "dop_import1")
-    _set_parm_safe(dopimport, "doppath", dopnet.path())
-    all_nodes.append(dopimport.path())
-
-    # -- Step 10: File Cache
-    print("[workflow] Creating File Cache SOP")
+    # -- Try modern SOP-level Pyro first, fall back to DOP approach
     try:
-        filecache = geo.createNode("filecache", "file_cache1")
+        print("[workflow] Attempting SOP-level Pyro workflow (Houdini 20+)")
+        result = _setup_pyro_sim_sop(geo, objmerge, substeps, all_nodes)
+        print(f"[workflow] Pyro simulation '{name}' setup complete (SOP approach)")
     except hou.OperationFailed:
-        filecache = geo.createNode("filecache::2.0", "file_cache1")
-    filecache.setInput(0, dopimport, 0)
-    all_nodes.append(filecache.path())
+        print("[workflow] SOP-level Pyro not available, falling back to DOP approach")
+        # Clean up any partially-created SOP nodes (keep geo and objmerge)
+        for child in geo.children():
+            if child != objmerge:
+                try:
+                    if child.type().name() not in ("object_merge",):
+                        child.destroy()
+                except Exception:
+                    pass
 
-    # Set display/render flags
-    try:
-        filecache.setDisplayFlag(True)
-        filecache.setRenderFlag(True)
-    except Exception:
-        pass
+        result = _setup_pyro_sim_dop(geo, objmerge, substeps, all_nodes)
+        print(f"[workflow] Pyro simulation '{name}' setup complete (DOP approach)")
 
-    # -- Step 11: Layout
-    print("[workflow] Laying out nodes")
-    geo.layoutChildren()
-    dopnet.layoutChildren()
-
-    print(f"[workflow] Pyro simulation '{name}' setup complete")
-
-    return {
-        "success": True,
-        "geo_path": geo.path(),
-        "dop_path": dopnet.path(),
-        "cache_path": filecache.path(),
-        "all_nodes": all_nodes,
-    }
+    # Augment the result with source wiring info so the AI client
+    # understands the network and does not try to re-wire things.
+    source_found = hou.node(source_geo) is not None
+    result["objmerge_path"] = objmerge.path()
+    result["source_geo"] = source_geo
+    result["source_geo_found"] = source_found
+    result["network_description"] = (
+        f"The Pyro network is fully wired and ready to simulate. "
+        f"Source geometry is referenced via the Object Merge SOP at "
+        f"{objmerge.path()} (parameter 'objpath1' = '{source_geo}'). "
+        + (
+            "The source geometry was found and connected successfully. "
+            if source_found
+            else f"WARNING: source geometry '{source_geo}' was NOT found. "
+            f"Update the 'objpath1' parameter on {objmerge.path()} to "
+            f"point to a valid SOP path. "
+        )
+        + "No additional wiring is needed."
+    )
+    return result
 
 
 ###### workflow.setup_rbd_sim

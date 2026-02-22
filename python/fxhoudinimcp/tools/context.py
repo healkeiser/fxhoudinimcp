@@ -22,17 +22,11 @@ async def get_network_overview(
     path: str = "/obj",
     depth: int = 2,
 ) -> dict:
-    """Get a compact overview of a Houdini network.
-
-    Returns each node's name, type, position, flags, and error state,
-    connections as an adjacency list, which node has the display/render
-    flag, an ASCII-art text representation of the network flow, and
-    optionally recurses into child networks.
+    """Get a compact overview of a network.
 
     Args:
-        ctx: MCP context.
-        path: Root network path to inspect (default: "/obj").
-        depth: How many levels deep to recurse into child networks (default: 2).
+        path: Network path.
+        depth: Recursion depth.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -46,15 +40,10 @@ async def get_network_overview(
 
 @mcp.tool()
 async def get_cook_chain(ctx: Context, node_path: str) -> dict:
-    """Trace the cook dependency chain for a Houdini node.
-
-    Walks the node's inputs recursively back to source nodes and returns
-    an ordered list from source to target, including each node's path,
-    type, cook time, and error state.
+    """Trace the cook dependency chain for a node.
 
     Args:
-        ctx: MCP context.
-        node_path: Absolute path to the target node (e.g. "/obj/geo1/mountain1").
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -67,15 +56,10 @@ async def get_cook_chain(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def explain_node(ctx: Context, node_path: str) -> dict:
-    """Get a human-readable explanation of a Houdini node.
-
-    Returns the node type description, non-default parameters, input and
-    output connections, current state (errors, warnings, cook time, flags),
-    and a summary text field suitable for display.
+    """Explain a node in human-readable form.
 
     Args:
-        ctx: MCP context.
-        node_path: Absolute path to the node (e.g. "/obj/geo1/box1").
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -88,15 +72,7 @@ async def explain_node(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def get_selection(ctx: Context) -> dict:
-    """Get the current selection in Houdini.
-
-    Returns selected nodes (path, type, name) and, if available,
-    geometry component selection (points, primitives, edges) with
-    the selection type, count, and source node path.
-
-    Args:
-        ctx: MCP context.
-    """
+    """Get the current node selection."""
     bridge = _get_bridge(ctx)
     return await bridge.execute("context.get_selection")
 
@@ -106,14 +82,10 @@ async def set_selection(
     ctx: Context,
     node_paths: Optional[list] = None,
 ) -> dict:
-    """Select nodes in Houdini by their paths.
-
-    Clears the existing selection first, then selects the specified nodes.
-    Pass an empty list to clear the selection entirely.
+    """Set the node selection.
 
     Args:
-        ctx: MCP context.
-        node_paths: List of absolute node paths to select (default: []).
+        node_paths: Node paths to select.
     """
     bridge = _get_bridge(ctx)
     params: dict = {}
@@ -124,15 +96,7 @@ async def set_selection(
 
 @mcp.tool()
 async def get_scene_summary(ctx: Context) -> dict:
-    """Get a high-level summary of the entire Houdini scene.
-
-    Returns all /obj children with their types and SOP contents, all /out
-    render nodes with output paths, all /stage LOP children, total node
-    count, error count, current frame, frame range, and FPS.
-
-    Args:
-        ctx: MCP context.
-    """
+    """Get a high-level summary of the scene."""
     bridge = _get_bridge(ctx)
     return await bridge.execute("context.get_scene_summary")
 
@@ -143,17 +107,11 @@ async def compare_snapshots(
     action: str = "take",
     snapshot_name: str = "default",
 ) -> dict:
-    """Take or compare scene state snapshots for structural diffing.
-
-    Use action="take" to capture the current scene state (node paths and
-    non-default parameter values). Use action="compare" to diff the current
-    state against a previously stored snapshot, returning nodes added,
-    nodes removed, and parameters changed.
+    """Take or compare scene state snapshots.
 
     Args:
-        ctx: MCP context.
-        action: "take" to store current state, "compare" to diff against stored.
-        snapshot_name: Name of the snapshot (default: "default").
+        action: "take" or "compare".
+        snapshot_name: Snapshot name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -171,17 +129,11 @@ async def get_node_errors_detailed(
     node_path: Optional[str] = None,
     root_path: str = "/",
 ) -> dict:
-    """Get detailed error analysis for Houdini nodes.
-
-    If node_path is given, analyzes that specific node's errors and warnings.
-    Otherwise, scans all descendants of root_path for errors. For each error,
-    returns the node path, error message, node type, and suspect parameters
-    that might be causing the issue (e.g. file paths pointing to missing files).
+    """Get detailed error analysis for nodes.
 
     Args:
-        ctx: MCP context.
-        node_path: Specific node to analyze. If omitted, scans root_path descendants.
-        root_path: Root path to scan when node_path is not given (default: "/").
+        node_path: Node to analyze, or scan from root_path if omitted.
+        root_path: Root path to scan.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"root_path": root_path}

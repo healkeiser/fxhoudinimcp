@@ -21,14 +21,11 @@ async def list_caches(
     ctx: Context,
     root_path: str = "/",
 ) -> dict:
-    """List all cache-type nodes (filecache, rop_geometry) in Houdini.
-
-    Recursively searches under the given root path for cache nodes and
-    returns their file path patterns, frame ranges, and current status.
+    """List all cache-type nodes under a root path.
 
     Args:
         ctx: MCP context.
-        root_path: Root path to search from (default: "/").
+        root_path: Root path to search from.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -41,14 +38,11 @@ async def list_caches(
 
 @mcp.tool()
 async def get_cache_status(ctx: Context, node_path: str) -> dict:
-    """Get the detailed status of a specific Houdini cache node.
-
-    Expands the file path pattern, checks which frames exist on disk,
-    and calculates the total file size.
+    """Get the detailed status of a cache node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the cache node (e.g. "/obj/geo1/filecache1").
+        node_path: Path to the cache node.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -65,15 +59,12 @@ async def clear_cache(
     node_path: str,
     frame_range: Optional[list[int]] = None,
 ) -> dict:
-    """Delete cached files from disk for a Houdini cache node.
-
-    If frame_range is provided, only deletes files for frames within
-    that range. Otherwise deletes all matching cached files.
+    """Delete cached files on disk for a cache node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the cache node (e.g. "/obj/geo1/filecache1").
-        frame_range: Optional [start_frame, end_frame] to limit deletion.
+        node_path: Path to the cache node.
+        frame_range: [start, end] frame range to limit deletion.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path}
@@ -88,16 +79,12 @@ async def write_cache(
     node_path: str,
     frame_range: Optional[list[int]] = None,
 ) -> dict:
-    """Execute a Houdini cache node to write files to disk.
-
-    Presses the execute button on filecache nodes or calls render()
-    for ROP-style cache nodes.
+    """Execute a cache node to write files to disk.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the cache node (e.g. "/obj/geo1/filecache1").
-        frame_range: Optional [start_frame, end_frame] to render. If not
-            provided, uses the node's own frame range settings.
+        node_path: Path to the cache node.
+        frame_range: [start, end] frame range to render.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path}

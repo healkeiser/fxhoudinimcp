@@ -23,11 +23,9 @@ async def list_installed_hdas(
 ) -> dict:
     """List all installed HDA files and their definitions.
 
-    Returns type names, descriptions, library file paths, and versions.
-
     Args:
         ctx: MCP context.
-        filter: Optional substring filter for HDA type names or file paths.
+        filter: Substring filter for type names or file paths.
     """
     bridge = _get_bridge(ctx)
     params: dict = {}
@@ -45,14 +43,11 @@ async def get_hda_info(
 ) -> dict:
     """Get detailed information about an HDA definition.
 
-    Provide at least one of node_path, hda_file, or type_name. Returns
-    version, description, inputs/outputs, parameters, and section list.
-
     Args:
         ctx: MCP context.
-        node_path: Path to an HDA node instance in the scene.
-        hda_file: Path to an HDA file on disk.
-        type_name: Fully qualified HDA type name.
+        node_path: Node path.
+        hda_file: HDA file path.
+        type_name: HDA type name.
     """
     bridge = _get_bridge(ctx)
     params: dict = {}
@@ -71,12 +66,12 @@ async def install_hda(
     file_path: str,
     force: bool = False,
 ) -> dict:
-    """Install an HDA file into the current Houdini session.
+    """Install an HDA file into the current session.
 
     Args:
         ctx: MCP context.
-        file_path: Path to the HDA file to install.
-        force: If True, force reinstall even if already loaded.
+        file_path: HDA file path.
+        force: Force reinstall even if already loaded.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -90,11 +85,11 @@ async def install_hda(
 
 @mcp.tool()
 async def uninstall_hda(ctx: Context, file_path: str) -> dict:
-    """Uninstall an HDA file from the current Houdini session.
+    """Uninstall an HDA file from the current session.
 
     Args:
         ctx: MCP context.
-        file_path: Path to the HDA file to uninstall.
+        file_path: HDA file path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("hda.uninstall_hda", {"file_path": file_path})
@@ -102,11 +97,11 @@ async def uninstall_hda(ctx: Context, file_path: str) -> dict:
 
 @mcp.tool()
 async def reload_hda(ctx: Context, file_path: str) -> dict:
-    """Reload an HDA file from disk to pick up external changes.
+    """Reload an HDA file from disk.
 
     Args:
         ctx: MCP context.
-        file_path: Path to the HDA file to reload.
+        file_path: HDA file path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("hda.reload_hda", {"file_path": file_path})
@@ -123,16 +118,13 @@ async def create_hda(
 ) -> dict:
     """Create a new HDA from an existing subnet node.
 
-    Converts a subnet into a reusable Houdini Digital Asset and saves
-    it to the specified file.
-
     Args:
         ctx: MCP context.
-        node_path: Path to the subnet node to convert.
-        hda_file: Destination file path for the HDA.
-        type_name: The operator type name for the HDA.
-        label: Human-readable label for the HDA.
-        version: Version string (default "1.0").
+        node_path: Subnet node path.
+        hda_file: Destination HDA file path.
+        type_name: Operator type name.
+        label: Human-readable label.
+        version: Version string.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -151,12 +143,9 @@ async def create_hda(
 async def update_hda(ctx: Context, node_path: str) -> dict:
     """Save the current node contents back to its HDA definition.
 
-    Updates the HDA definition on disk with any changes made to the
-    node's internal network.
-
     Args:
         ctx: MCP context.
-        node_path: Path to the HDA node instance.
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("hda.update_hda", {"node_path": node_path})
@@ -166,12 +155,9 @@ async def update_hda(ctx: Context, node_path: str) -> dict:
 async def get_hda_sections(ctx: Context, node_path: str) -> dict:
     """List all sections in an HDA definition.
 
-    Sections include DialogScript, PythonModule, Help, ExtraFileOptions,
-    and other embedded data sections.
-
     Args:
         ctx: MCP context.
-        node_path: Path to an HDA node instance.
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -187,13 +173,10 @@ async def get_hda_section_content(
 ) -> dict:
     """Read the content of a specific section in an HDA definition.
 
-    Common sections: "PythonModule", "DialogScript", "Help",
-    "ExtraFileOptions", "OnCreated", etc.
-
     Args:
         ctx: MCP context.
-        node_path: Path to an HDA node instance.
-        section_name: Name of the section to read.
+        node_path: Node path.
+        section_name: Section name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -214,14 +197,11 @@ async def set_hda_section_content(
 ) -> dict:
     """Write content to a specific section in an HDA definition.
 
-    Creates the section if it does not already exist. Use this to update
-    PythonModule code, Help cards, dialog scripts, and other HDA sections.
-
     Args:
         ctx: MCP context.
-        node_path: Path to an HDA node instance.
-        section_name: Name of the section to write.
-        content: The content to write to the section.
+        node_path: Node path.
+        section_name: Section name.
+        content: Section content.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

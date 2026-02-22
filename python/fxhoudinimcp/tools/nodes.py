@@ -24,14 +24,14 @@ async def create_node(
     name: Optional[str] = None,
     position: Optional[list] = None,
 ) -> dict:
-    """Create a new node inside a Houdini network.
+    """Create a node inside a parent network.
 
     Args:
         ctx: MCP context.
-        parent_path: Path to the parent network (e.g. "/obj", "/obj/geo1").
-        node_type: Node type name (e.g. "geo", "box", "grid", "merge").
-        name: Optional explicit name for the new node.
-        position: Optional [x, y] position in the network editor.
+        parent_path: Parent network path.
+        node_type: Node type (e.g. 'geo', 'box', 'grid').
+        name: Node name.
+        position: [x, y] network editor position.
     """
     bridge = _get_bridge(ctx)
     params: dict = {
@@ -47,11 +47,11 @@ async def create_node(
 
 @mcp.tool()
 async def delete_node(ctx: Context, node_path: str) -> dict:
-    """Delete a node from the Houdini scene.
+    """Delete a node.
 
     Args:
         ctx: MCP context.
-        node_path: Absolute path to the node to delete (e.g. "/obj/geo1").
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("nodes.delete_node", {"node_path": node_path})
@@ -59,12 +59,12 @@ async def delete_node(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def rename_node(ctx: Context, node_path: str, new_name: str) -> dict:
-    """Rename an existing Houdini node.
+    """Rename a node.
 
     Args:
         ctx: MCP context.
-        node_path: Absolute path to the node to rename.
-        new_name: Desired new name for the node.
+        node_path: Node path.
+        new_name: New node name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -87,9 +87,9 @@ async def copy_node(
 
     Args:
         ctx: MCP context.
-        node_path: Path to the source node to copy.
-        dest_parent: Destination parent path. If omitted, copies within the same parent.
-        new_name: Optional name for the copied node.
+        node_path: Source node path.
+        dest_parent: Destination parent path.
+        new_name: Name for the copy.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"node_path": node_path}
@@ -106,8 +106,8 @@ async def move_node(ctx: Context, node_path: str, dest_parent: str) -> dict:
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node to move.
-        dest_parent: Destination parent network path.
+        node_path: Node path.
+        dest_parent: Destination parent path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -121,15 +121,11 @@ async def move_node(ctx: Context, node_path: str, dest_parent: str) -> dict:
 
 @mcp.tool()
 async def get_node_info(ctx: Context, node_path: str) -> dict:
-    """Get comprehensive information about a Houdini node.
-
-    Returns the node's type, parameters summary (name, value, default, type),
-    input/output connections, flags (display, render, bypass, template, lock),
-    errors, warnings, cook time, comment, position, and color.
+    """Get detailed information about a node.
 
     Args:
         ctx: MCP context.
-        node_path: Absolute path to the node (e.g. "/obj/geo1/box1").
+        node_path: Node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("nodes.get_node_info", {"node_path": node_path})
@@ -142,13 +138,13 @@ async def list_children(
     recursive: bool = False,
     filter_type: Optional[str] = None,
 ) -> dict:
-    """List children of a Houdini network node.
+    """List children of a network node.
 
     Args:
         ctx: MCP context.
-        parent_path: Path to the parent network (e.g. "/obj", "/obj/geo1").
-        recursive: If True, list all descendants recursively, not just direct children.
-        filter_type: Optional node type name to filter by (e.g. "box", "merge").
+        parent_path: Parent network path.
+        recursive: Include all descendants.
+        filter_type: Node type filter (e.g. 'box', 'merge').
     """
     bridge = _get_bridge(ctx)
     params: dict = {
@@ -168,17 +164,14 @@ async def find_nodes(
     context: Optional[str] = None,
     inside: str = "/",
 ) -> dict:
-    """Search for nodes by name pattern and/or type within the Houdini scene.
-
-    At least one of pattern, node_type, or context should be specified
-    to avoid returning every node in the scene.
+    """Search for nodes by name pattern, type, or context.
 
     Args:
         ctx: MCP context.
-        pattern: Glob pattern for node names (e.g. "box*", "*merge*").
-        node_type: Filter by node type name (e.g. "box", "null").
-        context: Filter by node category name (e.g. "Sop", "Object").
-        inside: Root path to search within (default: "/").
+        pattern: Glob pattern for node names (e.g. 'box*').
+        node_type: Node type filter (e.g. 'box', 'null').
+        context: Category filter (e.g. 'Sop', 'Object').
+        inside: Root path to search within.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"inside": inside}
@@ -193,12 +186,11 @@ async def find_nodes(
 
 @mcp.tool()
 async def list_node_types(ctx: Context, context: str) -> dict:
-    """List all available node types in a given Houdini context category.
+    """List available node types for a context category.
 
     Args:
         ctx: MCP context.
-        context: Category name, e.g. "Sop", "Lop", "Dop", "Top",
-                 "Cop2", "Object", "Driver".
+        context: Category name (e.g. 'Sop', 'Lop', 'Dop', 'Top', 'Cop2').
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("nodes.list_node_types", {"context": context})
@@ -212,16 +204,14 @@ async def connect_nodes(
     output_index: int = 0,
     input_index: int = 0,
 ) -> dict:
-    """Wire two Houdini nodes together.
-
-    Connects the output of the source node to the input of the destination node.
+    """Connect two nodes together.
 
     Args:
         ctx: MCP context.
-        source_path: Path to the source (upstream) node.
-        dest_path: Path to the destination (downstream) node.
-        output_index: Output connector index on the source node (default: 0).
-        input_index: Input connector index on the destination node (default: 0).
+        source_path: Upstream node path.
+        dest_path: Downstream node path.
+        output_index: Source output index.
+        input_index: Destination input index.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -242,16 +232,13 @@ async def disconnect_node(
     input_index: Optional[int] = None,
     disconnect_all: bool = False,
 ) -> dict:
-    """Disconnect one or all inputs of a Houdini node.
-
-    Provide either a specific input_index to disconnect or set
-    disconnect_all=True to remove all input connections.
+    """Disconnect one or all inputs of a node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node whose inputs to disconnect.
-        input_index: Specific input index to disconnect. Ignored if disconnect_all is True.
-        disconnect_all: If True, disconnect all inputs.
+        node_path: Node path.
+        input_index: Input index to disconnect.
+        disconnect_all: Disconnect all inputs.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"node_path": node_path, "disconnect_all": disconnect_all}
@@ -262,13 +249,12 @@ async def disconnect_node(
 
 @mcp.tool()
 async def reorder_inputs(ctx: Context, node_path: str, new_order: list) -> dict:
-    """Reorder the input connections of a Houdini node.
+    """Reorder the input connections of a node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node whose inputs to reorder.
-        new_order: List of integers representing the new input ordering.
-                   For example, [1, 0] swaps the first two inputs.
+        node_path: Node path.
+        new_order: New input ordering (e.g. [1, 0] swaps first two).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -290,19 +276,16 @@ async def set_node_flags(
     template: Optional[bool] = None,
     lock: Optional[bool] = None,
 ) -> dict:
-    """Set one or more flags on a Houdini node.
-
-    Only the flags you explicitly provide will be changed; omitted flags
-    remain untouched.
+    """Set flags on a node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node.
-        display: Set the display flag (blue).
-        render: Set the render flag (purple).
-        bypass: Set the bypass flag (yellow).
-        template: Set the template flag.
-        lock: Set the hard-lock flag.
+        node_path: Node path.
+        display: Display flag.
+        render: Render flag.
+        bypass: Bypass flag.
+        template: Template flag.
+        lock: Lock flag.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"node_path": node_path}
@@ -325,14 +308,12 @@ async def layout_children(
     parent_path: str,
     spacing: Optional[float] = None,
 ) -> dict:
-    """Auto-layout the children of a Houdini network node.
-
-    Arranges child nodes in a clean layout within the network editor.
+    """Auto-layout children of a network node.
 
     Args:
         ctx: MCP context.
-        parent_path: Path to the parent network (e.g. "/obj", "/obj/geo1").
-        spacing: Optional spacing multiplier between nodes.
+        parent_path: Parent network path.
+        spacing: Spacing multiplier between nodes.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"parent_path": parent_path}
@@ -345,11 +326,11 @@ async def layout_children(
 async def set_node_position(
     ctx: Context, node_path: str, x: float, y: float
 ) -> dict:
-    """Set the position of a node in the Houdini network editor.
+    """Set a node's position in the network editor.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node.
+        node_path: Node path.
         x: Horizontal position.
         y: Vertical position.
     """
@@ -372,14 +353,14 @@ async def set_node_color(
     g: float,
     b: float,
 ) -> dict:
-    """Set the display color of a node in the Houdini network editor.
+    """Set a node's color in the network editor.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the node.
-        r: Red component (0.0 to 1.0).
-        g: Green component (0.0 to 1.0).
-        b: Blue component (0.0 to 1.0).
+        node_path: Node path.
+        r: Red (0.0-1.0).
+        g: Green (0.0-1.0).
+        b: Blue (0.0-1.0).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

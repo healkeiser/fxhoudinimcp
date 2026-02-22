@@ -18,10 +18,9 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_cop_info(ctx: Context, node_path: str) -> dict:
-    """Get information about a COP node including output type, data format, and resolution.
+    """Get information about a COP node.
 
     Args:
-        ctx: MCP context.
         node_path: Path to the COP node.
     """
     bridge = _get_bridge(ctx)
@@ -36,13 +35,9 @@ async def get_cop_geometry(
 ) -> dict:
     """Get geometry representation from a COP node.
 
-    In Copernicus (Houdini 20.5+), COP nodes can output geometry data.
-    Returns point/primitive counts, attributes, and bounding box info.
-
     Args:
-        ctx: MCP context.
         node_path: Path to the COP node.
-        output_index: Output connector index (default 0).
+        output_index: Output connector index.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -60,14 +55,11 @@ async def get_cop_layer(
     node_path: str,
     output_index: int = 0,
 ) -> dict:
-    """Get image layer data information from a COP node.
-
-    Returns the planes, components, depth, and resolution of the image layers.
+    """Get image layer data from a COP node.
 
     Args:
-        ctx: MCP context.
         node_path: Path to the COP node.
-        output_index: Output connector index (default 0).
+        output_index: Output connector index.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -86,13 +78,12 @@ async def create_cop_node(
     cop_type: str,
     name: Optional[str] = None,
 ) -> dict:
-    """Create a Copernicus COP node in the specified network.
+    """Create a COP node in the specified network.
 
     Args:
-        ctx: MCP context.
         parent_path: Path to the parent COP network.
-        cop_type: The COP node type to create (e.g. "file", "vopcop2gen").
-        name: Optional explicit name for the node.
+        cop_type: COP node type to create.
+        name: Override node name.
     """
     bridge = _get_bridge(ctx)
     params: dict = {
@@ -112,14 +103,13 @@ async def set_cop_flags(
     export_flag: Optional[bool] = None,
     compress: Optional[bool] = None,
 ) -> dict:
-    """Set flags on a COP node (display, export/render, compress).
+    """Set flags on a COP node.
 
     Args:
-        ctx: MCP context.
         node_path: Path to the COP node.
-        display: Set the display flag.
-        export_flag: Set the render/export flag.
-        compress: Set the compress flag.
+        display: Display flag state.
+        export_flag: Render/export flag state.
+        compress: Compress flag state.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"node_path": node_path}
@@ -137,13 +127,10 @@ async def list_cop_node_types(
     ctx: Context,
     filter: Optional[str] = None,
 ) -> dict:
-    """List available COP node types in Houdini.
-
-    Returns all Cop2 node types with their labels and input counts.
+    """List available COP node types.
 
     Args:
-        ctx: MCP context.
-        filter: Optional substring filter for node type names.
+        filter: Substring filter for node type names.
     """
     bridge = _get_bridge(ctx)
     params: dict = {}
@@ -158,15 +145,11 @@ async def get_cop_vdb(
     node_path: str,
     output_index: int = 0,
 ) -> dict:
-    """Get VDB volumetric data information from a COP node.
-
-    In Copernicus, COP nodes can work with VDB data. Returns VDB primitive
-    info including data type, voxel counts, bounding box, and transform.
+    """Get VDB volumetric data from a COP node.
 
     Args:
-        ctx: MCP context.
         node_path: Path to the COP node.
-        output_index: Output connector index (default 0).
+        output_index: Output connector index.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

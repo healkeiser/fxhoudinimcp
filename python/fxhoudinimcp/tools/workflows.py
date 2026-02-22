@@ -27,21 +27,14 @@ async def setup_pyro_sim(
     substeps: int = 1,
     name: str = "pyro_sim",
 ) -> dict:
-    """Set up a complete Pyro smoke/fire simulation with solver, source, container, and cache.
-
-    Builds a full Pyro simulation network in one call: creates a geometry
-    node at /obj containing a DOP Network with a Pyro solver, smoke object,
-    source volume, and resize container.  An Object Merge SOP references
-    the source geometry, and a File Cache SOP is added for the output.
+    """Build a Pyro smoke/fire simulation network from source geometry.
 
     Args:
-        ctx: MCP context.
-        source_geo: Path to the source geometry SOP to drive the simulation
-                    (e.g. "/obj/geo1/sphere1").
-        container: Container type hint (default: "box").
-        res_scale: Resolution scale multiplier for the simulation (default: 1.0).
-        substeps: Number of DOP substeps (default: 1).
-        name: Name for the top-level geometry node (default: "pyro_sim").
+        source_geo: Source SOP path.
+        container: Container type.
+        res_scale: Resolution scale multiplier.
+        substeps: DOP substeps.
+        name: Top-level geo node name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -64,19 +57,13 @@ async def setup_rbd_sim(
     pieces_type: str = "voronoi",
     name: str = "rbd_sim",
 ) -> dict:
-    """Set up a complete RBD rigid-body simulation with solver, fracture, ground, and cache.
-
-    Builds a full RBD simulation network: creates a geometry node with a
-    DOP Network containing an RBD Bullet Solver, optional Voronoi fracture,
-    optional ground plane, and a File Cache for the output.
+    """Build an RBD rigid-body simulation network with fracture and solver.
 
     Args:
-        ctx: MCP context.
-        geo_path: Path to the source geometry object (e.g. "/obj/geo1").
-        ground: If True, add a ground plane to the simulation (default: True).
-        pieces_type: Fracture method -- "voronoi" adds a Voronoi Fracture SOP
-                     (default: "voronoi").
-        name: Name for the top-level geometry node (default: "rbd_sim").
+        geo_path: Source geometry object path.
+        ground: Add a ground plane.
+        pieces_type: Fracture method ("voronoi").
+        name: Top-level geo node name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -98,19 +85,13 @@ async def setup_flip_sim(
     particle_sep: float = 0.05,
     name: str = "flip_sim",
 ) -> dict:
-    """Set up a complete FLIP fluid simulation with solver, source, domain, and cache.
-
-    Builds a full FLIP simulation network: creates a geometry node with a
-    DOP Network containing a FLIP solver, FLIP object, FLIP source, and
-    a tank/domain.  An Object Merge SOP references the source geometry,
-    and a File Cache SOP is added for the output.
+    """Build a FLIP fluid simulation network from source geometry.
 
     Args:
-        ctx: MCP context.
-        source_geo: Path to the source geometry SOP (e.g. "/obj/geo1/sphere1").
-        domain: Domain type hint (default: "box").
-        particle_sep: Particle separation distance (default: 0.05).
-        name: Name for the top-level geometry node (default: "flip_sim").
+        source_geo: Source SOP path.
+        domain: Domain type.
+        particle_sep: Particle separation distance.
+        name: Top-level geo node name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -132,19 +113,13 @@ async def setup_vellum_sim(
     substeps: int = 5,
     name: str = "vellum_sim",
 ) -> dict:
-    """Set up a complete Vellum simulation with configure node, solver, and cache.
-
-    Builds a full Vellum simulation network: creates a geometry node with
-    a Vellum Configure node (cloth/hair/grain/softbody), Vellum Solver,
-    Object Merge for source geometry, and a File Cache SOP.
+    """Build a Vellum simulation network with configure node and solver.
 
     Args:
-        ctx: MCP context.
-        geo_path: Path to the source geometry object (e.g. "/obj/geo1").
-        sim_type: Simulation type -- "cloth", "hair", "grain", or "softbody"
-                  (default: "cloth").
-        substeps: Number of solver substeps (default: 5).
-        name: Name for the top-level geometry node (default: "vellum_sim").
+        geo_path: Source geometry object path.
+        sim_type: Simulation type ("cloth", "hair", "grain", "softbody").
+        substeps: Solver substeps.
+        name: Top-level geo node name.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -168,21 +143,15 @@ async def create_material(
     metallic: float = 0.0,
     opacity: float = 1.0,
 ) -> dict:
-    """Create a material/shader in the /mat context with configurable properties.
-
-    Creates either a Principled Shader or MaterialX Standard Surface in
-    the /mat network, and sets base color, roughness, metallic, and opacity
-    parameters.
+    """Create a material in /mat with configurable surface properties.
 
     Args:
-        ctx: MCP context.
-        name: Name for the material node (default: "material1").
-        mat_type: Material type -- "principled" or "materialx" (default: "principled").
-        base_color: Optional [R, G, B] base color, each 0.0 to 1.0
-                    (e.g. [1.0, 0.0, 0.0] for red).
-        roughness: Surface roughness, 0.0 (mirror) to 1.0 (diffuse) (default: 0.5).
-        metallic: Metallic factor, 0.0 (dielectric) to 1.0 (metal) (default: 0.0).
-        opacity: Opacity, 0.0 (transparent) to 1.0 (opaque) (default: 1.0).
+        name: Material node name.
+        mat_type: Material type ("principled", "materialx").
+        base_color: [R, G, B] base color, 0-1 per channel.
+        roughness: Surface roughness, 0-1.
+        metallic: Metallic factor, 0-1.
+        opacity: Opacity, 0-1.
     """
     bridge = _get_bridge(ctx)
     params: dict = {
@@ -203,16 +172,11 @@ async def assign_material(
     geo_path: str,
     material_path: str,
 ) -> dict:
-    """Assign a material to a geometry node by creating a Material SOP.
-
-    Creates a Material SOP at the end of the SOP chain inside the target
-    geometry node, sets the material path parameter, wires it after the
-    last displayed SOP, and sets the display flag on the new Material SOP.
+    """Assign a material to a geometry node via a Material SOP.
 
     Args:
-        ctx: MCP context.
-        geo_path: Path to the geometry node (e.g. "/obj/geo1").
-        material_path: Path to the material to assign (e.g. "/mat/material1").
+        geo_path: Target geometry node path.
+        material_path: Material to assign.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -230,24 +194,13 @@ async def build_sop_chain(
     parent_path: str = "/obj/geo1",
     steps: Optional[list] = None,
 ) -> dict:
-    """Build a sequential chain of SOP nodes, wired together automatically.
+    """Build a sequential chain of SOP nodes wired together.
 
-    Creates each node specified in the steps list, wires them sequentially
-    (output 0 to input 0), sets optional parameters, and sets the display
-    flag on the last node.
-
-    Each step is a dict with keys:
-    - "type" (str, required): Node type to create (e.g. "box", "mountain").
-    - "name" (str, optional): Explicit node name.
-    - "params" (dict, optional): Parameter name/value pairs to set.
-
-    Example steps: [{"type": "box"}, {"type": "mountain", "params": {"height": 0.5}},
-                    {"type": "null", "name": "OUT"}]
+    Each step dict: {"type": str, "name": str, "params": dict}.
 
     Args:
-        ctx: MCP context.
-        parent_path: Path to the parent SOP network (default: "/obj/geo1").
-        steps: List of step dicts describing the node chain.
+        parent_path: Parent SOP network path.
+        steps: List of step dicts defining the chain.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"parent_path": parent_path}
@@ -266,22 +219,15 @@ async def setup_render(
     samples: int = 64,
     name: str = "render1",
 ) -> dict:
-    """Set up a complete render configuration with camera and ROP node.
-
-    Creates a camera (if none specified), a ROP node in /out (Karma or
-    Mantra), and configures the output path, resolution, sample count,
-    and camera assignment.
+    """Set up a render configuration with camera and ROP node.
 
     Args:
-        ctx: MCP context.
-        renderer: Renderer to use -- "karma" or "mantra" (default: "karma").
-        camera: Path to an existing camera node. If omitted, creates a new
-                camera at /obj/render_cam.
-        output_path: Output image file path, supports Houdini variables
-                     (default: "$HIP/render/output.$F4.exr").
-        resolution: [width, height] resolution (default: [1920, 1080]).
-        samples: Number of render samples (default: 64).
-        name: Name for the ROP node in /out (default: "render1").
+        renderer: Renderer type ("karma", "mantra").
+        camera: Camera node path; creates one if omitted.
+        output_path: Output image path (supports Houdini variables).
+        resolution: [width, height] resolution.
+        samples: Render sample count.
+        name: ROP node name in /out.
     """
     bridge = _get_bridge(ctx)
     params: dict = {

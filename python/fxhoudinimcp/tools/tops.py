@@ -18,11 +18,11 @@ from fxhoudinimcp.server import mcp, _get_bridge
 
 @mcp.tool()
 async def get_top_network_info(ctx: Context, node_path: str) -> dict:
-    """Get an overview of a TOP network including node count, scheduler info, and cook state.
+    """Get an overview of a TOP network.
 
     Args:
         ctx: MCP context.
-        node_path: Path to a TOP network node (topnet) or a TOP node inside one.
+        node_path: TOPnet or TOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -39,14 +39,11 @@ async def cook_top_node(
 ) -> dict:
     """Cook a TOP node to execute its work items.
 
-    Uses blocking cook by default. Set generate_only=True to only generate
-    work items without executing them.
-
     Args:
         ctx: MCP context.
-        node_path: Path to the TOP node to cook.
-        block: If True, wait for cooking to complete before returning.
-        generate_only: If True, only generate work items without cooking.
+        node_path: TOP node path.
+        block: Wait for cooking to complete.
+        generate_only: Only generate work items, do not cook.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -61,11 +58,11 @@ async def cook_top_node(
 
 @mcp.tool()
 async def cancel_top_cook(ctx: Context, node_path: str) -> dict:
-    """Cancel any active cooking on a TOP network.
+    """Cancel active cooking on a TOP network.
 
     Args:
         ctx: MCP context.
-        node_path: Path to a TOP node or TOP network.
+        node_path: TOP node or TOPnet path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -79,7 +76,7 @@ async def pause_top_cook(ctx: Context, node_path: str) -> dict:
 
     Args:
         ctx: MCP context.
-        node_path: Path to a TOP node or TOP network.
+        node_path: TOP node or TOPnet path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("tops.pause_top_cook", {"node_path": node_path})
@@ -91,12 +88,12 @@ async def dirty_work_items(
     node_path: str,
     remove_outputs: bool = False,
 ) -> dict:
-    """Dirty (invalidate) work items on a TOP node so they can be regenerated.
+    """Dirty work items on a TOP node so they can be regenerated.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the TOP node.
-        remove_outputs: If True, also remove output files from disk.
+        node_path: TOP node path.
+        remove_outputs: Also remove output files from disk.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -110,14 +107,11 @@ async def dirty_work_items(
 
 @mcp.tool()
 async def get_work_item_states(ctx: Context, node_path: str) -> dict:
-    """Get the count of work items in each state for a TOP node.
-
-    States include: waiting, scheduled, cooking, cooked_success,
-    cooked_fail, cooked_cancel, etc.
+    """Get work item state counts for a TOP node.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the TOP node.
+        node_path: TOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -131,15 +125,12 @@ async def get_work_item_info(
     node_path: str,
     work_item_index: int,
 ) -> dict:
-    """Get detailed information about a specific work item on a TOP node.
-
-    Returns the work item's ID, name, state, frame, priority, attributes,
-    and output files.
+    """Get detailed information about a specific work item.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the TOP node.
-        work_item_index: Index of the work item within the node.
+        node_path: TOP node path.
+        work_item_index: Work item index within the node.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -155,11 +146,9 @@ async def get_work_item_info(
 async def get_pdg_graph(ctx: Context, node_path: str) -> dict:
     """Get the PDG dependency graph structure for a TOP network.
 
-    Returns all nodes and their dependency connections (edges).
-
     Args:
         ctx: MCP context.
-        node_path: Path to a TOP network node or TOP node inside one.
+        node_path: TOPnet or TOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("tops.get_pdg_graph", {"node_path": node_path})
@@ -167,13 +156,11 @@ async def get_pdg_graph(ctx: Context, node_path: str) -> dict:
 
 @mcp.tool()
 async def generate_static_items(ctx: Context, node_path: str) -> dict:
-    """Generate static work items on a TOP node without cooking them.
-
-    Useful for previewing what work items will be created before running the graph.
+    """Generate static work items on a TOP node without cooking.
 
     Args:
         ctx: MCP context.
-        node_path: Path to the TOP node.
+        node_path: TOP node path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -185,12 +172,9 @@ async def generate_static_items(ctx: Context, node_path: str) -> dict:
 async def get_top_scheduler_info(ctx: Context, node_path: str) -> dict:
     """Get information about TOP scheduler nodes in a network.
 
-    If node_path points to a scheduler, returns its details. Otherwise,
-    returns info about all schedulers found in the TOP network.
-
     Args:
         ctx: MCP context.
-        node_path: Path to a TOP scheduler node or a TOP network.
+        node_path: TOP scheduler or TOPnet path.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

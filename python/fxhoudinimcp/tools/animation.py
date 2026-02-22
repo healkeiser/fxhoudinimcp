@@ -22,15 +22,15 @@ async def set_keyframe(
     slope: float | None = None,
     accel: float | None = None,
 ) -> dict:
-    """Set a single keyframe on a node parameter.
+    """Set a single keyframe on a parameter.
 
     Args:
-        node_path: Path to the node (e.g. "/obj/geo1").
-        parm_name: Parameter name (e.g. "tx", "sy").
-        frame: Frame number for the keyframe.
+        node_path: Node path.
+        parm_name: Parameter name.
+        frame: Frame number.
         value: Value at this keyframe.
-        slope: Optional tangent slope.
-        accel: Optional acceleration.
+        slope: Tangent slope.
+        accel: Acceleration.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -53,13 +53,12 @@ async def set_keyframes(
     parm_name: str,
     keyframes: list[dict],
 ) -> dict:
-    """Batch-set multiple keyframes on a node parameter.
+    """Batch-set multiple keyframes on a parameter.
 
     Args:
-        node_path: Path to the node.
+        node_path: Node path.
         parm_name: Parameter name.
-        keyframes: List of keyframe dicts, each with "frame" and "value",
-            and optionally "slope" and "accel".
+        keyframes: List of dicts with "frame", "value", and optionally "slope"/"accel".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -79,12 +78,12 @@ async def delete_keyframe(
     parm_name: str,
     frame: float,
 ) -> dict:
-    """Delete a keyframe at a specific frame on a parameter.
+    """Delete a keyframe at a specific frame.
 
     Args:
-        node_path: Path to the node.
+        node_path: Node path.
         parm_name: Parameter name.
-        frame: Frame number of the keyframe to delete.
+        frame: Frame number to delete.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -99,11 +98,10 @@ async def get_keyframes(
     node_path: str,
     parm_name: str,
 ) -> dict:
-    """Get all keyframes on a parameter, including frame, value, slope,
-    acceleration, and expression for each.
+    """Get all keyframes on a parameter.
 
     Args:
-        node_path: Path to the node.
+        node_path: Node path.
         parm_name: Parameter name.
     """
     bridge = _get_bridge(ctx)
@@ -115,10 +113,10 @@ async def get_keyframes(
 
 @mcp.tool()
 async def set_frame(ctx: Context, frame: float) -> dict:
-    """Set the current frame in the Houdini timeline.
+    """Set the current frame in the timeline.
 
     Args:
-        frame: The frame number to set.
+        frame: Frame number.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("animation.set_frame", {"frame": frame})
@@ -126,18 +124,18 @@ async def set_frame(ctx: Context, frame: float) -> dict:
 
 @mcp.tool()
 async def get_frame(ctx: Context) -> dict:
-    """Get the current frame number and FPS."""
+    """Get the current frame and FPS."""
     bridge = _get_bridge(ctx)
     return await bridge.execute("animation.get_frame", {})
 
 
 @mcp.tool()
 async def set_frame_range(ctx: Context, start: float, end: float) -> dict:
-    """Set the global frame range for the scene.
+    """Set the global frame range.
 
     Args:
-        start: Start frame number.
-        end: End frame number.
+        start: Start frame.
+        end: End frame.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -148,11 +146,11 @@ async def set_frame_range(ctx: Context, start: float, end: float) -> dict:
 
 @mcp.tool()
 async def set_playback_range(ctx: Context, start: float, end: float) -> dict:
-    """Set the playback range (the green range in the timeline).
+    """Set the playback range (green bar in the timeline).
 
     Args:
-        start: Start frame number.
-        end: End frame number.
+        start: Start frame.
+        end: End frame.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -168,12 +166,12 @@ async def playbar_control(
     real_time: bool | None = None,
     fps: float | None = None,
 ) -> dict:
-    """Control Houdini playback: play, stop, or reverse.
+    """Control playback: play, stop, or reverse.
 
     Args:
         action: One of "play", "stop", or "reverse".
-        real_time: If provided, enable or disable real-time playback.
-        fps: If provided, set the frames per second.
+        real_time: Enable or disable real-time playback.
+        fps: Frames per second.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"action": action}
