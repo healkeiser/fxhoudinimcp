@@ -138,25 +138,52 @@ def usd_scene_assembly(
 
 Goal: {scene_description}
 
+Viewport-first lookdev (IMPORTANT — read before rendering):
+- During lookdev and testing, NEVER render to disk. Instead, switch the
+  viewport's Hydra delegate to preview materials and lighting in real time.
+- Call set_viewport_renderer("Karma CPU") or set_viewport_renderer("Storm")
+  to enable a live Hydra render in the viewport. Use "GL" for fast wireframe.
+- Only use start_render / create_render_node for final production renders
+  that the user explicitly requests to write to disk.
+- Use capture_screenshot to grab what the viewport currently shows — this is
+  how you check your work during lookdev, not by writing full renders.
+
 Workflow:
 1. Use get_scene_info to check the current state.
 2. Navigate to the /stage context using set_current_network.
-3. Build the LOP network:
-   - Use create_lop_node for common operations (Camera, Light, Material, Xform)
+3. Set up the viewport for lookdev:
+   - Call set_viewport_renderer("Karma CPU") for material/lighting preview
+   - Call set_viewport_camera if a camera exists
+4. Build the LOP network:
+   - Use create_lop_node for common operations (Camera, Light, Xform)
    - For geometry references, use "Reference" or "Sublayer" LOP nodes
-   - For materials, use MaterialX or Karma material networks
-4. Connect nodes in a linear chain (LOPs are typically top-to-bottom).
+   - For materials: create a "materiallibrary" LOP, build shaders inside
+     it (karmamaterialbuilder, mtlxstandard_surface, etc.), then assign
+     with an "assignmaterial" LOP (see Material setup section below)
+5. Connect nodes in a linear chain (LOPs are typically top-to-bottom).
    Use connect_nodes_batch to wire multiple node pairs at once.
-5. Use get_stage_info to inspect the resulting USD stage.
-6. Use list_usd_prims to verify the prim hierarchy.
-7. Use get_usd_materials to verify material bindings.
+6. Check your work visually with capture_screenshot (viewport preview).
+7. Use get_stage_info to inspect the resulting USD stage.
+8. Use list_usd_prims to verify the prim hierarchy.
+9. Use get_usd_materials to verify material bindings.
 
-Material setup tips:
-- For Karma renders using SOP Cd (vertex color), create a principledshader with
-  basecolor_usePointColor=1. This reads the displayColor primvar automatically.
-- Use get_parameter_schema on a principledshader to discover all available params
-  before guessing names. Key params: basecolor_usePointColor, roughness, reflect.
-- For MaterialX: use mtlxstandard_surface node type.
+Material setup in LOPs (CRITICAL — materials live in proper containers):
+- Do NOT create materials in /mat for LOPs workflows. Materials must be
+  created inside USD-native container LOP nodes in the /stage network.
+- Use create_lop_node to create a "materiallibrary" LOP node in /stage.
+  This is the Material Library node — the proper USD container for materials.
+- Inside the materiallibrary node, create the shader using the appropriate
+  builder for your renderer:
+    - Karma: create a "karmamaterialbuilder" node inside the materiallibrary
+    - MaterialX: create a "mtlxstandard_surface" inside a material builder
+    - USD Preview Surface: use "usdpreviewsurface" for portable materials
+- To assign materials to geometry, create an "assignmaterial" LOP node
+  downstream in the /stage network. Set the geometry prim path and the
+  material prim path.
+- Use get_parameter_schema on material nodes to discover available params
+  before guessing names.
+- For Karma using SOP Cd (vertex color), set basecolor_usePointColor=1 on
+  a principledshader. This reads the displayColor primvar automatically.
 
 Lighting tips:
 - Use create_light for individual lights (dome, distant, rect, sphere, disk, cylinder).
@@ -165,6 +192,8 @@ Lighting tips:
 - Light intensity parameters use the prefix xn__inputsintensity_i0b (not just
   "intensity") in Houdini 20+. Use get_parameter_schema to discover exact names.
 - Set exposure (not raw intensity) for easier light balancing.
+- After adding/changing lights, use capture_screenshot to check the viewport
+  preview — do NOT render to disk just to see the result.
 
 Key concepts:
 - LOPs build a USD stage layer by layer

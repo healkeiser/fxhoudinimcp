@@ -83,6 +83,28 @@ async def set_viewport_display(
 
 
 @mcp.tool()
+async def set_viewport_renderer(
+    ctx: Context,
+    renderer: str,
+    pane_name: str | None = None,
+) -> dict:
+    """Set the viewport's Hydra rendering delegate for live preview.
+
+    Use this during lookdev to preview materials and lighting directly in the
+    viewport instead of writing full renders to disk.
+
+    Args:
+        renderer: Renderer name — "GL", "Storm", "Karma CPU", "Karma XPU", etc. Case-insensitive partial match.
+        pane_name: Pane tab name.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"renderer": renderer}
+    if pane_name is not None:
+        params["pane_name"] = pane_name
+    return await bridge.execute("viewport.set_viewport_renderer", params)
+
+
+@mcp.tool()
 async def frame_selection(
     ctx: Context,
     pane_name: str | None = None,

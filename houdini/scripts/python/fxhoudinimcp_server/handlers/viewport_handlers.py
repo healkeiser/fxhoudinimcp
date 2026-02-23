@@ -300,6 +300,132 @@ def set_viewport_direction(
     }
 
 
+###### viewport.set_viewport_renderer
+
+def set_viewport_renderer(
+    renderer: str,
+    pane_name: str = None,
+) -> dict:
+    """Set the viewport's Hydra rendering delegate.
+
+    In LOPs/Solaris the viewport can render through different Hydra delegates
+    (GL, Storm, Karma CPU, Karma XPU, etc.) without writing to disk.
+
+    Args:
+        renderer: Renderer name — e.g. "GL", "Storm", "Karma CPU",
+            "Karma XPU", "Houdini GL". Case-insensitive partial match.
+        pane_name: Optional pane tab name.
+    """
+    scene_viewer = _find_scene_viewer(pane_name)
+
+    # Try the Houdini 20+ API first: curViewport().settings().setRenderer()
+    # Fall back to scene_viewer-level methods if they exist.
+    viewport = scene_viewer.curViewport()
+
+    # Discover available renderers
+    available = []
+    matched_name = None
+
+    # Method 1: hou.GeometryViewportSettings (Houdini 20+)
+    try:
+        settings = viewport.settings()
+        if hasattr(settings, "rendererNames"):
+            available = list(settings.rendererNames())
+        elif hasattr(settings, "availableRenderers"):
+            available = list(settings.availableRenderers())
+    except Exception:
+        pass
+
+    # Method 2: hou.lop module renderer list
+    if not available:
+        try:
+            import hou.lop as lop_module
+            if hasattr(lop_module, "availableRenderers"):
+                available = list(lop_module.availableRenderers())
+        except Exception:
+            pass
+
+    # Method 3: hou.SceneViewer-level
+    if not available:
+        try:
+            if hasattr(scene_viewer, "availableRenderers"):
+                available = list(scene_viewer.availableRenderers())
+        except Exception:
+            pass
+
+    # Match the requested renderer (case-insensitive, partial match)
+    target = renderer.strip().lower()
+    for name in available:
+        if name.lower() == target:
+            matched_name = name
+            break
+    if matched_name is None:
+        for name in available:
+            if target in name.lower():
+                matched_name = name
+                break
+
+    if matched_name is None and not available:
+        # No discovery method worked — try to set directly and let Houdini
+        # resolve (may fail, but gives a useful error)
+        matched_name = renderer
+
+    if matched_name is None:
+        raise ValueError(
+            f"Renderer '{renderer}' not found. "
+            f"Available renderers: {available}"
+        )
+
+    # Apply the renderer
+    applied = False
+
+    # Try viewport settings
+    try:
+        settings = viewport.settings()
+        if hasattr(settings, "setRenderer"):
+            settings.setRenderer(matched_name)
+            applied = True
+        elif hasattr(settings, "setDefaultRenderer"):
+            settings.setDefaultRenderer(matched_name)
+            applied = True
+    except Exception:
+        pass
+
+    # Try scene viewer level
+    if not applied:
+        try:
+            if hasattr(scene_viewer, "setRenderer"):
+                scene_viewer.setRenderer(matched_name)
+                applied = True
+        except Exception:
+            pass
+
+    # Last resort: execute hscript or hou.hscript
+    if not applied:
+        try:
+            hou.hscript(
+                f'viewdisplay -R "{matched_name}" {viewport.name()}'
+            )
+            applied = True
+        except Exception:
+            pass
+
+    if not applied:
+        raise RuntimeError(
+            f"Could not set renderer to '{matched_name}'. "
+            f"This may require a newer Houdini version. "
+            f"Available renderers: {available}"
+        )
+
+    return {
+        "success": True,
+        "renderer": matched_name,
+        "available_renderers": available,
+        "pane_name": scene_viewer.name(),
+        "viewport_name": viewport.name(),
+    }
+
+
 ###### viewport.frame_selection
 
 def frame_selection(pane_name: str = None) -> dict:
@@ -600,6 +726,7 @@ register_handler("viewport.get_viewport_info", get_viewport_info)
 register_handler("viewport.set_viewport_camera", set_viewport_camera)
 register_handler("viewport.set_viewport_display", set_viewport_display)
 register_handler("viewport.set_viewport_direction", set_viewport_direction)
+register_handler("viewport.set_viewport_renderer", set_viewport_renderer)
 register_handler("viewport.frame_selection", frame_selection)
 register_handler("viewport.frame_all", frame_all)
 register_handler("viewport.capture_screenshot", capture_screenshot)
