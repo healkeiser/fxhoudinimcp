@@ -7,6 +7,7 @@ node parameters, expressions, channel references, and spare parameters.
 from __future__ import annotations
 
 # Built-in
+from difflib import get_close_matches
 from typing import Any
 
 # Third-party
@@ -38,8 +39,10 @@ def _resolve_parm(node_path: str, parm_name: str) -> hou.Parm:
     parm = node.parm(parm_name)
     if parm is None:
         available = _available_parm_names(node)
+        close = get_close_matches(parm_name, available, n=3, cutoff=0.4)
+        hint = f" Did you mean: {close}?" if close else ""
         raise ValueError(
-            f"Parameter '{parm_name}' not found on node '{node_path}'. "
+            f"Parameter '{parm_name}' not found on node '{node_path}'.{hint} "
             f"Available parameters: {available}"
         )
     return parm
@@ -205,11 +208,14 @@ def _set_parameters(
     results: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
 
+    available = _available_parm_names(node)
     for name, value in params.items():
         parm = node.parm(name)
         if parm is None:
+            close = get_close_matches(name, available, n=3, cutoff=0.4)
+            hint = f" Did you mean: {close}?" if close else ""
             errors.append(
-                {"parm_name": name, "error": f"Parameter '{name}' not found"}
+                {"parm_name": name, "error": f"Parameter '{name}' not found.{hint}"}
             )
             continue
         try:
@@ -443,20 +449,23 @@ def _create_spare_parameter(
     kwargs: dict[str, Any] = {}
 
     if template_cls in (hou.FloatParmTemplate, hou.IntParmTemplate):
+        # Cast to the correct numeric type for the template
+        _cast = int if template_cls is hou.IntParmTemplate else float
+
         # These require num_components; default to 1
         if default_value is not None:
             if not isinstance(default_value, (list, tuple)):
                 default_value = [default_value]
             kwargs["num_components"] = len(default_value)
-            kwargs["default_value"] = tuple(default_value)
+            kwargs["default_value"] = tuple(_cast(v) for v in default_value)
         else:
             kwargs["num_components"] = 1
 
         if min_val is not None:
-            kwargs["min"] = min_val
+            kwargs["min"] = _cast(min_val)
             kwargs["min_is_strict"] = False
         if max_val is not None:
-            kwargs["max"] = max_val
+            kwargs["max"] = _cast(max_val)
             kwargs["max_is_strict"] = False
 
         pt = template_cls(parm_name, label, **kwargs)

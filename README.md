@@ -210,6 +210,18 @@ Copy the contents of `houdini/` into your Houdini user preferences directory so 
   }
 }
 ```
+
+> [!TIP]
+> If Claude Desktop reports the server as **disconnected**, replace `"python"` with the
+> **full absolute path** to your Python executable. Claude Desktop does not always inherit
+> your system PATH. Find it with:
+>
+> ```shell
+> python -c "import sys; print(sys.executable)"
+> ```
+>
+> Then use the result in your config, e.g. `"command": "C:\\Program Files\\Python311\\python.exe"`.
+> After any config change, fully quit Claude Desktop (system tray → Quit) and relaunch.
 <!-- --8<-- [end:installation] -->
 
 <!-- USAGE -->
