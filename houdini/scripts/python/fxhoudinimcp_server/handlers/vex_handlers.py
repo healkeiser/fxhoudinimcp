@@ -176,6 +176,16 @@ def create_wrangle(
 
     _focus_network_editor(node)
 
+    # Build relative prefix map so the AI knows what each ../ level reaches.
+    ancestors = {}
+    current = node.parent()
+    level = 1
+    while current is not None:
+        dots = "/".join([".."] * level)
+        ancestors[dots] = current.path()
+        current = current.parent()
+        level += 1
+
     result = {
         "success": True,
         "node_path": node.path(),
@@ -183,9 +193,11 @@ def create_wrangle(
         "run_over": run_over,
         "vex_code": vex_code,
         "channel_prefix": "../",
+        "channel_ancestors": ancestors,
         "channel_hint": (
-            "To reference spare parameters on the parent Geometry node, "
-            "use ch(\"../parm_name\"). Avoid absolute paths and ../../."
+            "Use relative paths for channel references. "
+            "See channel_ancestors to find the correct ../ depth "
+            "for the node whose parameters you want to reference."
         ),
     }
     result.update(_validate_vex_quick(node))
