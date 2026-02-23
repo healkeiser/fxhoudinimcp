@@ -20,6 +20,61 @@ from fxhoudinimcp_server.dispatcher import register_handler
 
 logger = logging.getLogger(__name__)
 
+# Maximum image dimension (width or height) before automatic downscaling.
+# This keeps base64 payloads small enough to avoid blowing up LLM token counts.
+_MAX_IMAGE_DIM = 1024
+_JPEG_QUALITY = 80
+
+
+def _downscale_and_encode(file_path: str) -> tuple[str | None, str]:
+    """Read an image file, downscale if too large, JPEG-compress, and return
+    (base64_data, mime_type).
+
+    Returns (None, mime_type) if the file cannot be read.
+    """
+    mime_type = "image/jpeg"
+
+    try:
+        from PySide2.QtGui import QImage
+        from PySide2.QtCore import Qt, QBuffer, QIODevice
+    except ImportError:
+        try:
+            from PySide6.QtGui import QImage
+            from PySide6.QtCore import Qt, QBuffer, QIODevice
+        except ImportError:
+            # Fallback: raw read with no compression
+            mime_type = "image/png"
+            if file_path.lower().endswith((".jpg", ".jpeg")):
+                mime_type = "image/jpeg"
+            try:
+                with open(file_path, "rb") as f:
+                    return base64.b64encode(f.read()).decode("ascii"), mime_type
+            except Exception:
+                return None, mime_type
+
+    try:
+        img = QImage(file_path)
+        if img.isNull():
+            return None, mime_type
+
+        # Downscale if either dimension exceeds the cap
+        w, h = img.width(), img.height()
+        if w > _MAX_IMAGE_DIM or h > _MAX_IMAGE_DIM:
+            img = img.scaled(
+                _MAX_IMAGE_DIM, _MAX_IMAGE_DIM,
+                Qt.KeepAspectRatio, Qt.SmoothTransformation,
+            )
+
+        # Encode to JPEG in-memory
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        img.save(buf, "JPEG", _JPEG_QUALITY)
+        buf.close()
+        return base64.b64encode(buf.data().data()).decode("ascii"), mime_type
+    except Exception as exc:
+        logger.warning("Image downscale/encode failed: %s", exc)
+        return None, mime_type
+
 
 def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
     """Capture a pane tab screenshot using its Qt widget."""
@@ -326,20 +381,11 @@ def capture_screenshot(
         # For other pane types, use Qt widget grab
         _capture_pane_tab_qt(pane_tab, output_path)
 
-    # Read the captured image and base64-encode it so the MCP client
-    # can display it inline (Claude Desktop needs embedded image data).
+    # Downscale + JPEG-compress before base64 to avoid token bloat.
     image_base64 = None
-    mime_type = "image/png"
-    actual_lower = actual_path.lower()
-    if actual_lower.endswith((".jpg", ".jpeg")):
-        mime_type = "image/jpeg"
-
+    mime_type = "image/jpeg"
     if os.path.isfile(actual_path):
-        try:
-            with open(actual_path, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("ascii")
-        except Exception as e:
-            logger.warning("Could not read captured image: %s", e)
+        image_base64, mime_type = _downscale_and_encode(actual_path)
 
     return {
         "success": True,
@@ -391,13 +437,9 @@ def capture_network_editor(
     _capture_pane_tab_qt(network_editor, output_path)
 
     image_base64 = None
-    mime_type = "image/png"
+    mime_type = "image/jpeg"
     if os.path.isfile(output_path):
-        try:
-            with open(output_path, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("ascii")
-        except Exception as e:
-            logger.warning("Could not read captured network editor image: %s", e)
+        image_base64, mime_type = _downscale_and_encode(output_path)
 
     return {
         "success": True,

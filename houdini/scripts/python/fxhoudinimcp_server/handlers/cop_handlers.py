@@ -28,6 +28,23 @@ def _get_cop_node(node_path: str) -> hou.Node:
     return node
 
 
+def _focus_network_editor(node: hou.Node) -> None:
+    """Best-effort: layout the parent network, then pan the editor to *node*."""
+    try:
+        parent = node.parent()
+        if parent is not None:
+            parent.layoutChildren()
+        for pane_tab in hou.ui.paneTabs():
+            if pane_tab.type() == hou.paneTabType.NetworkEditor:
+                if parent is not None:
+                    pane_tab.cd(parent.path())
+                pane_tab.setCurrentNode(node)
+                pane_tab.homeToSelection()
+                return
+    except Exception:
+        pass
+
+
 ###### cops.get_cop_info
 
 def get_cop_info(node_path: str) -> dict:
@@ -267,6 +284,8 @@ def create_cop_node(
             f"Failed to create COP node of type '{cop_type}' "
             f"under {parent_path}: {e}"
         )
+
+    _focus_network_editor(node)
 
     return {
         "success": True,

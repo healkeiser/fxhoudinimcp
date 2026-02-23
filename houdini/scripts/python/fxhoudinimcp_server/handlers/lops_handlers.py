@@ -25,6 +25,23 @@ except ImportError:
 
 ###### Helpers
 
+def _focus_network_editor(node: hou.Node) -> None:
+    """Best-effort: layout the parent network, then pan the editor to *node*."""
+    try:
+        parent = node.parent()
+        if parent is not None:
+            parent.layoutChildren()
+        for pane_tab in hou.ui.paneTabs():
+            if pane_tab.type() == hou.paneTabType.NetworkEditor:
+                if parent is not None:
+                    pane_tab.cd(parent.path())
+                pane_tab.setCurrentNode(node)
+                pane_tab.homeToSelection()
+                return
+    except Exception:
+        pass
+
+
 def _require_pxr() -> None:
     """Raise if pxr modules are not available."""
     if not HAS_PXR:
@@ -449,6 +466,7 @@ def _create_lop_node(
             parm.set(prim_path)
 
     node.moveToGoodPosition()
+    _focus_network_editor(node)
 
     return {
         "node_path": node.path(),
@@ -503,6 +521,7 @@ else:
 """
     python_node.parm("python").set(snippet.strip())
     python_node.moveToGoodPosition()
+    _focus_network_editor(python_node)
 
     # Cook to apply
     python_node.cook(force=True)
@@ -839,6 +858,7 @@ def _create_light(
                 parm.set(position[i])
 
     node.moveToGoodPosition()
+    _focus_network_editor(node)
 
     # Determine the prim path
     prim_path_parm = node.parm("primpath")
@@ -986,6 +1006,7 @@ def _set_light_properties(
     python_node.setInput(0, node)
     python_node.parm("python").set(snippet)
     python_node.moveToGoodPosition()
+    _focus_network_editor(python_node)
     python_node.cook(force=True)
 
     return {
@@ -1105,8 +1126,11 @@ def _create_light_rig(
         node.moveToGoodPosition()
         created_nodes.append(node.path())
 
-    # Layout all children
-    parent.layoutChildren()
+    # Focus on the last created light to keep the editor alive
+    if created_nodes:
+        last_node = hou.node(created_nodes[-1])
+        if last_node is not None:
+            _focus_network_editor(last_node)
 
     return {
         "nodes": created_nodes,

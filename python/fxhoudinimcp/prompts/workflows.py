@@ -104,15 +104,31 @@ Goal: {scene_description}
 
 Workflow:
 1. Use get_scene_info to check the current state.
-2. Navigate to the /stage context.
+2. Navigate to the /stage context using set_current_network.
 3. Build the LOP network:
    - Use create_lop_node for common operations (Camera, Light, Material, Xform)
    - For geometry references, use "Reference" or "Sublayer" LOP nodes
    - For materials, use MaterialX or Karma material networks
 4. Connect nodes in a linear chain (LOPs are typically top-to-bottom).
+   Use connect_nodes_batch to wire multiple node pairs at once.
 5. Use get_stage_info to inspect the resulting USD stage.
 6. Use list_usd_prims to verify the prim hierarchy.
 7. Use get_usd_materials to verify material bindings.
+
+Material setup tips:
+- For Karma renders using SOP Cd (vertex color), create a principledshader with
+  basecolor_usePointColor=1. This reads the displayColor primvar automatically.
+- Use get_parameter_schema on a principledshader to discover all available params
+  before guessing names. Key params: basecolor_usePointColor, roughness, reflect.
+- For MaterialX: use mtlxstandard_surface node type.
+
+Lighting tips:
+- Use create_light for individual lights (dome, distant, rect, sphere, disk, cylinder).
+- Use create_light_rig with a preset ("outdoor", "three_point", "studio", "hdri")
+  for a quick multi-light setup.
+- Light intensity parameters use the prefix xn__inputsintensity_i0b (not just
+  "intensity") in Houdini 20+. Use get_parameter_schema to discover exact names.
+- Set exposure (not raw intensity) for easier light balancing.
 
 Key concepts:
 - LOPs build a USD stage layer by layer

@@ -110,20 +110,12 @@ def render_viewport(
     # Handle frame number that flipbook may insert into the filename
     actual_path = _find_flipbook_output(output_path, cur_frame)
 
-    # Read the captured image and base64-encode it so the MCP client
-    # can display it inline.
+    # Downscale + JPEG-compress before base64 to avoid token bloat.
     image_base64 = None
-    mime_type = "image/png"
-    actual_lower = actual_path.lower()
-    if actual_lower.endswith((".jpg", ".jpeg")):
-        mime_type = "image/jpeg"
-
+    mime_type = "image/jpeg"
     if os.path.isfile(actual_path):
-        try:
-            with open(actual_path, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("ascii")
-        except Exception as e:
-            logger.warning("Could not read captured viewport image: %s", e)
+        from fxhoudinimcp_server.handlers.viewport_handlers import _downscale_and_encode
+        image_base64, mime_type = _downscale_and_encode(actual_path)
 
     return {
         "success": True,
@@ -524,23 +516,23 @@ def render_node_network(
     network_editor.setCurrentNode(node)
     network_editor.homeToSelection()
 
-    # Capture the network editor as an image
-    try:
-        network_editor.saveAsImage(output_path)
-    except AttributeError:
-        # Fallback: use the desktop screenshot approach
-        try:
-            desktop = hou.ui.curDesktop()
-            desktop.saveAsImage(output_path)
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to capture network editor screenshot: {e}"
-            )
+    # Capture the network editor as an image via Qt widget grab
+    from fxhoudinimcp_server.handlers.viewport_handlers import (
+        _capture_pane_tab_qt, _downscale_and_encode,
+    )
+    _capture_pane_tab_qt(network_editor, output_path)
+
+    image_base64 = None
+    mime_type = "image/jpeg"
+    if os.path.isfile(output_path):
+        image_base64, mime_type = _downscale_and_encode(output_path)
 
     return {
         "success": True,
         "node_path": node_path,
         "output_path": output_path,
+        "image_base64": image_base64,
+        "mime_type": mime_type,
     }
 
 

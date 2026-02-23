@@ -16,6 +16,25 @@ import hou
 from fxhoudinimcp_server.dispatcher import register_handler
 
 
+###### Helpers
+
+def _focus_network_editor(node: hou.Node) -> None:
+    """Best-effort: layout the parent network, then pan the editor to *node*."""
+    try:
+        parent = node.parent()
+        if parent is not None:
+            parent.layoutChildren()
+        for pane_tab in hou.ui.paneTabs():
+            if pane_tab.type() == hou.paneTabType.NetworkEditor:
+                if parent is not None:
+                    pane_tab.cd(parent.path())
+                pane_tab.setCurrentNode(node)
+                pane_tab.homeToSelection()
+                return
+    except Exception:
+        pass
+
+
 ###### scene.get_scene_info
 
 def get_scene_info() -> dict:
@@ -180,6 +199,11 @@ def import_file(
             file_node = parent.createNode("file", node_name or "file_import")
             file_node.parm("file").set(file_path)
             created_path = file_node.path()
+
+    # Focus on the created node
+    created_node = hou.node(created_path)
+    if created_node is not None:
+        _focus_network_editor(created_node)
 
     return {
         "success": True,

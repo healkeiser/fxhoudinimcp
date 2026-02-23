@@ -34,11 +34,13 @@ def _node_summary(node: hou.Node) -> dict:
 
 
 def _focus_network_editor(node: hou.Node) -> None:
-    """Best-effort: pan the network editor to *node* so the user sees it."""
+    """Best-effort: layout the parent network, then pan the editor to *node*."""
     try:
+        parent = node.parent()
+        if parent is not None:
+            parent.layoutChildren()
         for pane_tab in hou.ui.paneTabs():
             if pane_tab.type() == hou.paneTabType.NetworkEditor:
-                parent = node.parent()
                 if parent is not None:
                     pane_tab.cd(parent.path())
                 pane_tab.setCurrentNode(node)

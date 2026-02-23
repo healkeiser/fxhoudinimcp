@@ -26,6 +26,23 @@ def _get_node(node_path: str) -> hou.Node:
     return node
 
 
+def _focus_network_editor(node: hou.Node) -> None:
+    """Best-effort: layout the parent network, then pan the editor to *node*."""
+    try:
+        parent = node.parent()
+        if parent is not None:
+            parent.layoutChildren()
+        for pane_tab in hou.ui.paneTabs():
+            if pane_tab.type() == hou.paneTabType.NetworkEditor:
+                if parent is not None:
+                    pane_tab.cd(parent.path())
+                pane_tab.setCurrentNode(node)
+                pane_tab.homeToSelection()
+                return
+    except Exception:
+        pass
+
+
 def _material_summary(node: hou.Node) -> dict[str, Any]:
     """Return a compact summary dict for a material node."""
     return {
@@ -197,6 +214,7 @@ def _create_material_network(
                     pass
 
     node.moveToGoodPosition()
+    _focus_network_editor(node)
 
     return {
         "material_path": node.path(),
@@ -258,6 +276,7 @@ def _assign_material(
     mat_sop.setDisplayFlag(True)
     mat_sop.setRenderFlag(True)
     mat_sop.moveToGoodPosition()
+    _focus_network_editor(mat_sop)
 
     return {
         "material_sop_path": mat_sop.path(),
