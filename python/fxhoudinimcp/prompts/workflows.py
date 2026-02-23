@@ -35,82 +35,86 @@ def procedural_modeling_workflow(
 Goal: {description}
 Output context: {output_context}
 
+GOLDEN RULE — NODES OVER VEX (read this FIRST):
+Your job is to build SOP *node chains*, NOT to write VEX code.
+Think like a Houdini artist: every operation should be a visible node in the
+network graph. VEX wrangles are a LAST RESORT for logic that literally no
+built-in node can express (e.g. a custom math curve equation).
+
+Before creating ANY node, plan the SOP chain on paper:
+  "I need a Box → Bevel → Boolean (with a Circle) → Scatter → Copy to Points"
+If your plan has more than one wrangle, STOP and rethink — you're probably
+missing a built-in node. Call list_node_types with context="Sop" to check.
+
+SOP nodes you MUST know (use these instead of VEX):
+  Primitives:     Box, Sphere, Tube, Torus, Grid, Circle, Line, Curve, Add
+  Modeling:       PolyExtrude, PolyBevel, Boolean, Clip, Mirror, Subdivide,
+                  Sweep, Revolve, Loft, Skin, PolySplit, EdgeLoop
+  Deformation:    Transform, Bend, Twist, Lattice, Peak, Mountain, Soft Transform
+  Copy/Instance:  Copy to Points, Copy and Transform
+  Scattering:     Scatter, Scatter and Align
+  Groups/Filter:  Group Create, Group Expression, Group by Range, Blast, Split,
+                  Delete, Dissolve
+  Attributes:     Attribute Create, Attribute Randomize, Attribute Rename,
+                  Attribute Transfer, Attribute Promote, Measure
+  Topology:       Fuse, Clean, Resample, Reverse, Divide, Remesh, PolyReduce
+  Utility:        Merge, Switch, Null, Object Merge, Sort, Pack, Unpack
+  Loops:          For-Each (block_begin / block_end) — per-piece or per-point
+  UV:             UV Unwrap, UV Flatten, UV Project, UV Layout
+
+Anti-patterns (NEVER do these):
+  BAD:  Detail wrangle with addpoint() loop → USE: Grid or Scatter SOP
+  BAD:  Wrangle with removepoint()         → USE: Blast SOP + group expression
+  BAD:  Wrangle setting random attribs     → USE: Attribute Randomize SOP
+  BAD:  Wrangle building a box shape       → USE: Box SOP + Transform
+  BAD:  Wrangle doing extrusion math       → USE: PolyExtrude SOP
+  BAD:  Wrangle doing boolean operations   → USE: Boolean SOP
+  BAD:  Wrangle creating copies            → USE: Copy to Points SOP
+  BAD:  Hardcoded values in VEX            → USE: set_expression / HScript expr
+
+Example SOP chains (NO VEX needed):
+  AC unit:    Box → PolyBevel → Boolean (Circle cutout) → Scatter (vent points)
+              → small Grid (vent shape) → Copy to Points
+  Table:      Box (top) + Box (leg) → Copy to Points (4 corners) → Merge
+  Terrain:    Grid → Mountain → Scatter (trees) → Copy to Points
+  Pipe:       Circle → Sweep along Curve → Resample → Fuse
+  Window:     Grid → PolyExtrude (inset) → Boolean (panes) → Transform
+
 Workflow:
 1. Use get_scene_info to understand the current scene state.
 2. Create a Geometry container node in {output_context} using create_node.
-3. Inside the geo node, build a SOP network:
+3. Plan your SOP chain FIRST — list the nodes you'll use before creating any.
+4. Inside the geo node, build the SOP chain:
    - Start with a base shape (box, grid, sphere, etc.)
-   - Chain modifier nodes (transform, mountain, scatter, etc.)
-   - Use Attribute Wrangles ONLY when no built-in node can do the job
-4. Set the display flag on the final node using set_node_flags.
-5. Use get_geometry_info to verify the result.
-6. Use layout_children to clean up the network.
+   - Chain modifier SOPs (transform, bevel, boolean, scatter, copy, etc.)
+   - If you catch yourself about to write VEX, STOP and search for a SOP
+5. Set the display flag on the final node using set_node_flags.
+6. Use get_geometry_info to verify the result.
 
-Node-first rule (CRITICAL — read before building anything):
-- ALWAYS prefer built-in SOP nodes over VEX wrangles. Wrangles are a last
-  resort for logic that no node can express. Every wrangle you add is harder
-  to debug, slower to iterate, and invisible to the user.
-- Use list_node_types with context="Sop" to discover available nodes BEFORE
-  writing any VEX. Common nodes people forget exist:
-    - Grid / Points from Volume / Scatter — generate point grids/distributions
-    - Blast / Group / Split — filter points by attribute (e.g. @my_attr==1)
-    - Copy to Points — instance geometry to points
-    - For-Each (block_begin / block_end) — per-piece or per-point processing
-    - Add — create single points or polygons without VEX
-    - Resample / Fuse / Clean — topology cleanup
-    - Attribute Create / Attribute Randomize — set attributes without VEX
-    - Sort — reorder points/prims
-    - Transform / Peak / Mountain — deformations
-    - Group Expression — create groups with expressions, no wrangle needed
-- If you need a grid of points: use a Grid SOP (rows/columns), NOT a Detail
-  wrangle with addpoint() in a loop.
-- If you need to filter points by attribute: use a Blast SOP with a group
-  expression like "@has_ac==1", NOT a wrangle with removepoint().
-- If you need random attributes on existing points: use Attribute Randomize
-  or a short Point wrangle — never a Detail wrangle that recreates all points.
-- Only use a Detail wrangle from scratch when creating truly custom topology
-  that no combination of nodes can produce (e.g. a catenary curve equation).
-- Use set_expression or HScript expressions on node parameters for
-  procedural values (e.g. ch("../floors") on a Grid SOP's rows parameter)
-  instead of coding the same logic in VEX.
-
-VEX Wrangle rules (when you DO need a wrangle):
+VEX rules (ONLY when no SOP can do the job):
 - After EVERY create_wrangle or set_wrangle_code call, IMMEDIATELY call
-  validate_vex on the node to catch compilation errors before anything else.
-  Do NOT rely on get_geometry_info to detect VEX problems — it won't show
-  syntax errors, only the (empty/stale) geometry output.
-- Channel references: strongly prefer relative paths over absolute paths.
-  Count the hierarchy depth from the wrangle to the node that owns the
-  target parameter: ../ = one level up (immediate parent), ../../ = two
-  levels up, etc. A wrangle directly inside a Geometry container uses
-  ch("../parm_name") to reach the geo node's spare parameters; a wrangle
-  inside a subnet inside the geo container uses ch("../../parm_name").
-  Absolute paths like ch("/obj/geo1/parm") break when nodes are renamed,
-  copied, or moved — only use them as a last resort.
-  The create_wrangle response includes a "channel_prefix" field — use it.
-- Detail-mode wrangles ("Run Over: Detail") can create geometry from scratch
-  with addpoint() / addprim() — they do NOT need input geometry. Never add a
-  dummy input point just to make a Detail wrangle work.
-- VEX ch()/chi()/chf() return 0 silently when the channel path is wrong.
-  If a loop produces 0 iterations, the channel path is likely incorrect —
-  verify the path, don't restructure the approach.
+  validate_vex to catch compilation errors.
+- Channel references: strongly prefer relative paths. Count the hierarchy
+  depth from the wrangle to the target node: ../ = one level up, ../../ =
+  two levels, etc. The create_wrangle response includes channel_ancestors
+  showing what each ../ level resolves to — use it.
+  Absolute paths break when nodes are renamed or moved — last resort only.
+- Detail-mode wrangles can create geometry from scratch with addpoint() /
+  addprim() — they do NOT need input geometry.
+- VEX ch()/chi()/chf() return 0 silently when the path is wrong.
 
 Debugging strategy — avoid loops:
 - If something doesn't work after 2 attempts, STOP and change strategy:
   1. Call validate_vex to check for VEX compilation errors.
-  2. Use execute_python to inspect live parameter values, e.g.
-     hou.parm(node.path() + "/../parm_name").eval(), to confirm channels resolve.
-  3. Check find_error_nodes to see if upstream nodes have errors.
+  2. Use execute_python to inspect live values.
+  3. Check find_error_nodes for upstream errors.
 - Do NOT keep re-running get_geometry_info hoping for different results.
-- Do NOT add workarounds (dummy inputs, extra nodes) for problems you
-  haven't diagnosed — find the root cause first.
+- Do NOT add workarounds without diagnosing the root cause first.
 
 Efficiency tips:
 - Use create_spare_parameters (plural) to batch-create all spare parameters in
   one call, with an optional folder_name to group them in a tab.
-  Do NOT call create_spare_parameter 15 times — batch them.
-- Use connect_nodes_batch to wire multiple node pairs in one call instead of
-  calling connect_nodes repeatedly.
+- Use connect_nodes_batch to wire multiple node pairs in one call.
 - Use set_viewport_direction to switch to front/top/perspective views.
 
 General tips:
@@ -205,9 +209,10 @@ Tips:
 - Use reset_simulation when changing fundamental parameters
 - Check get_sim_memory_usage for large simulations
 - Use list_node_types with context="Dop" to discover available node types
-- Build source geometry with built-in SOPs (Grid, Sphere, Scatter, etc.)
-  before reaching for VEX wrangles. Only use wrangles for custom logic that
-  no built-in node can express.
+- Build source geometry with SOP node chains (Box, Grid, Sphere, Scatter,
+  Boolean, PolyExtrude, Copy to Points, etc.) — NOT VEX wrangles.
+  Wrangles are a last resort for logic no built-in SOP can express.
+  Plan your node chain before building. Call list_node_types to discover SOPs.
 {_NETWORK_HOUSEKEEPING}"""
 
 
@@ -275,10 +280,11 @@ Tips:
 - Use list_node_types to verify the HDA type name is unique
 - Test with different inputs before finalizing the HDA
 - Use update_hda to save changes after modifications
-- Build internal logic with built-in SOPs (Grid, Scatter, Copy to Points,
-  Blast, Transform, etc.) first. Only use VEX wrangles for custom logic
-  that no built-in node can express. A network of nodes is far more
-  user-friendly inside an HDA than opaque wrangles.
+- Build internal logic with SOP node chains (Box, Grid, Scatter, Boolean,
+  PolyExtrude, Copy to Points, Blast, Transform, etc.) — NOT VEX wrangles.
+  A network of visible nodes is far more user-friendly and debuggable inside
+  an HDA than opaque wrangles. Plan the node chain before building.
+  Wrangles are a last resort for logic no built-in SOP can express.
 {_NETWORK_HOUSEKEEPING}"""
 
 
