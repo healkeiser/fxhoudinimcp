@@ -21,6 +21,27 @@ from fxhoudinimcp_server.dispatcher import register_handler
 logger = logging.getLogger(__name__)
 
 
+def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
+    """Capture a pane tab screenshot using its Qt widget."""
+    try:
+        widget = pane_tab.qtParentWidget()
+    except AttributeError:
+        widget = None
+
+    if widget is None:
+        raise RuntimeError(
+            f"Cannot capture pane '{pane_tab.name()}': "
+            f"qtParentWidget() not available for this Houdini version."
+        )
+
+    pixmap = widget.grab()
+    if not pixmap.save(output_path):
+        raise RuntimeError(
+            f"Failed to save screenshot to '{output_path}'. "
+            f"Ensure the path is writable and the format is supported (e.g. .png, .jpg)."
+        )
+
+
 ###### viewport.list_panes
 
 def list_panes() -> dict:
@@ -259,15 +280,8 @@ def capture_screenshot(
         actual_path = _find_flipbook_output(output_path, cur_frame)
     else:
         actual_path = output_path
-        # For other pane types, try the saveAsImage approach
-        try:
-            pane_tab.saveAsImage(output_path)
-        except AttributeError:
-            raise RuntimeError(
-                f"Pane type '{pane_tab.type().name()}' does not support "
-                f"direct image capture. Use viewport.capture_network_editor "
-                f"for network editors."
-            )
+        # For other pane types, use Qt widget grab
+        _capture_pane_tab_qt(pane_tab, output_path)
 
     # Read the captured image and base64-encode it so the MCP client
     # can display it inline (Claude Desktop needs embedded image data).
@@ -330,17 +344,8 @@ def capture_network_editor(
         network_editor.setCurrentNode(node)
         network_editor.homeToSelection()
 
-    # Capture the network editor
-    try:
-        network_editor.saveAsImage(output_path)
-    except AttributeError:
-        try:
-            desktop = hou.ui.curDesktop()
-            desktop.saveAsImage(output_path)
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to capture network editor screenshot: {e}"
-            )
+    # Capture the network editor via Qt widget grab
+    _capture_pane_tab_qt(network_editor, output_path)
 
     image_base64 = None
     mime_type = "image/png"
