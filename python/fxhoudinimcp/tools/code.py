@@ -23,9 +23,18 @@ from fxhoudinimcp.server import mcp, _get_bridge
 async def execute_python(
     ctx: Context, code: str, return_expression: str | None = None
 ) -> dict:
-    """Execute Python code inside Houdini for scene-level scripting only.
+    """Execute arbitrary Python code inside Houdini. LAST RESORT only.
 
-    Use create_node/create_wrangle for geometry work instead.
+    DO NOT use this to:
+    - Create nodes → use create_node or build_sop_chain
+    - Set parameters → use set_parameter or set_parameters
+    - Create wrangles or write Python SOPs → use create_wrangle
+    - Connect nodes → use connect_nodes or connect_nodes_batch
+    - Read geometry → use get_geometry_info, get_points, sample_geometry
+
+    ONLY use this when no dedicated tool exists for the operation, e.g.
+    reading a custom hou.* API, batch-renaming many nodes, or inspecting
+    live Python state that no other tool exposes.
 
     Args:
         code: Python source code to execute.

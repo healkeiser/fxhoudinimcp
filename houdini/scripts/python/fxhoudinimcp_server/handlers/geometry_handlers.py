@@ -250,7 +250,7 @@ def _get_attrib_values(
     attrib_name: str,
     attrib_class: str = "point",
     start: int = 0,
-    count: int = 10000,
+    count: int = 200,
 ) -> dict[str, Any]:
     """Read attribute values as a flat array with pagination.
 

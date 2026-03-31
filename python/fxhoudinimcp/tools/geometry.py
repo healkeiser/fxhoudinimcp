@@ -97,9 +97,13 @@ async def get_attrib_values(
     attrib_name: str,
     attrib_class: str = "point",
     start: int = 0,
-    count: int = 10000,
+    count: int = 200,
 ) -> dict:
     """Read attribute values as a flat array with pagination.
+
+    For spot-checking a few values prefer sample_geometry — it returns a
+    representative spread of points with all their attributes in one call.
+    Use get_attrib_values when you need a specific slice of one attribute.
 
     Values are element-major: for a float3 attribute every 3 consecutive
     values belong to one element. Check has_more and increment start to
@@ -110,7 +114,7 @@ async def get_attrib_values(
         attrib_name: Attribute name.
         attrib_class: "point", "prim", "vertex", or "detail".
         start: First element index to return.
-        count: Max elements per page (default 10 000).
+        count: Max elements per page (default 200).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
