@@ -13,6 +13,7 @@ from mcp.server.fastmcp import FastMCP
 # Internal
 from fxhoudinimcp.bridge import HoudiniBridge
 from fxhoudinimcp._loader import load_markdown
+from fxhoudinimcp._version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +51,4 @@ mcp = FastMCP(
     instructions=load_markdown("server_instructions.md"),
     lifespan=lifespan,
 )
+mcp._mcp_server.version = __version__
