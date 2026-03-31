@@ -2121,6 +2121,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_node_types(filter)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_node_types(limit)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;limit
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3427,6 +3449,28 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_node_types(filter)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_node_types(limit)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;limit
       
     </span>
   </a>
@@ -4837,6 +4881,10 @@ output_index (int, default 0), input_index (int, default 0).</p>
     <div class="doc doc-contents ">
 
         <p>Search for nodes by name pattern, type, or context.</p>
+<p>Narrow the search: use <code>inside</code> to limit to a specific sub-network and
+supply at least one of <code>pattern</code>, <code>node_type</code>, or <code>context</code>. Searching
+from <code>inside="/"</code> with no filters scans the entire scene and can return
+hundreds of nodes.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4923,7 +4971,7 @@ output_index (int, default 0), input_index (int, default 0).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Root path to search within.</p>
+                <p>Root path to search within (default '/').</p>
               </div>
             </td>
             <td>
@@ -5123,6 +5171,8 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
     <div class="doc doc-contents ">
 
         <p>List children of a network node.</p>
+<p>Avoid <code>recursive=True</code> on large networks — it can return hundreds or
+thousands of nodes. Prefer <code>find_nodes</code> with a specific pattern instead.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5177,7 +5227,7 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Include all descendants.</p>
+                <p>Include all descendants (use sparingly on large scenes).</p>
               </div>
             </td>
             <td>
@@ -5220,12 +5270,18 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
   </span>
 
 <a href="#fxhoudinimcp.tools.nodes.list_node_types" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_node_types</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(ctx)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="mcp.server.fastmcp.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;context&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(context)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(context)">context</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_node_types</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(ctx)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="mcp.server.fastmcp.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;context&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(context)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(context)">context</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;filter&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(filter)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(filter)">filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;limit&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_node_types(limit)&lt;/code&gt;)" href="#fxhoudinimcp.tools.nodes.list_node_types(limit)">limit</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">200</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>List available node types for a context category.</p>
+<p>IMPORTANT: Any context can have hundreds of node types (SOPs alone can
+exceed 800 in a production install). Always pass a <code>filter</code> keyword
+(e.g. 'mountain', 'scatter', 'boolean') instead of dumping the full list
+— the unfiltered response is capped at <code>limit</code> and may still be large.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5269,6 +5325,38 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.nodes.list_node_types(filter)" class="doc doc-heading doc-heading-parameter">                  <code>filter</code>
+<a href="#fxhoudinimcp.tools.nodes.list_node_types(filter)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Substring to filter type name or label (case-insensitive).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.nodes.list_node_types(limit)" class="doc doc-heading doc-heading-parameter">                  <code>limit</code>
+<a href="#fxhoudinimcp.tools.nodes.list_node_types(limit)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Max entries to return (default 200, max recommended 200).</p>
+              </div>
+            </td>
+            <td>
+                  <code>200</code>
             </td>
           </tr>
       </tbody>
@@ -5952,7 +6040,7 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 31, 2026 16:17:57 UTC">March 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 31, 2026 16:43:03 UTC">March 31, 2026</span>
   </span>
 
     
@@ -5962,7 +6050,7 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 31, 2026 16:17:57 UTC">March 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 31, 2026 16:43:03 UTC">March 31, 2026</span>
   </span>
 
     
