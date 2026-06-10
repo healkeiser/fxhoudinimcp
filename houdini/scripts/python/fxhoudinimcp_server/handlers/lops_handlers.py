@@ -500,8 +500,9 @@ def _set_usd_attribute(
 
     parent = node.parent()
 
-    # Create a Python LOP to set the attribute
-    python_node = parent.createNode("python", node_name="set_usd_attr_auto")
+    # Create a Python LOP to set the attribute ("pythonscript" is the
+    # LOP type name; "python" does not exist in the Lop category)
+    python_node = parent.createNode("pythonscript", node_name="set_usd_attr_auto")
     python_node.setInput(0, node)
 
     # Build the Python snippet
@@ -643,14 +644,21 @@ def _get_usd_composition(
 
     prim_index = prim.GetPrimIndex()
 
+    # Pcp.PrimIndex has no nodeRange in current USD builds; walk the
+    # composition graph from rootNode instead.
+    def _walk_nodes(node):
+        yield node
+        for child in node.children:
+            yield from _walk_nodes(child)
+
     arcs: list[dict[str, Any]] = []
     if prim_index.IsValid():
-        for node in prim_index.nodeRange:
+        for node in _walk_nodes(prim_index.rootNode):
             arc_info: dict[str, Any] = {
                 "arc_type": str(node.arcType),
                 "layer": str(node.layerStack.identifier.rootLayer)
                          if node.layerStack else None,
-                "path": str(node.path),
+                "path": str(getattr(node, "path", "")),
                 "has_specs": node.hasSpecs,
             }
             arcs.append(arc_info)
@@ -835,8 +843,8 @@ def _create_light(
 
     node = parent.createNode(lop_type, node_name=name)
 
-    # Set intensity
-    intensity_parm = node.parm("xn__inputsintensity_i0b")
+    # Set intensity ("inputs:intensity" punycodes to xn__inputsintensity_i0a)
+    intensity_parm = node.parm("xn__inputsintensity_i0a")
     if intensity_parm is None:
         intensity_parm = node.parm("intensity")
     if intensity_parm is not None:
@@ -845,7 +853,7 @@ def _create_light(
     # Set color
     if color is not None and len(color) >= 3:
         for i, suffix in enumerate(["r", "g", "b"]):
-            parm = node.parm(f"xn__inputscolor_{suffix}0b")
+            parm = node.parm(f"xn__inputscolor_zta{suffix}")
             if parm is None:
                 parm = node.parm(f"color{suffix}")
             if parm is not None:
@@ -1003,7 +1011,8 @@ def _set_light_properties(
         + "\n".join(set_lines)
     )
 
-    python_node = parent.createNode("python", node_name="set_light_props_auto")
+    # "pythonscript" is the LOP type name; "python" does not exist here.
+    python_node = parent.createNode("pythonscript", node_name="set_light_props_auto")
     python_node.setInput(0, node)
     python_node.parm("python").set(snippet)
     python_node.moveToGoodPosition()
@@ -1090,26 +1099,33 @@ def _create_light_rig(
         )
 
     created_nodes: list[str] = []
+    previous: hou.Node | None = None
 
     for light_def in preset_config:
         lop_type = light_def["type"]
         light_name = light_def.get("name")
         node = parent.createNode(lop_type, node_name=light_name)
 
-        # Set intensity with multiplier
+        # Chain the lights so the last node's stage contains the whole rig.
+        if previous is not None:
+            node.setInput(0, previous)
+        previous = node
+
+        # Set intensity with multiplier. USD light parms are punycoded
+        # ("inputs:intensity" -> xn__inputsintensity_i0a).
         base_intensity = light_def.get("intensity", 1.0)
         final_intensity = base_intensity * intensity_mult
-        intensity_parm = node.parm("xn__inputsintensity_i0b")
+        intensity_parm = node.parm("xn__inputsintensity_i0a")
         if intensity_parm is None:
             intensity_parm = node.parm("intensity")
         if intensity_parm is not None:
             intensity_parm.set(final_intensity)
 
-        # Set color
+        # Set color ("inputs:color" components -> xn__inputscolor_zta{r,g,b})
         light_color = light_def.get("color")
         if light_color:
             for i, suffix in enumerate(["r", "g", "b"]):
-                parm = node.parm(f"xn__inputscolor_{suffix}0b")
+                parm = node.parm(f"xn__inputscolor_zta{suffix}")
                 if parm is None:
                     parm = node.parm(f"color{suffix}")
                 if parm is not None:

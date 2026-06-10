@@ -276,14 +276,21 @@ ruff check python/
 pytest
 
 # Run integration tests inside a real Houdini (requires a license seat;
-# uses the newest installed Houdini, override with the HYTHON env var)
-tests/run_integration.ps1
+# uses the newest installed Houdini, override with the HYTHON env var).
+# Works on Windows, macOS, and Linux:
+python tests/run_integration.py
+# Convenience wrappers: tests/run_integration.ps1 / tests/run_integration.sh
 ```
 
 Unit tests mock `hou` and run anywhere. The integration suite in
-`tests/integration/` executes every handler against live Houdini via
-`hython` and prints a per-command timing report; it is skipped
-automatically when `hou` is not available.
+`tests/integration/` executes all 173 commands against live Houdini via
+`hython` — including end-to-end user scenarios (procedural modeling,
+simulation, animation, lookdev) — and prints per-command timing and
+coverage reports; it is skipped automatically when `hou` is not
+available. `tests/integration/perf_sweep.py` benchmarks handlers on
+large scenes, and `python tests/integration/bridge_e2e.py` validates the
+full HTTP transport (real hwebserver in hython driven by the MCP
+server's own bridge).
 
 ### How It Works
 

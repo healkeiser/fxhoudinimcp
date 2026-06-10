@@ -455,9 +455,10 @@ def start_render(
             start = float(frame_range[0])
             end = float(frame_range[1])
             inc = float(frame_range[2]) if len(frame_range) > 2 else 1.0
+            # RopNode.render takes the increment as the third element of
+            # frame_range; there is no frame_increment keyword.
             node.render(
-                frame_range=(start, end),
-                frame_increment=inc,
+                frame_range=(start, end, inc),
                 output_progress=True,
             )
         else:

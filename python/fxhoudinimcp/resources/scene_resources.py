@@ -27,9 +27,9 @@ async def node_info(path: str, ctx: Context) -> dict:
 
 @mcp.resource("houdini://scene/tree")
 async def scene_tree(ctx: Context) -> dict:
-    """Complete node tree of the current scene."""
+    """Top-level node tree of the current scene."""
     bridge = _get_bridge(ctx)
-    return await bridge.execute("scene.get_context_info", {"context": "all"})
+    return await bridge.execute("scene.get_context_info", {"context": "/"})
 
 
 @mcp.resource("houdini://errors")

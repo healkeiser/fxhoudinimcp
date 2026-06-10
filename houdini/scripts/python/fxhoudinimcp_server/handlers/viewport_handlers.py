@@ -765,7 +765,12 @@ def log_status(message: str, severity: str = "message") -> dict:
         "error": hou.severityType.Error,
     }
     sev = severity_map.get(severity.lower(), hou.severityType.Message)
-    hou.ui.setStatusMessage(message, severity=sev)
+    if hou.isUIAvailable():
+        hou.ui.setStatusMessage(message, severity=sev)
+    else:
+        # Headless sessions (hython/hbatch) have no status bar; stay a
+        # harmless no-op so instruction-following clients never error.
+        print(f"[status] {message}")
     return {"message": message, "severity": severity}
 
 
