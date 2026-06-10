@@ -22,7 +22,7 @@ async def create_node(
     parent_path: str,
     node_type: str,
     name: Optional[str] = None,
-    position: Optional[list] = None,
+    position: Optional[list[float]] = None,
 ) -> dict:
     """Create a node inside a parent network.
 
@@ -299,7 +299,9 @@ async def disconnect_node(
 
 
 @mcp.tool()
-async def reorder_inputs(ctx: Context, node_path: str, new_order: list) -> dict:
+async def reorder_inputs(
+    ctx: Context, node_path: str, new_order: list[int]
+) -> dict:
     """Reorder the input connections of a node.
 
     Args:

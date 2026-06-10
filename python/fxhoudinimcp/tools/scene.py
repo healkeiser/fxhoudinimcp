@@ -132,7 +132,7 @@ async def export_file(
     ctx: Context,
     node_path: str,
     file_path: str,
-    frame_range: Optional[list] = None,
+    frame_range: Optional[list[float]] = None,
 ) -> dict:
     """Export a node's output to a file on disk.
 

@@ -9,7 +9,7 @@ chain building, and render configuration.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
+from typing import Any, Optional
 
 # Third-party
 from mcp.server.fastmcp import Context
@@ -152,7 +152,7 @@ async def create_material(
     ctx: Context,
     name: str = "material1",
     mat_type: str = "principled",
-    base_color: Optional[list] = None,
+    base_color: Optional[list[float]] = None,
     roughness: float = 0.5,
     metallic: float = 0.0,
     opacity: float = 1.0,
@@ -206,7 +206,7 @@ async def assign_material(
 async def build_sop_chain(
     ctx: Context,
     parent_path: str = "/obj/geo1",
-    steps: Optional[list] = None,
+    steps: Optional[list[dict[str, Any]]] = None,
 ) -> dict:
     """Build a sequential chain of SOP nodes wired together in a single call.
 
@@ -241,7 +241,7 @@ async def setup_render(
     renderer: str = "karma",
     camera: Optional[str] = None,
     output_path: str = "$HIP/render/output.$F4.exr",
-    resolution: Optional[list] = None,
+    resolution: Optional[list[int]] = None,
     samples: int = 64,
     name: str = "render1",
 ) -> dict:

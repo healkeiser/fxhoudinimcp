@@ -13,6 +13,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 # Internal
+from fxhoudinimcp._types import Value
 from fxhoudinimcp.server import mcp, _get_bridge
 
 
@@ -39,7 +40,7 @@ async def get_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
 
 @mcp.tool()
 async def set_parameter(
-    ctx: Context, node_path: str, parm_name: str, value: Any
+    ctx: Context, node_path: str, parm_name: str, value: Value
 ) -> dict:
     """Set a parameter value.
 
@@ -236,7 +237,7 @@ async def create_spare_parameter(
     parm_name: str,
     parm_type: str,
     label: str,
-    default_value: Any = None,
+    default_value: Value | None = None,
     min_val: float | None = None,
     max_val: float | None = None,
 ) -> dict:

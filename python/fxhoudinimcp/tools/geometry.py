@@ -9,6 +9,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 # Internal
+from fxhoudinimcp._types import Value
 from fxhoudinimcp.server import mcp, _get_bridge
 
 
@@ -134,7 +135,7 @@ async def set_detail_attrib(
     ctx: Context,
     node_path: str,
     attrib_name: str,
-    value: Any,
+    value: Value,
 ) -> dict:
     """Set a detail attribute on a SOP node.
 

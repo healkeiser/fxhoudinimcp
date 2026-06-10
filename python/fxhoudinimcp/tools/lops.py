@@ -9,6 +9,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 # Internal
+from fxhoudinimcp._types import Value
 from fxhoudinimcp.server import mcp, _get_bridge
 
 
@@ -203,7 +204,7 @@ async def set_usd_attribute(
     node_path: str,
     prim_path: str,
     attr_name: str,
-    value: Any,
+    value: Value,
 ) -> dict:
     """Set a USD attribute value via an inline Python LOP.
 

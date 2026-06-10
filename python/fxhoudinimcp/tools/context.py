@@ -83,7 +83,7 @@ async def get_selection(ctx: Context) -> dict:
 @mcp.tool()
 async def set_selection(
     ctx: Context,
-    node_paths: Optional[list] = None,
+    node_paths: Optional[list[str]] = None,
 ) -> dict:
     """Set the node selection.
 
