@@ -595,6 +595,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#auto-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#transport-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -922,6 +933,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../technical/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../technical/errors/" class="md-nav__link">
         
   
@@ -965,7 +1004,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_6" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -987,14 +1026,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_6" id="__nav_4_1_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_7" id="__nav_4_1_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1090,7 +1129,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_8" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1112,14 +1151,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_8" id="__nav_4_1_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_9" id="__nav_4_1_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_8">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1271,7 +1310,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1293,14 +1332,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_10" id="__nav_4_1_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_11" id="__nav_4_1_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1969,6 +2008,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#auto-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#transport-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2123,6 +2173,11 @@
 <td>Set to <code>0</code> to disable auto-start</td>
 </tr>
 <tr>
+<td><code>FXHOUDINIMCP_AUTO_LAYOUT</code></td>
+<td><code>1</code></td>
+<td>Set to <code>0</code> to disable automatic node layout</td>
+</tr>
+<tr>
 <td><code>MCP_TRANSPORT</code></td>
 <td><code>stdio</code></td>
 <td>MCP transport (<code>stdio</code> or <code>streamable-http</code>)</td>
@@ -2147,13 +2202,32 @@ auto-start by setting:</p>
 return structured diagnostics without raising a tool error. If port <code>8100</code> is
 owned by a different Houdini process, either close that process or set both
 <code>FXHOUDINIMCP_PORT</code> and <code>HOUDINI_PORT</code> to a matching free port.</p>
+<h2 id="auto-layout">Auto-Layout<a class="headerlink" href="#auto-layout" title="Permanent link">&para;</a></h2>
+<p>By default, tools tidy the network editor as they work: node-creation handlers
+and workflow tools call <code>layoutChildren()</code> on the parent network, and the
+server instructions tell assistants to call <code>layout_children</code> frequently. This
+re-arranges <em>all</em> nodes in the affected network — including ones you placed by
+hand.</p>
+<p>To preserve your manual layouts, disable auto-layout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTO_LAYOUT</span><span class="o">=</span><span class="m">0</span>
+</code></pre></div>
+<p>Set it both in the MCP client environment (where <code>python -m fxhoudinimcp</code>
+runs) and in the Houdini environment (e.g. <code>houdini.env</code>), since each process
+reads it independently. Inside a running Houdini session you can also toggle
+it without restarting:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">hou</span><span class="o">.</span><span class="n">putenv</span><span class="p">(</span><span class="s2">&quot;FXHOUDINIMCP_AUTO_LAYOUT&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>When disabled, the server instructions tell assistants never to move nodes,
+the <code>layout_children</code> tool becomes a no-op, and the Houdini-side handlers skip
+every automatic <code>layoutChildren()</code> call. Newly created nodes keep the position
+Houdini assigns at creation time.</p>
 <h2 id="transport-modes">Transport Modes<a class="headerlink" href="#transport-modes" title="Permanent link">&para;</a></h2>
 <h3 id="stdio-default">stdio (Default)<a class="headerlink" href="#stdio-default" title="Permanent link">&para;</a></h3>
 <p>The AI client spawns the MCP server as a child process. Communication happens over stdin/stdout. This is the simplest setup, no ports or networking required on the MCP side.</p>
 <h3 id="streamable-http">streamable-http<a class="headerlink" href="#streamable-http" title="Permanent link">&para;</a></h3>
 <p>Runs the MCP server as an HTTP endpoint. Useful for remote or shared setups:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MCP_TRANSPORT</span><span class="o">=</span>streamable-http
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MCP_TRANSPORT</span><span class="o">=</span>streamable-http
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
 </code></pre></div>
 <h2 id="custom-port">Custom Port<a class="headerlink" href="#custom-port" title="Permanent link">&para;</a></h2>
 <p>If Houdini's hwebserver is already bound to port 8100, configure a different port:</p>
@@ -2183,7 +2257,7 @@ owned by a different Houdini process, either close that process or set both
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 8, 2026 01:20:53 UTC">May 8, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 10, 2026 12:41:24 UTC">June 10, 2026</span>
   </span>
 
     
