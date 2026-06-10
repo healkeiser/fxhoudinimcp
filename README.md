@@ -61,8 +61,8 @@ A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Scene Management** | 7 | Open, save, import/export, scene info |
-| **Node Operations** | 16 | Create, delete, copy, connect, layout, flags |
-| **Parameters** | 10 | Get/set values, expressions, keyframes, spare parameters |
+| **Node Operations** | 17 | Create, delete, copy, connect, layout, flags |
+| **Parameters** | 11 | Get/set values, expressions, keyframes, spare parameters |
 | **Geometry (SOPs)** | 12 | Points, prims, attributes, groups, sampling, nearest-point search |
 | **LOPs/USD** | 18 | Stage inspection, prims, layers, composition, variants, lighting |
 | **DOPs** | 8 | Simulation info, DOP objects, step/reset, memory usage |
@@ -73,10 +73,10 @@ A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
 | **Rendering** | 9 | Viewport capture, render nodes, settings, render launch |
 | **VEX** | 5 | Create/edit wrangles, validate VEX code |
 | **Code Execution** | 4 | Python, HScript, expressions, env variables |
-| **Viewport/UI** | 11 | Pane management, screenshots, status messages, error detection |
+| **Viewport/UI** | 13 | Pane management, screenshots, status messages, error detection |
 | **Scene Context** | 8 | Network overview, cook chain, selection, scene summary, error analysis |
 | **Workflows** | 8 | One-call Pyro/RBD/FLIP/Vellum setup, SOP chains, render config |
-| **Materials** | 4 | List, inspect, create materials and shader networks |
+| **Materials** | 5 | List, inspect, create materials and shader networks |
 | **CHOPs** | 4 | Channel data, CHOP nodes, export channels to parameters |
 | **Cache** | 4 | List, inspect, clear, write file caches |
 | **Takes** | 4 | List, create, switch takes with parameter overrides |
@@ -95,7 +95,7 @@ flowchart LR
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]
         direction TB
-        B1("🔧 168 Tools")
+        B1("🔧 173 Tools")
         B2("📦 8 Resources")
         B3("💬 6 Prompts")
     end

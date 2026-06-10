@@ -46,7 +46,7 @@ flowchart LR
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]
         direction TB
-        B1("🔧 168 Tools")
+        B1("🔧 173 Tools")
         B2("📦 8 Resources")
         B3("💬 6 Prompts")
     end

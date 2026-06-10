@@ -16,16 +16,16 @@ Once connected, your AI assistant can:
 
 ## Categories
 
-### Scene Management (8 tools)
+### Scene Management (7 tools)
 
 Open, save, import/export, query scene information, and inspect the Houdini
 connection status.
 
-### Node Operations (16 tools)
+### Node Operations (17 tools)
 
 Create, delete, copy, connect, layout nodes, and manage flags.
 
-### Parameters (10 tools)
+### Parameters (11 tools)
 
 Get/set parameter values, expressions, keyframes, and spare parameters.
 
@@ -69,7 +69,7 @@ Create/edit wrangle nodes and validate VEX code.
 
 Execute Python, HScript, expressions, and manage environment variables.
 
-### Viewport/UI (10 tools)
+### Viewport/UI (13 tools)
 
 Pane management, viewport screenshots, and error detection.
 
@@ -81,7 +81,7 @@ Network overview, cook chains, selection state, scene summaries, and error analy
 
 One-call Pyro, RBD, FLIP, and Vellum simulation setup. SOP chains and render configuration.
 
-### Materials (4 tools)
+### Materials (5 tools)
 
 List, inspect, and create materials and shader networks.
 
