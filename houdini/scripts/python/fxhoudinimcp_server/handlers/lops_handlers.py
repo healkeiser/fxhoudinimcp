@@ -499,8 +499,9 @@ def _set_usd_attribute(
 
     parent = node.parent()
 
-    # Create a Python LOP to set the attribute
-    python_node = parent.createNode("python", node_name="set_usd_attr_auto")
+    # Create a Python LOP to set the attribute ("pythonscript" is the
+    # LOP type name; "python" does not exist in the Lop category)
+    python_node = parent.createNode("pythonscript", node_name="set_usd_attr_auto")
     python_node.setInput(0, node)
 
     # Build the Python snippet
@@ -642,14 +643,21 @@ def _get_usd_composition(
 
     prim_index = prim.GetPrimIndex()
 
+    # Pcp.PrimIndex has no nodeRange in current USD builds; walk the
+    # composition graph from rootNode instead.
+    def _walk_nodes(node):
+        yield node
+        for child in node.children:
+            yield from _walk_nodes(child)
+
     arcs: list[dict[str, Any]] = []
     if prim_index.IsValid():
-        for node in prim_index.nodeRange:
+        for node in _walk_nodes(prim_index.rootNode):
             arc_info: dict[str, Any] = {
                 "arc_type": str(node.arcType),
                 "layer": str(node.layerStack.identifier.rootLayer)
                          if node.layerStack else None,
-                "path": str(node.path),
+                "path": str(getattr(node, "path", "")),
                 "has_specs": node.hasSpecs,
             }
             arcs.append(arc_info)

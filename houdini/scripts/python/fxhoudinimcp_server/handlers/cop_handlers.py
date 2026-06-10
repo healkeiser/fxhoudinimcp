@@ -351,12 +351,13 @@ def list_cop_node_types(filter: str = None) -> dict:
     Args:
         filter: Optional substring filter for node type names.
     """
-    # Try Cop2 category (standard COPs and Copernicus)
+    # Copernicus ("Cop", Houdini 20.5+) is what create_cop_node creates
+    # inside a copnet; fall back to legacy Cop2 on older builds.
     cop_types = []
 
     try:
-        cop2_category = hou.cop2NodeTypeCategory()
-        for type_name, node_type in cop2_category.nodeTypes().items():
+        category = hou.nodeTypeCategories().get("Cop") or hou.cop2NodeTypeCategory()
+        for type_name, node_type in category.nodeTypes().items():
             if filter and filter.lower() not in type_name.lower():
                 continue
             type_info = {
