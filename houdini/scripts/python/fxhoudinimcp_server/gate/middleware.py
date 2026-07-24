@@ -141,6 +141,14 @@ def _run_preview(command: str, params: dict[str, Any]) -> tuple[dict | None, str
     # command name so it also holds for any future CODE_EXEC command that registers a preview.
     from homedini.dcc.mcp_gate.gate_model import Capability as CoreCap
     if _cap_from_dispatcher(command) is CoreCap.CODE_EXEC:
+        # Recoverable-suspicious, not expected-absence: no shipped CODE_EXEC handler registers a
+        # preview, so reaching here means an unusual registration the operator should see rather
+        # than a routine skip (fail-loud-discipline's WARNING tier).
+        log.warning(
+            "_run_preview: refusing to run a preview_fn registered on CODE_EXEC command %r "
+            "(ADR-0007) — a preview that executes the payload would be un-gated code execution",
+            command,
+        )
         return None, "preview is not run for code_exec commands (ADR-0007)"
 
     container: dict[str, Any] = {}
@@ -489,7 +497,10 @@ def _gated_dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
         return {"gate": "denied", "status": "denied", "reason": f"Unexpected policy decision: {decision!r}"}
 
 
-def _emit_audit(gate, command: str, params: dict, event_type: str, classification, pending_id: str | None = None) -> None:
+def _emit_audit(
+    gate, command: str, params: dict, event_type: str, classification,
+    pending_id: str | None = None, capability_override: str | None = None,
+) -> None:
     """Append an AuditEvent to the gate's audit log.  Errors are logged, not raised.
 
     AuditEvent expects a 'classification' field (serialised dict) and
@@ -516,7 +527,11 @@ def _emit_audit(gate, command: str, params: dict, event_type: str, classificatio
             ts=datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
             event=event_type,
             tool=command,
-            capability=str(_cap_from_dispatcher(command).value),
+            capability=(
+                capability_override
+                if capability_override is not None
+                else str(_cap_from_dispatcher(command).value)
+            ),
             mode=gate.config.mode.value,
             classification=cl_dict,
             code_sha256=code_sha256,
@@ -527,7 +542,9 @@ def _emit_audit(gate, command: str, params: dict, event_type: str, classificatio
         log.warning("_emit_audit: failed to write audit event for %r: %s", command, exc)
 
 
-def _emit_refusal_audit(gate, command: str, pending_id: str | None = None) -> None:
+def _emit_refusal_audit(
+    gate, command: str, pending_id: str | None = None, capability: str | None = None
+) -> None:
     """Record a refused gate-control attempt (ADR-0007 Phase 3) in the audit log.
 
     A refusal is the tripwire that something tried to escalate its own authority — the single most
@@ -538,11 +555,18 @@ def _emit_refusal_audit(gate, command: str, pending_id: str | None = None) -> No
         gate: the live _GateInstance whose audit log receives the event.
         command: the gate-control command that was refused.
         pending_id: linked PendingCall id, when the refusal concerned a queued call.
+        capability: the capability that was actually refused, when it differs from `command`'s own.
+            Refusing an approval is the case that matters: the interesting capability belongs to
+            the QUEUED ENTRY (e.g. code_exec), while the gate command itself is readonly, and the
+            entry is purged moments later — so without this the log could never be reconstructed.
     """
     try:
         from homedini.dcc.mcp_gate.gate_model import Classification, Severity
         benign = Classification(danger=False, classes=[], severity=Severity.NONE, reasons=[])
-        _emit_audit(gate, command, {}, "refused", benign, pending_id=pending_id)
+        _emit_audit(
+            gate, command, {}, "refused", benign,
+            pending_id=pending_id, capability_override=capability,
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("_emit_refusal_audit: failed to record refusal of %r: %s", command, exc)
 
@@ -565,20 +589,26 @@ def _demote_live_non_settable_mode(gate) -> None:
     from homedini.dcc.mcp_gate.gate_model import Mode
     from homedini.dcc.mcp_gate.policy import is_mode_command_settable
 
+    # Capture the mode's display value INSIDE the guard too. Re-reading gate.config.mode below to
+    # log it would be a second unguarded access on exactly the malformed object the guard just
+    # caught -- and this runs BEFORE the wrap, so raising here would leave dispatch UNGATED.
     try:
-        settable = is_mode_command_settable(gate.config.mode)
+        mode = gate.config.mode
+        settable = is_mode_command_settable(mode)
+        mode_label = getattr(mode, "value", mode)
     except Exception as exc:  # noqa: BLE001
         # Fail closed: a mode we cannot evaluate must not be left in force.
         log.error(
             "install_gate: could not evaluate live gate mode (%s); demoting to PROPOSE", exc
         )
         settable = False
+        mode_label = "<unreadable>"
     if settable:
         return
 
     log.warning(
         "install_gate: live gate mode %r is no longer command-settable; demoting to %r (ADR-0007).",
-        getattr(gate.config.mode, "value", gate.config.mode),
+        mode_label,
         Mode.PROPOSE.value,
     )
     gate.config = replace(gate.config, mode=Mode.PROPOSE)
@@ -817,27 +847,38 @@ def _register_gate_handlers(_d, gate_ref) -> None:
         # the bridge has no caller identity.  MUTATING approvals are deliberately untouched: the
         # operator's propose-mode GateRail still approves reversible edits, which is what it is for.
         # Fail closed — only an explicitly MUTATING entry is approvable, so a missing or
-        # unparseable capability refuses rather than runs.  peek_entry is None only when the id is
-        # unknown/expired; that falls through to queue.approve()'s KeyError path, which runs nothing
-        # and reports the clearer "no pending call" message.
-        if peek_entry is not None:
-            _entry_cap = str(peek_entry.get("capability", ""))
-            if _entry_cap != CoreCap.MUTATING.value:
-                log.warning(
-                    "gate.approve_pending_call: REFUSED approval of %r (capability=%r)",
-                    pending_id, _entry_cap,
-                )
-                _emit_refusal_audit(g, "gate.approve_pending_call", pending_id)
-                return {
-                    "gate": "allowed",
-                    "status": "denied",
-                    "error": (
-                        f"Pending call {pending_id!r} has capability {_entry_cap!r} and cannot be "
-                        f"approved (ADR-0007). Only {CoreCap.MUTATING.value!r} calls are "
-                        f"approvable — code execution has no approval path. Use "
-                        f"gate.reject_pending_call to discard it."
-                    ),
-                }
+        # unparseable capability refuses rather than runs.
+        if peek_entry is None:
+            # Refuse HERE rather than falling through to queue.approve()'s KeyError path. Both purge
+            # expired entries first, so list() and approve() agree today — but authorization must
+            # not depend on that staying true. Presentation output is not an authorization source,
+            # and if the two ever diverged this branch would run an unchecked thunk.
+            return {
+                "gate": "allowed",
+                "status": "error",
+                "error": f"No pending call with id {pending_id!r} (expired or already handled).",
+            }
+
+        _entry_cap = str(peek_entry.get("capability", ""))
+        if _entry_cap != CoreCap.MUTATING.value:
+            log.warning(
+                "gate.approve_pending_call: REFUSED approval of %r (capability=%r)",
+                pending_id, _entry_cap,
+            )
+            # Audit the PENDING ENTRY's capability, not this gate command's own (readonly). The
+            # entry is purged moments later, so recording "readonly" would leave a log from which
+            # the actual refused attempt could never be reconstructed.
+            _emit_refusal_audit(g, "gate.approve_pending_call", pending_id, capability=_entry_cap)
+            return {
+                "gate": "allowed",
+                "status": "denied",
+                "error": (
+                    f"Pending call {pending_id!r} has capability {_entry_cap!r} and cannot be "
+                    f"approved (ADR-0007). Only {CoreCap.MUTATING.value!r} calls are "
+                    f"approvable — code execution has no approval path. Use "
+                    f"gate.reject_pending_call to discard it."
+                ),
+            }
 
         # B3 / ADR 0005 rev2 §3.4f: retrieve original call params BEFORE the
         # approve() call removes the entry from the queue.  params_of() returns

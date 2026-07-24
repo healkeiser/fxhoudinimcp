@@ -595,6 +595,36 @@ class TestApprovalCapabilityFence:
         assert ran == ["EXECUTED"], f"MUTATING approval did not run the thunk: {result!r}"
         assert result["gate"] == "approved", result
 
+    def test_an_unknown_pending_id_refuses_rather_than_falling_through(self, mock_hou, monkeypatch):
+        """Authorization must not depend on queue.list() and queue.approve() agreeing on existence.
+
+        They do agree today (both purge expired entries first), but the fence reads its capability
+        from list() output, so a divergence would have let approve() run an unchecked thunk.
+        """
+        gate, _audit = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+
+        result = reg["gate.approve_pending_call"](pending_id="pc_does_not_exist")
+
+        assert result["status"] == "error", result
+        assert "No pending call" in result["error"]
+
+    def test_the_refusal_audit_records_the_entrys_capability(self, mock_hou, monkeypatch):
+        """The entry is purged moments later, so 'readonly' would be unreconstructable."""
+        from homedini.dcc.mcp_gate.gate_model import Capability
+        gate, audit = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+        pending_id, _ran = self._queue(gate, Capability.CODE_EXEC)
+
+        reg["gate.approve_pending_call"](pending_id=pending_id)
+
+        refused = [e for e in audit if getattr(e, "event", "") == "refused"]
+        assert refused, "no refusal was audited"
+        assert any(getattr(e, "capability", "") == "code_exec" for e in refused), (
+            "the audit recorded the gate command's own capability instead of the entry's: "
+            f"{[getattr(e, 'capability', None) for e in refused]}"
+        )
+
     def test_a_non_mutating_capability_fails_closed(self, mock_hou, monkeypatch):
         """Only an explicitly MUTATING entry is approvable - anything else refuses, not runs."""
         from homedini.dcc.mcp_gate.gate_model import Capability
@@ -659,6 +689,26 @@ class TestInstallGateLifecycle:
 
         assert _d._handler_registry["gate.set_permission_mode"] is not _stale_handler, (
             "install_gate returned early and left the previous version's handler live"
+        )
+
+    def test_the_package_entry_point_follows_a_middleware_reload(self, mock_hou, monkeypatch):
+        """BLOCKER 2: `from ...gate import install_gate` must not cache a pre-reload function.
+
+        A module-level `from .middleware import install_gate` in the package __init__ binds the
+        function OBJECT once. importlib.reload(middleware) never re-executes __init__, so the
+        documented public entry point would keep installing the OLD, un-hardened gate. Patching the
+        submodule's attribute here stands in for the reload: if __init__ cached, the patch is unseen.
+        """
+        import fxhoudinimcp_server.gate as gate_pkg
+        import fxhoudinimcp_server.gate.middleware as mw
+
+        calls: list[str] = []
+        monkeypatch.setattr(mw, "install_gate", lambda *a, **k: calls.append("reloaded"), raising=False)
+
+        gate_pkg.install_gate()
+
+        assert calls == ["reloaded"], (
+            "the package entry point called a stale install_gate bound at import time"
         )
 
     def test_a_stale_gated_wrapper_is_rebound_without_double_wrapping(self, mock_hou, monkeypatch):

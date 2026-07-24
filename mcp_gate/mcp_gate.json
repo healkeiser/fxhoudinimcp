@@ -1,0 +1,34 @@
+{
+  "mode": "propose",
+  "danger_classes": {
+    "os": "HIGH",
+    "subprocess": "HIGH",
+    "socket": "HIGH",
+    "ctypes": "HIGH",
+    "cffi": "HIGH",
+    "sys": "HIGH",
+    "builtins": "MEDIUM",
+    "importlib": "MEDIUM",
+    "network": "HIGH",
+    "file_write": "HIGH",
+    "file_delete": "HIGH",
+    "dynamic_exec": "HIGH",
+    "hou.hipFile": "HIGH",
+    "shutil": "HIGH",
+    "hou.session": "MEDIUM"
+  },
+  "always_dangerous_tools": [
+    "execute_code",
+    "execute_hscript",
+    "evaluate_expression"
+  ],
+  "readonly_tools": [
+    "get_geometry_info",
+    "get_node_info",
+    "get_parm_value",
+    "list_nodes",
+    "list_parms"
+  ],
+  "audit_log": "$HOUDINI_USER_PREF_DIR/mcp_gate/audit.jsonl",
+  "queue_ttl_seconds": 3600
+}

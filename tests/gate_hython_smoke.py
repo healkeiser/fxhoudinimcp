@@ -119,8 +119,15 @@ def _run(label: str, fn) -> None:
 
 
 # ---- §3.7 item 1 ---------------------------------------------------------
-# propose mode: code.execute_python QUEUEs; approve -> result; audit log shows
-# queued->approved transition.
+# propose mode: code.execute_python QUEUEs; approving it is REFUSED; audit log shows the
+# queued->refused transition.
+#
+# CONTRACT CHANGE (ADR-0007 Phase 3, 2026-07-24). This item previously approved the queued
+# code-exec call and asserted gate=approved/status=success. That is no longer reachable BY DESIGN:
+# `trusted` is no longer settable via the gate command, so NO mode ALLOWs CODE_EXEC, and approving
+# a queued code-exec call was the last remaining path from QUEUE to execution -- a backdoor around
+# policy.decide's own execute_code FLOOR. The refusal is the property under test now. (MUTATING
+# approvals are deliberately untouched; item 2 still exercises the queue path for a mutating call.)
 
 def _item1():
     _install("propose")
@@ -130,13 +137,13 @@ def _item1():
     pending_id = r.get("pending_id")
     _assert(pending_id is not None, f"no pending_id in {r!r}")
 
-    # approve it
+    # approving a code-exec call must be REFUSED, and the payload must never run
     a = _dispatch("gate.approve_pending_call", {"pending_id": pending_id})
-    _assert(a.get("gate") == "approved", f"expected gate=approved, got {a!r}")
-    _assert(a.get("status") == "success", f"expected status=success, got {a!r}")
-    _assert("data" in a, f"no data in approved response {a!r}")
+    _assert(a.get("status") == "denied", f"expected status=denied, got {a!r}")
+    _assert(a.get("gate") != "approved", f"code-exec approval was granted: {a!r}")
+    _assert("data" not in a, f"a refused approval must carry no result payload: {a!r}")
 
-    # audit log shows both events
+    # audit log shows the queue and the refusal
     log = _dispatch("gate.get_audit_log", {})
     _assert(log.get("gate") == "allowed", f"audit log gated unexpectedly: {log!r}")
     entries = log.get("data", {}).get("entries", [])
@@ -146,8 +153,15 @@ def _item1():
         f"no queued event in audit log: {statuses!r}",
     )
     _assert(
-        any("approv" in (s or "").lower() for s in statuses),
-        f"no approved event in audit log: {statuses!r}",
+        any("refus" in (s or "").lower() for s in statuses),
+        f"no refused event in audit log: {statuses!r}",
+    )
+    # The refusal must record the QUEUED ENTRY's capability, not the gate command's own readonly --
+    # the entry is purged moments later, so a 'readonly' line would be unreconstructable.
+    refused = [e for e in entries if "refus" in (e.get("event") or "").lower()]
+    _assert(
+        any(e.get("capability") == "code_exec" for e in refused),
+        f"refusal audit lost the entry's capability: {refused!r}",
     )
 
 
@@ -392,12 +406,41 @@ def _sample_graph_find_expensive_nodes():
 
 # ------------------------------------------------------------------ runner --
 
+# ---- ADR-0007 Phase 3 item ------------------------------------------------
+# The capability DECLARATIONS are load-bearing in a way they were not before ACT_SAFE.
+#
+# register_handler defaults `capability` to MUTATING and its docstring calls that fail-closed.
+# That was true when the tiers were read_only/propose/approve/trusted, where MUTATING still QUEUED
+# under propose. ACT_SAFE changed the meaning: MUTATING -> ALLOW, no queue. So a code-exec handler
+# that ever loses its explicit `Capability.CODE_EXEC` would not fall back to "queued for approval";
+# it would run free under the panel's own tier. All 221 commands declare one today, so there is no
+# live hole -- this pins the three where dropping the declaration is worst.
+
+_CODE_EXEC_COMMANDS = (
+    "code.execute_python",
+    "code.execute_hscript",
+    "code.evaluate_expression",
+)
+
+
+def _item12():
+    from fxhoudinimcp_server.dispatcher import capability_of
+
+    for command in _CODE_EXEC_COMMANDS:
+        cap = capability_of(command)
+        _assert(
+            cap is not None and getattr(cap, "value", None) == "code_exec",
+            f"{command} no longer declares CODE_EXEC (got {cap!r}) — under ACT_SAFE it would be "
+            f"treated as MUTATING and ALLOWED with no queue",
+        )
+
+
 def main() -> int:
     print("=== gate_hython_smoke.py -- pp12-109b RED build gate ===")
     print()
 
     print("-- ADR section 3.7 items (11) --")
-    _run("item-1: propose CODE_EXEC queue->approve->audit", _item1)
+    _run("item-1: propose CODE_EXEC queue->approve REFUSED->audit (ADR-0007)", _item1)
     _run("item-2: propose nodes.create_node queue->reject", _item2)
     _run("item-3: read_only create=denied, scene=allowed", _item3)
     _run("item-4: trusted read-only -> original shape + gate=allowed", _item4)
@@ -408,6 +451,7 @@ def main() -> int:
     _run("item-9 R4A: file-stored trusted demoted to propose", _item9)
     _run("item-10 R4C: install_gate() twice -> single wrap", _item10)
     _run('item-11 R4E: " gate.get_audit_log" (leading space) not bypassed', _item11)
+    _run("item-12 ADR-0007: code-exec commands still declare CODE_EXEC", _item12)
 
     print()
     print("-- Per-family CODE_EXEC samples (4) --")
