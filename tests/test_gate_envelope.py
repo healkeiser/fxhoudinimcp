@@ -112,6 +112,11 @@ def mock_homedini_core(monkeypatch):
 
     policy_mod = types.ModuleType("homedini.dcc.mcp_gate.policy")
     policy_mod.decide = decide
+    # ADR-0007 Phase 3: _register_gate_handlers / _demote_live_non_settable_mode import
+    # is_mode_command_settable from policy. Provide the REAL pure-logic function (no hou/Qt/pxr,
+    # like gate_model above) so those imports resolve against this stub module instead of raising.
+    from homedini.dcc.mcp_gate.policy import is_mode_command_settable as _real_settable
+    policy_mod.is_mode_command_settable = _real_settable
 
     classifier_mod = types.ModuleType("homedini.dcc.mcp_gate.classifier")
     classifier_mod.classify_python  = classify_python
@@ -451,3 +456,373 @@ class TestActSafeModeRoundTrip:
 
         from fxhoudinimcp_server.gate.middleware import _mode_str
         assert _mode_str(Mode.ACT_SAFE) == "act_safe"
+
+
+# ---------------------------------------------------------------------------
+# ADR-0007 Phase 3 — the gate is un-escalatable
+# ---------------------------------------------------------------------------
+# Two routes turn the gate against the live scene, and BOTH must be closed before a Codex child is
+# wired into the panel: Codex has an un-fenced shell, so it can POST /api directly and the Phase 2
+# removal of the agent-facing FastMCP tools never reaches it.
+#   R1  gate.set_permission_mode("trusted") -> decide() ALLOWs CODE_EXEC -> arbitrary Python.
+#   R2  queue a CODE_EXEC call, then approve it -> the thunk runs -> arbitrary Python.
+# The bridge carries NO caller identity, so both refusals are unconditional rather than
+# identity-based. MUTATING approvals stay open on purpose: that is the operator's propose-mode rail.
+
+
+def _benign_classification():
+    """Build a danger-free Classification for queueing test entries."""
+    from homedini.dcc.mcp_gate.gate_model import Classification, Severity
+    return Classification(danger=False, classes=[], severity=Severity.NONE, reasons=[])
+
+
+def _make_real_gate(mode=None, ttl_seconds: int = 3600):
+    """Build a gate with a REAL GateConfig + REAL PendingQueue and a capturing audit sink.
+
+    Real collaborators on purpose: a mocked queue would happily report an approval that never ran
+    the thunk, which is precisely the property under test.
+    """
+    import types as _types
+
+    from homedini.dcc.mcp_gate.gate_model import GateConfig, Mode
+    from homedini.dcc.mcp_gate.pending_queue import PendingQueue
+
+    audit_events: list = []
+    gate = _types.SimpleNamespace(
+        config=GateConfig(
+            mode=mode or Mode.PROPOSE, danger_classes={}, always_dangerous_tools=[],
+            readonly_tools=[], audit_log="", queue_ttl_seconds=ttl_seconds,
+        ),
+        queue=PendingQueue(ttl_seconds=ttl_seconds),
+        audit=_types.SimpleNamespace(append=audit_events.append),
+    )
+    return gate, audit_events
+
+
+def _gate_handlers(mock_hou, monkeypatch, gate):
+    """Register the REAL gate handlers against `gate`; return the isolated handler registry."""
+    mock_hou.session._fxhoudinimcp_gate = gate
+    import fxhoudinimcp_server.dispatcher as _d
+    monkeypatch.setattr(_d, "_handler_registry", dict(_d._handler_registry), raising=False)
+    if "fxhoudinimcp_server.gate.middleware" in sys.modules:
+        del sys.modules["fxhoudinimcp_server.gate.middleware"]
+    from fxhoudinimcp_server.gate.middleware import _register_gate_handlers
+    _register_gate_handlers(_d, gate)
+    return _d._handler_registry
+
+
+class TestModeEscalationRefused:
+    """R1 — gate.set_permission_mode can never reach a tier that ALLOWs CODE_EXEC."""
+
+    def test_trusted_is_refused_and_the_live_mode_is_unchanged(self, mock_hou, monkeypatch):
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        gate, audit = _make_real_gate(mode=Mode.PROPOSE)
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+
+        result = reg["gate.set_permission_mode"](mode="trusted")
+
+        assert result["status"] == "denied", result
+        assert gate.config.mode is Mode.PROPOSE, (
+            "the refusal returned denied but STILL changed the live mode"
+        )
+        assert any(getattr(e, "event", "") == "refused" for e in audit), (
+            "a refused escalation must be audited - it is the tripwire that one was attempted"
+        )
+
+    def test_every_settable_mode_still_round_trips(self, mock_hou, monkeypatch):
+        """The fence must be narrow: only non-settable modes refuse, not every mode."""
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        from homedini.dcc.mcp_gate.policy import is_mode_command_settable
+        gate, _ = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+
+        for mode in Mode:
+            if not is_mode_command_settable(mode):
+                continue
+            result = reg["gate.set_permission_mode"](mode=mode.value)
+            assert result["status"] == "success", (mode, result)
+            assert gate.config.mode is mode
+
+    def test_the_panels_act_safe_ungate_survives_the_refusal(self, mock_hou, monkeypatch):
+        """The panel sets act_safe at spawn; if the refusal caught it, the panel would look dead."""
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        gate, _ = _make_real_gate(mode=Mode.PROPOSE)
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+
+        assert reg["gate.set_permission_mode"](mode="act_safe")["status"] == "success"
+        assert reg["gate.get_permission_mode"]()["data"]["mode"] == "act_safe"
+
+
+class TestApprovalCapabilityFence:
+    """R2 — a queued CODE_EXEC call has no approval path; MUTATING approvals still run."""
+
+    def _queue(self, gate, capability):
+        """Queue one entry whose thunk records that it ran; return (pending_id, ran_list)."""
+        ran: list[str] = []
+
+        def _thunk():
+            ran.append("EXECUTED")
+            return {"status": "success"}
+
+        pending_id = gate.queue.add(
+            tool="scene.execute_python", capability=capability,
+            classification=_benign_classification(), code="hou.hipFile.newFile()",
+            run_thunk=_thunk, params={},
+        )
+        return pending_id, ran
+
+    def test_code_exec_approval_is_refused_and_the_thunk_never_runs(self, mock_hou, monkeypatch):
+        from homedini.dcc.mcp_gate.gate_model import Capability
+        gate, audit = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+        pending_id, ran = self._queue(gate, Capability.CODE_EXEC)
+
+        result = reg["gate.approve_pending_call"](pending_id=pending_id)
+
+        assert result["status"] == "denied", result
+        assert ran == [], "the queued code-exec thunk RAN - the approval fence did not hold"
+        assert any(getattr(e, "event", "") == "refused" for e in audit)
+
+    def test_mutating_approval_still_runs_the_thunk(self, mock_hou, monkeypatch):
+        """The operator's propose-mode GateRail must keep approving reversible edits."""
+        from homedini.dcc.mcp_gate.gate_model import Capability
+        gate, _ = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+        pending_id, ran = self._queue(gate, Capability.MUTATING)
+
+        result = reg["gate.approve_pending_call"](pending_id=pending_id)
+
+        assert ran == ["EXECUTED"], f"MUTATING approval did not run the thunk: {result!r}"
+        assert result["gate"] == "approved", result
+
+    def test_a_non_mutating_capability_fails_closed(self, mock_hou, monkeypatch):
+        """Only an explicitly MUTATING entry is approvable - anything else refuses, not runs."""
+        from homedini.dcc.mcp_gate.gate_model import Capability
+        gate, _ = _make_real_gate()
+        reg = _gate_handlers(mock_hou, monkeypatch, gate)
+        pending_id, ran = self._queue(gate, Capability.READONLY)
+
+        result = reg["gate.approve_pending_call"](pending_id=pending_id)
+
+        assert result["status"] == "denied", result
+        assert ran == []
+
+
+class TestInstallGateLifecycle:
+    """The hardening must bind the session that INSTALLS it - a reload must not leave stale state."""
+
+    def _prepare(self, mock_hou, monkeypatch, gate):
+        mock_hou.session._fxhoudinimcp_gate = gate
+        import fxhoudinimcp_server.dispatcher as _d
+        monkeypatch.setattr(_d, "_handler_registry", dict(_d._handler_registry), raising=False)
+        if "fxhoudinimcp_server.gate.middleware" in sys.modules:
+            del sys.modules["fxhoudinimcp_server.gate.middleware"]
+        import fxhoudinimcp_server.gate.middleware as mw
+        return _d, mw
+
+    def test_a_live_trusted_session_is_demoted_on_install(self, mock_hou, monkeypatch):
+        """BLOCKER 2: the GATE survives reload on hou.session, so TRUSTED would survive with it."""
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        gate, _ = _make_real_gate(mode=Mode.TRUSTED)
+        _d, mw = self._prepare(mock_hou, monkeypatch, gate)
+
+        def _stub_dispatch(command, params):
+            return {"status": "success", "data": {}}
+        monkeypatch.setattr(_d, "dispatch", _stub_dispatch, raising=False)
+
+        mw.install_gate()
+
+        assert gate.config.mode is Mode.PROPOSE, (
+            "a session already at TRUSTED kept it across the install that hardens the gate"
+        )
+
+    def test_handlers_are_re_registered_even_when_already_gated(self, mock_hou, monkeypatch):
+        """BLOCKER 1: hitting the idempotency return must still replace the previous closures.
+
+        Handlers resolve by NAME from _handler_registry at call time, so leaving the old ones live
+        means a refusal shipped in this module is simply not in force after a reload.
+        """
+        gate, _ = _make_real_gate()
+        _d, mw = self._prepare(mock_hou, monkeypatch, gate)
+
+        def _already_gated(command, params):
+            return {"status": "success", "data": {}}
+        _already_gated._is_gated = True
+        monkeypatch.setattr(_d, "dispatch", _already_gated, raising=False)
+        monkeypatch.setattr(_d, "_ORIGINAL_DISPATCH", _already_gated, raising=False)
+
+        def _stale_handler(**_kwargs):
+            return {"status": "STALE"}
+        _d._handler_registry["gate.set_permission_mode"] = _stale_handler
+
+        mw.install_gate()
+
+        assert _d._handler_registry["gate.set_permission_mode"] is not _stale_handler, (
+            "install_gate returned early and left the previous version's handler live"
+        )
+
+    def test_a_stale_gated_wrapper_is_rebound_without_double_wrapping(self, mock_hou, monkeypatch):
+        """After a reload the installed callable is the OLD _gated_dispatch - rebind, never re-wrap."""
+        gate, _ = _make_real_gate()
+        _d, mw = self._prepare(mock_hou, monkeypatch, gate)
+
+        def _stale_gated(command, params):
+            return {"status": "success", "data": {}}
+        _stale_gated._is_gated = True
+
+        def _real_dispatch(command, params):
+            return {"status": "success", "data": {"real": True}}
+
+        monkeypatch.setattr(_d, "dispatch", _stale_gated, raising=False)
+        monkeypatch.setattr(_d, "_ORIGINAL_DISPATCH", _real_dispatch, raising=False)
+
+        mw.install_gate()
+
+        assert _d.dispatch is mw._gated_dispatch, "the stale wrapper stayed installed"
+        assert _d._ORIGINAL_DISPATCH is _real_dispatch, (
+            "install_gate re-captured _ORIGINAL_DISPATCH - that wraps the gate around itself"
+        )
+
+
+class TestPreviewCodeExecGuard:
+    """preview_fn is the LAST execution path a queued CODE_EXEC entry still has.
+
+    Approval is fenced (TestApprovalCapabilityFence) and no mode ALLOWs CODE_EXEC, so a preview_fn
+    that "previews" by running the operator-supplied snippet would be the only remaining un-gated
+    code-exec. The guard is capability-based so it also covers future CODE_EXEC commands.
+    """
+
+    def _load_run_preview(self, monkeypatch, capability_value, ran):
+        import fxhoudinimcp_server.dispatcher as _d
+
+        def _preview_fn(_params):
+            ran.append("PREVIEWED")
+            return {"ok": True}
+
+        monkeypatch.setattr(
+            _d, "preview_of", lambda _c: {"preview_fn": _preview_fn}, raising=False
+        )
+
+        class _ForkCap:
+            value = capability_value
+
+        monkeypatch.setattr(_d, "capability_of", lambda _c: _ForkCap(), raising=False)
+
+        # sys.modules discipline (test-fixture-conventions §2.35): another module in the full suite
+        # leaves an `hdefereval` MagicMock behind, and _run_preview would then marshal through it
+        # and never call preview_fn at all -- so this test passed alone and failed in the suite.
+        # Pin an hdefereval that really runs the callable, mirroring the in-Houdini main-thread
+        # marshal, so the assertion is about the GUARD rather than about ambient module state.
+        fake_hdefereval = types.ModuleType("hdefereval")
+        fake_hdefereval.executeInMainThreadWithResult = lambda fn: fn()
+        monkeypatch.setitem(sys.modules, "hdefereval", fake_hdefereval)
+
+        if "fxhoudinimcp_server.gate.middleware" in sys.modules:
+            del sys.modules["fxhoudinimcp_server.gate.middleware"]
+        from fxhoudinimcp_server.gate.middleware import _run_preview
+        return _run_preview
+
+    def test_preview_is_refused_for_a_code_exec_command(self, mock_hou, monkeypatch):
+        ran: list[str] = []
+        run_preview = self._load_run_preview(monkeypatch, "code_exec", ran)
+
+        payload, error = run_preview("scene.execute_python", {"code": "hou.hipFile.newFile()"})
+
+        assert ran == [], "preview_fn RAN for a code_exec command - un-gated code execution"
+        assert payload is None
+        assert error is not None and "code_exec" in error, error
+
+    def test_preview_still_runs_for_a_mutating_command(self, mock_hou, monkeypatch):
+        """The guard must be narrow: it fences code-exec only, not every previewable command."""
+        ran: list[str] = []
+        run_preview = self._load_run_preview(monkeypatch, "mutating", ran)
+
+        payload, error = run_preview("scene.create_node", {})
+
+        assert ran == ["PREVIEWED"], f"the guard swallowed a legitimate preview: {error!r}"
+        assert payload == {"ok": True}
+        assert error is None
+
+
+class TestRealPolicyThroughGatedDispatch:
+    """End-to-end through _gated_dispatch with the REAL policy — no always-ALLOW decide() stub.
+
+    Every other test in this file stubs `decide` (deliberately, to reach a specific branch), so
+    without this class nothing exercises middleware + pure-core policy composed together. That is
+    the shape that has bitten this fork before: green unit tests either side of a seam that is
+    itself wrong. The last test walks the FULL R2 chain — queue a code-exec call, then try to
+    approve it — which is the property the whole hardening exists to guarantee.
+    """
+
+    def _dispatch_with(self, mock_hou, monkeypatch, mode, capability_value):
+        import fxhoudinimcp_server.dispatcher as _d
+
+        gate, audit = _make_real_gate(mode=mode)
+        mock_hou.session._fxhoudinimcp_gate = gate
+
+        def _orig_dispatch(command, params):
+            return {"status": "success", "data": {"ran": command}, "timing_ms": 1}
+
+        class _ForkCap:
+            value = capability_value
+
+        ran: list[str] = []
+
+        def _handler(**_kwargs):
+            ran.append("EXECUTED")
+            return {"ok": True}
+
+        monkeypatch.setattr(_d, "_ORIGINAL_DISPATCH", _orig_dispatch, raising=False)
+        monkeypatch.setattr(_d, "capability_of", lambda _c: _ForkCap(), raising=False)
+        monkeypatch.setattr(_d, "preview_of", lambda _c: {}, raising=False)
+        monkeypatch.setattr(_d, "_handler_registry", dict(_d._handler_registry), raising=False)
+        _d._handler_registry["scene.probe"] = _handler
+
+        if "fxhoudinimcp_server.gate.middleware" in sys.modules:
+            del sys.modules["fxhoudinimcp_server.gate.middleware"]
+        import fxhoudinimcp_server.gate.middleware as mw
+        mw._register_gate_handlers(_d, gate)
+        return mw, _d, gate, audit, ran
+
+    def test_act_safe_denies_code_exec_end_to_end(self, mock_hou, monkeypatch):
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        mw, _d, _gate, _audit, ran = self._dispatch_with(
+            mock_hou, monkeypatch, Mode.ACT_SAFE, "code_exec"
+        )
+
+        result = mw._gated_dispatch("scene.probe", {"code": "hou.hipFile.newFile()"})
+
+        assert result["gate"] == "denied", result
+        assert ran == []
+
+    def test_act_safe_allows_a_reversible_mutation_end_to_end(self, mock_hou, monkeypatch):
+        """The floor must stay usable: act_safe exists so the agent CAN edit the scene."""
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        mw, _d, _gate, _audit, _ran = self._dispatch_with(
+            mock_hou, monkeypatch, Mode.ACT_SAFE, "mutating"
+        )
+
+        result = mw._gated_dispatch("scene.probe", {})
+
+        assert result["gate"] == "allowed", result
+
+    def test_the_full_escalation_chain_is_closed(self, mock_hou, monkeypatch):
+        """R2 end-to-end: queue a code-exec call under propose, then fail to approve it.
+
+        propose is operator-SELECTABLE in the panel, so this is a reachable state, not a contrived
+        one. The queued thunk must never run.
+        """
+        from homedini.dcc.mcp_gate.gate_model import Mode
+        mw, _d, _gate, _audit, ran = self._dispatch_with(
+            mock_hou, monkeypatch, Mode.PROPOSE, "code_exec"
+        )
+
+        queued = mw._gated_dispatch("scene.probe", {"code": "hou.hipFile.newFile()"})
+        assert queued["gate"] == "queued", queued
+        pending_id = queued["pending_id"]
+        assert ran == [], "queueing must not run the thunk"
+
+        approved = _d._handler_registry["gate.approve_pending_call"](pending_id=pending_id)
+
+        assert approved["status"] == "denied", approved
+        assert ran == [], "the code-exec thunk RAN — the full escalation chain is NOT closed"
