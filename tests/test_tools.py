@@ -146,3 +146,42 @@ class TestMaterialTools:
             "materials.list_materials",
             {"root_path": "/mat"},
         )
+
+
+class TestGateControlToolsAreNotAgentReachable:
+    """ADR-0007 Phase 2 — the authority-escalation gate tools must NOT be exposed as agent tools.
+
+    An agent that can set_permission_mode (change its own tier) or approve_pending_call (approve its
+    own queued call) defeats the gate. This is the fence that lets a Codex child (no CLI
+    --disallowed-tools) be added to the panel safely; the panel/operator reach these via a DIRECT
+    bridge call, not the FastMCP wrapper, so removing the wrappers does not affect them.
+    """
+
+    @pytest.mark.asyncio
+    async def test_escalation_gate_tools_are_not_registered(self):
+        from fxhoudinimcp.server import mcp
+
+        names = {t.name for t in await mcp.list_tools()}
+        assert "set_permission_mode" not in names, (
+            "set_permission_mode must NOT be an agent tool — it is authority escalation (ADR-0007 P2)"
+        )
+        assert "approve_pending_call" not in names, (
+            "approve_pending_call must NOT be an agent tool — it is a self-approval bypass (ADR-0007 P2)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_readonly_gate_introspection_tools_are_still_registered(self):
+        # The fence is surgical: the agent may still SEE the mode and the queue, just not change them.
+        from fxhoudinimcp.server import mcp
+
+        names = {t.name for t in await mcp.list_tools()}
+        assert "get_permission_mode" in names
+        assert "list_pending_calls" in names
+
+    @pytest.mark.asyncio
+    async def test_the_removed_tool_symbols_are_gone_from_the_module(self):
+        # Belt-and-suspenders: a re-added @mcp.tool() would re-register it, so also pin the symbols.
+        import fxhoudinimcp.tools.gate as gate_tools
+
+        assert not hasattr(gate_tools, "set_permission_mode")
+        assert not hasattr(gate_tools, "approve_pending_call")
