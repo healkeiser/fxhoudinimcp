@@ -42,3 +42,8 @@ Thumbs.db
 .cursor/
 .aider*
 .copilot/
+
+# Runtime-generated gate config: load_config() recreates this wherever the process cwd happens
+# to be when HOUDINI_USER_PREF_DIR is unset (e.g. a test run). Machine-specific, and a stray copy
+# in the repo could later be mistaken for real gate configuration.
+mcp_gate/
