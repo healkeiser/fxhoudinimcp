@@ -322,6 +322,26 @@ def _gated_dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
             reasons=[],
         )
 
+    # --- ADR-0007 Seam 1: never-list hard DENY ---
+    # scene.new_scene / scene.load_scene / cache.clear_cache destroy state that neither Houdini
+    # undo nor a saved .hip recovers. Denied regardless of mode (the floor below ACT_SAFE/TRUSTED),
+    # checked here because this is where the dispatch command string is known (decide() is
+    # tool-name-blind). Sound only alongside the ACT_SAFE CODE_EXEC DENY in policy.decide: without
+    # it, execute_python walks around any command-name list (review finding B1).
+    from homedini.dcc.mcp_gate.never_list import is_irreversible_command
+    if is_irreversible_command(command):
+        _emit_audit(gate, command, params, "denied", classification)
+        return {
+            "gate": "denied",
+            "status": "denied",
+            "reason": (
+                f"Command '{command}' is never allowed: it destroys scene or cache state that "
+                f"neither Houdini undo nor a saved .hip can recover."
+            ),
+            "mode": _mode_str(cfg.mode),
+            "capability": capability.value,
+        }
+
     # --- Policy decision ---
     decision = decide(cfg.mode, capability, classification)
 

@@ -117,6 +117,16 @@ def mock_homedini_core(monkeypatch):
     classifier_mod.classify_python  = classify_python
     classifier_mod.classify_hscript = classify_hscript
 
+    # ADR-0007: middleware now imports homedini.dcc.mcp_gate.never_list. Provide it from the REAL
+    # pure-logic module (no hou/Qt/pxr, like gate_model above), so _gated_dispatch's never-list
+    # check resolves off-DCC instead of ModuleNotFoundError against the bare parent stub.
+    from homedini.dcc.mcp_gate.never_list import (
+        IRREVERSIBLE_COMMANDS, is_irreversible_command,
+    )
+    never_list_mod = types.ModuleType("homedini.dcc.mcp_gate.never_list")
+    never_list_mod.IRREVERSIBLE_COMMANDS   = IRREVERSIBLE_COMMANDS
+    never_list_mod.is_irreversible_command = is_irreversible_command
+
     for name, mod in [
         ("homedini",                         types.ModuleType("homedini")),
         ("homedini.dcc",                     types.ModuleType("homedini.dcc")),
@@ -124,6 +134,7 @@ def mock_homedini_core(monkeypatch):
         ("homedini.dcc.mcp_gate.gate_model", gate_model_mod),
         ("homedini.dcc.mcp_gate.policy",     policy_mod),
         ("homedini.dcc.mcp_gate.classifier", classifier_mod),
+        ("homedini.dcc.mcp_gate.never_list", never_list_mod),
     ]:
         monkeypatch.setitem(sys.modules, name, mod)
 
@@ -357,3 +368,86 @@ class TestModeInputNormalization:
         assert _mode_str(Mode.PROPOSE)   == "propose"
         assert _mode_str(Mode.TRUSTED)   == "trusted"
         assert _mode_str(Mode.APPROVE)   == "approve"
+
+
+class TestNeverListHardDeny:
+    """ADR-0007 Seam 1 — irreversible commands are DENIED before policy.decide, any mode.
+
+    The mock_homedini_core `decide` stub always returns ALLOW, so these prove the never-list
+    check runs FIRST: if it did not, scene.new_scene would take the ALLOW path. That ordering is
+    the whole point — the floor must sit below every mode, including a permissive one.
+    """
+
+    def test_new_scene_is_denied_even_when_policy_would_allow(self, dispatcher_with_gate):
+        result = dispatcher_with_gate("scene.new_scene", {})
+        assert result.get("gate") == "denied", (
+            f"never-listed scene.new_scene must be denied; got {result!r}"
+        )
+        assert result.get("status") == "denied"
+
+    def test_load_scene_is_denied(self, dispatcher_with_gate):
+        assert dispatcher_with_gate("scene.load_scene", {"file_path": "x.hip"}).get("gate") == "denied"
+
+    def test_clear_cache_is_denied(self, dispatcher_with_gate):
+        assert dispatcher_with_gate("cache.clear_cache", {}).get("gate") == "denied"
+
+    def test_a_reversible_command_still_reaches_the_allow_path(self, dispatcher_with_gate):
+        # Not on the never-list, so the permissive decide() stub allows it — proving the check is
+        # narrow (only the three irreversible commands), not a blanket denial.
+        result = dispatcher_with_gate("scene.get_scene_info", {})
+        assert result.get("gate") == "allowed", (
+            f"a reversible command must not be caught by the never-list; got {result!r}"
+        )
+
+
+class TestActSafeModeRoundTrip:
+    """ADR-0007 review (MAJOR-2): the panel<->fork ACT_SAFE mode string round-trip, across the REAL
+    gate handlers -- not a test double that echoes its input. The panel sends the underscore form
+    "act_safe" and its ungate-acceptance check compares against what the fork RETURNS; if _mode_str
+    or _set_permission_mode's input normalization regresses its replace-direction, the panel's
+    ungate silently exhausts its retry ladder. This catches that off-DCC.
+    """
+
+    def test_set_then_get_round_trips_act_safe_through_real_handlers(self, mock_hou, monkeypatch):
+        import types as _types
+        from homedini.dcc.mcp_gate.gate_model import GateConfig, Mode
+
+        # A real GateConfig so the handler's dataclasses.replace() works on it.
+        gate = _types.SimpleNamespace(config=GateConfig(
+            mode=Mode.PROPOSE, danger_classes={}, always_dangerous_tools=[],
+            readonly_tools=[], audit_log="", queue_ttl_seconds=3600,
+        ))
+        mock_hou.session._fxhoudinimcp_gate = gate
+
+        import fxhoudinimcp_server.dispatcher as _d
+        # Isolate the global handler registry so registering gate handlers here can't leak.
+        monkeypatch.setattr(_d, "_handler_registry", dict(_d._handler_registry), raising=False)
+
+        if "fxhoudinimcp_server.gate.middleware" in sys.modules:
+            del sys.modules["fxhoudinimcp_server.gate.middleware"]
+        from fxhoudinimcp_server.gate.middleware import _mode_str, _register_gate_handlers
+        _register_gate_handlers(_d, gate)
+
+        set_fn = _d._handler_registry["gate.set_permission_mode"]
+        get_fn = _d._handler_registry["gate.get_permission_mode"]
+
+        # INPUT direction: the panel's underscore form must normalize to Mode.ACT_SAFE.
+        set_result = set_fn(mode="act_safe")
+        assert set_result["status"] == "success", set_result
+        assert gate.config.mode is Mode.ACT_SAFE, (
+            "input normalization 'act_safe' -> Mode.ACT_SAFE regressed"
+        )
+
+        # OUTPUT direction: the readback must be the exact string the panel's ungate check compares.
+        got = get_fn()
+        assert got["data"]["mode"] == "act_safe", f"_mode_str output for ACT_SAFE regressed: {got!r}"
+
+    def test_mode_str_maps_act_safe_to_underscore_form(self, mock_hou):
+        import sys as _sys
+        import types as _types
+        if "hou" not in _sys.modules:
+            _sys.modules["hou"] = _types.ModuleType("hou")  # type: ignore[assignment]
+        from homedini.dcc.mcp_gate.gate_model import Mode
+
+        from fxhoudinimcp_server.gate.middleware import _mode_str
+        assert _mode_str(Mode.ACT_SAFE) == "act_safe"
