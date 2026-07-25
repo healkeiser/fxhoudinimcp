@@ -423,13 +423,13 @@ def _get_last_modified_prims(*, node_path: str) -> dict[str, Any]:
         spec = layer.GetPrimAtPath(path)
         if spec:
             authored.append(str(path))
-            for child_name in spec.nameChildren:
+            for child_name in spec.nameChildren.keys():
                 _walk(path.AppendChild(child_name))
 
     root = Sdf.Path.absoluteRootPath
     root_spec = layer.GetPrimAtPath(root)
     if root_spec:
-        for child_name in root_spec.nameChildren:
+        for child_name in root_spec.nameChildren.keys():
             _walk(root.AppendChild(child_name))
 
     return {
@@ -764,13 +764,13 @@ def _inspect_usd_layer(
         if spec:
             authored_prims.append(str(path))
             if hasattr(spec, "nameChildren"):
-                for child_name in spec.nameChildren:
+                for child_name in spec.nameChildren.keys():
                     _walk_layer(path.AppendChild(child_name))
 
     root = Sdf.Path.absoluteRootPath
     root_spec = layer.GetPrimAtPath(root)
     if root_spec and hasattr(root_spec, "nameChildren"):
-        for child_name in root_spec.nameChildren:
+        for child_name in root_spec.nameChildren.keys():
             _walk_layer(root.AppendChild(child_name))
 
     # Sublayers
