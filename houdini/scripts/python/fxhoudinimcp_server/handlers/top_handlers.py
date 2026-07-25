@@ -91,6 +91,17 @@ def _get_graph_context(node: hou.Node):
     parent = node
     while parent is not None:
         if parent.type().category().name() == "TopNet" or parent.type().name() == "topnet":
+            # A TOP network has no PDG node of its own -- it cooks through the
+            # node it displays -- so borrow the context from there. Houdini 22
+            # removed hou.pdg entirely, so the legacy lookup below cannot
+            # resolve anything there and this is the path that works.
+            display = parent.displayNode() if hasattr(parent, "displayNode") else None
+            if display is not None:
+                display_pdg = display.getPDGNode()
+                if display_pdg is not None and display_pdg.context is not None:
+                    return display_pdg.context
+
+            # Legacy path for Houdini versions that still expose hou.pdg.
             try:
                 contexts = hou.pdg.GraphContext.contexts()
                 for ctx in contexts:
