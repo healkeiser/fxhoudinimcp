@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mainMenu>
+  <menuBar>
+    <subMenu id="fxhoudinimcp_menu">
+      <label>MCP</label>
+      <insertBefore>help_menu</insertBefore>
+
+      <scriptItem id="fxhoudinimcp_start">
+        <label>Start Server</label>
+        <scriptCode><![CDATA[
+import hou
+import fxhoudinimcp_server.startup as mcp
+
+if mcp.is_running():
+    hou.ui.setStatusMessage(
+        f"FXHoudini-MCP already running on port {mcp.get_port()}"
+    )
+else:
+    try:
+        mcp.start()
+    except Exception as exc:
+        hou.ui.displayMessage(
+            f"Could not start the FXHoudini-MCP server:\n\n{exc}",
+            severity=hou.severityType.Error,
+            title="FXHoudini-MCP",
+        )
+    else:
+        hou.ui.setStatusMessage(
+            f"FXHoudini-MCP started on port {mcp.get_port()}"
+        )
+]]></scriptCode>
+      </scriptItem>
+
+      <scriptItem id="fxhoudinimcp_stop">
+        <label>Stop Server</label>
+        <scriptCode><![CDATA[
+import hou
+import fxhoudinimcp_server.startup as mcp
+
+if mcp.is_running():
+    mcp.stop()
+    hou.ui.setStatusMessage("FXHoudini-MCP stopped")
+else:
+    hou.ui.setStatusMessage("FXHoudini-MCP is not running")
+]]></scriptCode>
+      </scriptItem>
+
+      <separatorItem/>
+
+      <scriptItem id="fxhoudinimcp_status">
+        <label>Server Status...</label>
+        <scriptCode><![CDATA[
+import os
+
+import hou
+import fxhoudinimcp_server.startup as mcp
+
+if mcp.is_running():
+    lines = [
+        f"Status: RUNNING on port {mcp.get_port()}",
+        f"Bind address: {os.environ.get('FXHOUDINIMCP_BIND', '127.0.0.1')}",
+    ]
+else:
+    lines = [
+        "Status: STOPPED",
+        f"Configured port: {mcp.get_port()}",
+        "",
+        "Use MCP > Start Server, or set FXHOUDINIMCP_AUTOSTART=1",
+    ]
+
+lines.append(f"Houdini pid: {os.getpid()}")
+hou.ui.displayMessage("\n".join(lines), title="FXHoudini-MCP Status")
+]]></scriptCode>
+      </scriptItem>
+    </subMenu>
+  </menuBar>
+</mainMenu>
