@@ -5,19 +5,24 @@ only in part of the supported range: Houdini 21 added most of Copernicus, and
 22 renamed the LOP ``instancer`` to ``pointinstancer`` and dropped ``layout``.
 Hand-maintaining those markers does not survive a release, so this derives them.
 
-    python tools/gen_node_versions.py            # regenerate, write files
-    python tools/gen_node_versions.py --check    # fail if anything is stale
+    python tools/gen_node_versions.py            # contribute this machine, regenerate
+    python tools/gen_node_versions.py --check    # verify the committed table here
 
-The authoritative signal is presence: every installed Houdini is asked for its
-own node type list, and the lists are diffed. That catches removals, which
-SideFX's ``#since`` metadata never records, and it covers every node rather
-than the ~63% that carry ``#since``. ``#since`` is kept alongside as
-corroboration and to describe versions that are not installed locally.
+The table accumulates. ``node_versions.json`` records which builds have been
+sampled and which node types each one had, so a contributor with a single
+Houdini installed adds their build to the shared evidence and still gets correct
+annotations from everything sampled before them. Nobody needs six installs.
 
-Annotations are only as good as the builds sampled. A name is reported as
-present in a minor series only when every sampled build of that series has it,
-and a series with a single sampled build is flagged in the JSON so a reader can
-see how thin the evidence is.
+The authoritative signal is presence: each Houdini is asked for its own node
+type list, and the lists are diffed. That catches removals, which SideFX's
+``#since`` metadata never records, and it covers every node rather than the
+~63% carrying ``#since``. ``#since`` is kept alongside as corroboration.
+
+Annotations are only as good as the builds sampled. A name counts as present in
+a minor series only when every sampled build of that series has it, and series
+resting on a single build are flagged so a reader can see how thin the evidence
+is. A range bounded by the oldest sampled build says nothing about Houdini
+versions older than that.
 """
 
 from __future__ import annotations
@@ -68,7 +73,23 @@ _ANNOTATED_NAME = re.compile(
 _CHILD_ENV = {"HOUDINI_DISABLE_OPENFX_DEFAULT_PATH": "1"}
 
 
+###### Sampling
+
+
 def _hythons() -> list[Path]:
+    """Every installed hython, or just $HYTHON when it is set.
+
+    Honouring HYTHON matches tests/run_integration.py and lets a contributor
+    sample one specific build deliberately.
+    """
+    override = os.environ.get("HYTHON")
+    if override:
+        candidate = Path(override)
+        if not candidate.is_file():
+            print(f"HYTHON is set but does not exist: {override}")
+            return []
+        return [candidate]
+
     sys.path.insert(0, str(REPO_ROOT / "tests"))
     from run_integration import find_all_hython  # noqa: E402
 
@@ -108,58 +129,110 @@ def _dump(hython: Path) -> dict | None:
         return None
 
 
-def _series(version_tuple: list[int]) -> str:
+def _series_of(version_tuple: list[int]) -> str:
     return f"{version_tuple[0]}.{version_tuple[1]}"
 
 
-def build_table(dumps: list[dict]) -> dict:
-    """Collapse per-build node lists into per-series availability."""
-    builds_by_series: dict[str, list[str]] = defaultdict(list)
-    for dump in dumps:
-        builds_by_series[_series(dump["version_tuple"])].append(dump["version"])
+def _series_key(series: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in series.split("."))
 
-    # category/name -> series -> present in every sampled build of that series
-    present: dict[str, dict[str, bool]] = defaultdict(dict)
-    counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", version))
+
+
+###### The accumulated table
+
+
+def load_table() -> dict:
+    if not _TABLE.is_file():
+        return {"builds": {}, "present": {}, "since": {}}
+    table = json.loads(_TABLE.read_text(encoding="utf-8"))
+    table.setdefault("builds", {})
+    table.setdefault("present", {})
+    table.setdefault("since", {})
+    return table
+
+
+def merge(table: dict, dumps: list[dict]) -> dict:
+    """Fold this machine's builds into the accumulated evidence.
+
+    Re-sampling a build already in the table replaces its column rather than
+    adding to it, so a corrected dump supersedes a stale one.
+    """
+    builds = dict(table["builds"])
+    present: dict[str, set[str]] = {
+        key: set(values) for key, values in table["present"].items()
+    }
+    since = dict(table["since"])
+
     for dump in dumps:
-        series = _series(dump["version_tuple"])
+        build = dump["version"]
+        builds[build] = _series_of(dump["version_tuple"])
+        # Drop any previous record of this build before re-adding it.
+        for values in present.values():
+            values.discard(build)
         for category, names in dump["node_types"].items():
             for name in names:
-                counts[f"{category}/{name}"][series] += 1
+                present.setdefault(f"{category}/{name}", set()).add(build)
 
-    for key, per_series in counts.items():
-        for series, seen in per_series.items():
-            present[key][series] = seen == len(builds_by_series[series])
+        # Keep the earliest version any build documents, not whichever was
+        # merged last. Builds disagree (a node's help page can be rewritten),
+        # and last-write-wins would make the committed file depend on the order
+        # contributors happened to sample in.
+        for key, value in (dump.get("since") or {}).items():
+            prior = since.get(key)
+            if prior is None or _version_key(value) < _version_key(prior):
+                since[key] = value
 
-    since: dict[str, str] = {}
-    for dump in dumps:
-        since.update(dump.get("since") or {})
+    # A name nothing has ever reported is dead weight.
+    present = {key: values for key, values in present.items() if values}
 
-    ordered = sorted(builds_by_series, key=lambda s: tuple(int(p) for p in s.split(".")))
     return {
-        "series": ordered,
-        "builds": {series: sorted(b) for series, b in builds_by_series.items()},
-        "thin_evidence": [s for s in ordered if len(builds_by_series[s]) == 1],
-        "availability": {
-            key: {series: per.get(series, False) for series in ordered}
-            for key, per in sorted(present.items())
-        },
-        "since": since,
+        "builds": dict(sorted(builds.items())),
+        "present": {key: sorted(values) for key, values in sorted(present.items())},
+        "since": dict(sorted(since.items())),
     }
 
 
-def annotation_for(availability: dict[str, bool], series: list[str]) -> str | None:
+def availability(table: dict) -> tuple[list[str], dict[str, dict[str, bool]]]:
+    """Collapse per-build evidence into per-series presence.
+
+    A series is only credited when every sampled build of that series has the
+    name, so one build lagging a release does not create a false positive.
+    """
+    builds_by_series: dict[str, list[str]] = defaultdict(list)
+    for build, series in table["builds"].items():
+        builds_by_series[series].append(build)
+
+    series = sorted(builds_by_series, key=_series_key)
+    result: dict[str, dict[str, bool]] = {}
+    for key, builds in table["present"].items():
+        seen = set(builds)
+        result[key] = {
+            name: all(build in seen for build in builds_by_series[name])
+            for name in series
+        }
+    return series, result
+
+
+def thin_evidence(table: dict) -> list[str]:
+    counts: dict[str, int] = defaultdict(int)
+    for series in table["builds"].values():
+        counts[series] += 1
+    return sorted((s for s, n in counts.items() if n == 1), key=_series_key)
+
+
+def annotation_for(per_series: dict[str, bool], series: list[str]) -> str | None:
     """Return "(21.0+)", "(20.5-21.0)", or None when present throughout.
 
     Returns None for anything that is not a clean prefix or suffix of the
     sampled range; a gap means the annotation syntax cannot express it and a
     person needs to look.
     """
-    flags = [availability.get(s, False) for s in series]
-    if all(flags):
+    flags = [per_series.get(name, False) for name in series]
+    if all(flags) or not any(flags):
         return None
-    if not any(flags):
-        return None  # absent everywhere: not an annotation problem
 
     first, last = flags.index(True), len(flags) - 1 - flags[::-1].index(True)
     if not all(flags[first : last + 1]):
@@ -167,6 +240,9 @@ def annotation_for(availability: dict[str, bool], series: list[str]) -> str | No
     if last == len(flags) - 1:
         return f"({series[first]}+)"
     return f"({series[first]}-{series[last]})"
+
+
+###### The instructions
 
 
 def _markdown_names(text: str) -> list[tuple[str, str]]:
@@ -206,24 +282,23 @@ def _markdown_names(text: str) -> list[tuple[str, str]]:
 
 def rewrite_instructions(text: str, table: dict) -> tuple[str, list[str], list[str]]:
     """Strip old annotations and write the derived ones back in."""
-    series = table["series"]
-    availability = table["availability"]
+    series, avail = availability(table)
     applied: list[str] = []
     unexpressible: list[str] = []
 
     wanted: dict[str, str] = {}
     for category, name in _markdown_names(text):
-        entry = availability.get(f"{category}/{name}")
-        if entry is None:
+        per_series = avail.get(f"{category}/{name}")
+        if per_series is None:
             continue
-        marker = annotation_for(entry, series)
+        marker = annotation_for(per_series, series)
         if marker:
             wanted[name] = marker
             applied.append(f"{category}/{name} {marker}")
-        elif not all(entry.get(s, False) for s in series) and any(
-            entry.get(s, False) for s in series
+        elif not all(per_series.get(s, False) for s in series) and any(
+            per_series.get(s, False) for s in series
         ):
-            unexpressible.append(f"{category}/{name} {entry}")
+            unexpressible.append(f"{category}/{name} {per_series}")
 
     out_lines: list[str] = []
     category = None
@@ -259,55 +334,16 @@ def rewrite_instructions(text: str, table: dict) -> tuple[str, list[str], list[s
     return "\n".join(out_lines) + "\n", sorted(applied), sorted(unexpressible)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="do not write; exit non-zero if the committed files are stale",
-    )
-    args = parser.parse_args()
+###### Reporting
 
-    hythons = _hythons()
-    if len(hythons) < 2:
-        print(
-            f"Found {len(hythons)} Houdini install(s). Diffing needs at least two "
-            "to say anything about availability."
-        )
-        return 1
 
-    print(f"Sampling {len(hythons)} Houdini installs:")
-    dumps = []
-    for hython in hythons:
-        dump = _dump(hython)
-        if dump is None:
-            continue
-        total = sum(len(v) for v in dump["node_types"].values())
-        print(
-            f"  {dump['version']:<12} {total:>5} node types, "
-            f"{len(dump.get('since') or {})} with #since"
-        )
-        dumps.append(dump)
+def _report_since(table: dict, applied: list[str]) -> None:
+    """Corroborate derived lower bounds against SideFX's own #since.
 
-    if len(dumps) < 2:
-        print("Fewer than two builds responded; refusing to guess.")
-        return 1
-
-    table = build_table(dumps)
-    text = _INSTRUCTIONS.read_text(encoding="utf-8")
-    new_text, applied, unexpressible = rewrite_instructions(text, table)
-
-    print(f"\nseries sampled : {table['series']}")
-    if table["thin_evidence"]:
-        print(f"single-build   : {table['thin_evidence']} (weaker evidence)")
-    print(f"annotations     : {len(applied)}")
-    for item in applied:
-        print(f"    {item}")
-
-    # Corroborate the derived lower bound against SideFX's own #since, purely as
-    # a report. They disagree legitimately: #since records when a node first
-    # appeared anywhere in Houdini's history, which can predate the oldest build
-    # sampled here, and it never records a removal. Presence stays authoritative.
+    They disagree legitimately: #since records when a node first appeared
+    anywhere in Houdini's history, which can predate the oldest build sampled
+    here, and it never records a removal. Presence stays authoritative.
+    """
     agreed, disagreed, absent = 0, [], 0
     for item in applied:
         key = item.split(" ", 1)[0]
@@ -325,28 +361,139 @@ def main() -> int:
     )
     for item in disagreed:
         print(f"    {item}  (expected when the node predates the oldest build sampled)")
+
+
+def check(dumps: list[dict], table: dict, text: str) -> int:
+    """Verify the committed annotations against the builds on this machine.
+
+    Deliberately not "would a regeneration produce identical files": with one
+    Houdini installed that would always look stale, which would make the check
+    useless to most contributors. This asks the narrower, answerable question --
+    does the committed table contradict what this machine actually has?
+    """
+    annotated = {
+        match.group(1): (match.group(2), match.group(0))
+        for match in _ANNOTATED_NAME.finditer(
+            text.replace("\\_", "_")
+        )
+    }
+    series, avail = availability(table)
+
+    contradictions: list[str] = []
+    unsampled: list[str] = []
+    for dump in dumps:
+        build = dump["version"]
+        this_series = _series_of(dump["version_tuple"])
+        if build not in table["builds"]:
+            unsampled.append(build)
+        here = {
+            f"{category}/{name}"
+            for category, names in dump["node_types"].items()
+            for name in names
+        }
+        for key, per_series in avail.items():
+            name = key.split("/", 1)[1]
+            if name not in annotated or this_series not in series:
+                continue
+            marker = annotated[name][1].strip()
+            expected = per_series.get(this_series, False)
+            actual = key in here
+            if expected != actual:
+                contradictions.append(
+                    f"{build}: {key} {marker} says "
+                    f"{'present' if expected else 'absent'}, build says "
+                    f"{'present' if actual else 'absent'}"
+                )
+
+    print(f"\nannotated names checked : {len(annotated)}")
+    print(f"builds available here   : {[d['version'] for d in dumps]}")
+    if unsampled:
+        print(
+            f"not yet in the table    : {unsampled}\n"
+            "    Run without --check to contribute them."
+        )
+    if contradictions:
+        print(f"\nCONTRADICTIONS ({len(contradictions)}):")
+        for item in contradictions:
+            print(f"    {item}")
+        return 1
+    print("\nNo contradictions with the builds installed here.")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the committed table against this machine's Houdini(s)",
+    )
+    args = parser.parse_args()
+
+    hythons = _hythons()
+    if not hythons:
+        print("No Houdini install found. Set HYTHON or install Houdini.")
+        return 1
+
+    print(f"Sampling {len(hythons)} Houdini install(s):")
+    dumps = []
+    for hython in hythons:
+        dump = _dump(hython)
+        if dump is None:
+            continue
+        total = sum(len(v) for v in dump["node_types"].values())
+        print(
+            f"  {dump['version']:<12} {total:>5} node types, "
+            f"{len(dump.get('since') or {})} with #since"
+        )
+        dumps.append(dump)
+
+    if not dumps:
+        print("No build responded; nothing to do.")
+        return 1
+
+    table = load_table()
+    text = _INSTRUCTIONS.read_text(encoding="utf-8")
+
+    if args.check:
+        return check(dumps, table, text)
+
+    merged = merge(table, dumps)
+    series, _ = availability(merged)
+    new_builds = [d["version"] for d in dumps if d["version"] not in table["builds"]]
+
+    print(f"\nbuilds in table : {len(merged['builds'])} ({', '.join(series)})")
+    if new_builds:
+        print(f"newly added     : {', '.join(new_builds)}")
+    thin = thin_evidence(merged)
+    if thin:
+        print(f"single-build    : {thin} (weaker evidence)")
+
+    if len(series) < 2:
+        print(
+            f"\nOnly one series ({series[0]}) has ever been sampled, so nothing can "
+            "be said about when a node appeared or vanished.\n"
+            f"Wrote the evidence to {_TABLE.relative_to(REPO_ROOT)} anyway -- commit "
+            "it and the annotations will follow once another version is contributed."
+        )
+        _TABLE.write_text(
+            json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return 0
+
+    new_text, applied, unexpressible = rewrite_instructions(text, merged)
+    print(f"annotations     : {len(applied)}")
+    for item in applied:
+        print(f"    {item}")
     if unexpressible:
         print(f"\nNOT expressible as a range, look at these {len(unexpressible)}:")
         for item in unexpressible:
             print(f"    {item}")
+    _report_since(merged, applied)
 
-    new_table = json.dumps(table, indent=2, sort_keys=True) + "\n"
-    if args.check:
-        stale = []
-        if not _TABLE.is_file() or _TABLE.read_text(encoding="utf-8") != new_table:
-            stale.append(str(_TABLE.relative_to(REPO_ROOT)))
-        if new_text != text:
-            stale.append(str(_INSTRUCTIONS.relative_to(REPO_ROOT)))
-        if stale:
-            print(
-                "\nSTALE: " + ", ".join(stale)
-                + "\nRun: python tools/gen_node_versions.py"
-            )
-            return 1
-        print("\nUp to date.")
-        return 0
-
-    _TABLE.write_text(new_table, encoding="utf-8")
+    _TABLE.write_text(
+        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     if new_text != text:
         _INSTRUCTIONS.write_text(new_text, encoding="utf-8")
         print(f"\nrewrote {_INSTRUCTIONS.relative_to(REPO_ROOT)}")

@@ -342,11 +342,20 @@ pytest
 python tests/run_integration.py
 # Convenience wrappers: tests/run_integration.ps1 / tests/run_integration.sh
 
-# Regenerate the node-availability annotations after a new Houdini release
-# (samples every installed Houdini and diffs their node type lists):
+# Contribute this machine's Houdini builds to the node-availability table and
+# regenerate the version annotations in server_instructions.md:
 python tools/gen_node_versions.py
-python tools/gen_node_versions.py --check   # fail if the committed files are stale
+python tools/gen_node_versions.py --check   # verify the table against this machine
+HYTHON=/path/to/hython python tools/gen_node_versions.py   # one specific build
 ```
+
+`tools/node_versions.json` accumulates. It records which builds have been
+sampled and what node types each had, so **one installed Houdini is enough**:
+your build merges into the shared evidence and the annotations are derived from
+everything sampled so far. A contributor with a single Houdini produces exactly
+the same table as someone with six. If a version has never been sampled by
+anyone, the generator says so rather than guessing, and `--check` reports only
+contradictions with the builds you actually have.
 
 If Red Giant / Maxon Universe is installed, its OpenFX plug-in crashes `hou`
 initialisation on Houdini 20.5.487 and later, so `hython` cannot start at all.

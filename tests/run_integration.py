@@ -22,18 +22,34 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-_SEARCH_PATTERNS = [
-    # Windows
-    "C:/Program Files/Side Effects Software/Houdini *",
-    # macOS
-    "/Applications/Houdini/Houdini*",
-    # Linux
-    "/opt/hfs*",
-]
+def _search_patterns() -> list[str]:
+    """Where Houdini installs live, per platform.
+
+    %PROGRAMFILES% rather than a hardcoded C:, because a Windows install on
+    another drive is common. The Linux list covers the SideFX default plus the
+    two relocations that turn up most often; anything more exotic is reachable
+    via $HFS or $HYTHON.
+    """
+    program_files = os.environ.get("PROGRAMFILES", "C:/Program Files").replace(
+        "\\", "/"
+    )
+    return [
+        # Windows
+        f"{program_files}/Side Effects Software/Houdini *",
+        "C:/Program Files/Side Effects Software/Houdini *",
+        # macOS
+        "/Applications/Houdini/Houdini*",
+        # Linux
+        "/opt/hfs*",
+        "/opt/sidefx/hfs*",
+        "/usr/local/hfs*",
+    ]
+
 
 _HYTHON_SUBPATHS = [
     "bin/hython.exe",
     "bin/hython",
+    # macOS keeps the interpreter inside the framework bundle.
     "Frameworks/Houdini.framework/Versions/Current/Resources/bin/hython",
 ]
 
@@ -43,26 +59,51 @@ def _version_key(path: Path) -> tuple[int, ...]:
     return tuple(int(d) for d in digits) if digits else (0,)
 
 
+def _hython_in(install: Path) -> Path | None:
+    for subpath in _HYTHON_SUBPATHS:
+        hython = install / subpath
+        if hython.is_file():
+            return hython
+    return None
+
+
 def find_all_hython() -> list[Path]:
     """Return every installed hython executable, newest first.
 
     Used by tools/gen_node_versions.py, which needs to sample all installs
-    rather than just the newest.
+    rather than just the newest. $HFS is honoured first so a Houdini in a
+    non-standard location -- a studio mount, a relocated install -- is still
+    found; it is the pointer SideFX's own shell sets.
     """
     installs: list[Path] = []
-    for pattern in _SEARCH_PATTERNS:
-        root = Path(pattern.split("*")[0]).parent
-        glob = pattern.split("/")[-1]
+
+    hfs = os.environ.get("HFS")
+    if hfs:
+        candidate = Path(hfs.replace("\\", "/"))
+        if candidate.is_dir():
+            installs.append(candidate)
+
+    for pattern in _search_patterns():
+        # Split on the final separator, not on the "*": the wildcard sits inside
+        # the last segment ("Houdini *", "hfs*"), and splitting on it walked one
+        # directory too far up for a pattern whose last segment is just "*".
+        root, glob = Path(pattern).parent, Path(pattern).name
         if root.is_dir():
             installs.extend(p for p in root.glob(glob) if p.is_dir())
 
     found: list[Path] = []
+    seen: set[Path] = set()
     for install in sorted(installs, key=_version_key, reverse=True):
-        for subpath in _HYTHON_SUBPATHS:
-            hython = install / subpath
-            if hython.is_file():
-                found.append(hython)
-                break
+        hython = _hython_in(install)
+        if hython is None:
+            continue
+        # Two patterns can name the same directory (%PROGRAMFILES% and the
+        # literal C: fallback), and $HFS usually duplicates one of them.
+        resolved = hython.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        found.append(hython)
     return found
 
 
