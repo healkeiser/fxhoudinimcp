@@ -8,6 +8,7 @@ from __future__ import annotations
 
 # Built-in
 import re
+from pathlib import Path
 
 # Third-party
 import pytest
@@ -101,3 +102,45 @@ class TestResources:
         command, params = mock_bridge.execute.call_args.args
         assert command == "lops.get_stage_info"
         assert params["node_path"].startswith("/")
+
+
+class TestInstructionHeaderCounts:
+    """The instructions open by stating how many tools the server exposes.
+
+    It said "177 tools across 21 categories" while the server actually registered
+    179 across 22, because the sentence is hand-written and nothing checked it.
+    An undercount is not harmless: it is the first thing a model reads, and it
+    invites the conclusion that a tool it cannot see simply does not exist.
+    """
+
+    _HEADER = re.compile(r"(\d+) tools across (\d+) categories")
+
+    @pytest.mark.asyncio
+    async def test_header_matches_registered_tools(self):
+        # Importing fxhoudinimcp.tools is what registers them on mcp; without it
+        # list_tools() is empty and this test would compare against zero.
+        import fxhoudinimcp.tools  # noqa: F401
+        from fxhoudinimcp._loader import load_markdown
+        from fxhoudinimcp.server import mcp
+
+        text = load_markdown("server_instructions.md")
+        match = self._HEADER.search(text)
+        assert match, "the 'N tools across M categories' sentence has gone missing"
+
+        claimed_tools, claimed_categories = int(match.group(1)), int(match.group(2))
+        actual_tools = len(await mcp.list_tools())
+
+        modules = {
+            path.stem
+            for path in Path(fxhoudinimcp.tools.__file__).resolve().parent.glob("*.py")
+            if path.stem != "__init__"
+        }
+
+        assert claimed_tools == actual_tools, (
+            f"server_instructions.md claims {claimed_tools} tools but the server "
+            f"registers {actual_tools}"
+        )
+        assert claimed_categories == len(modules), (
+            f"server_instructions.md claims {claimed_categories} categories but "
+            f"fxhoudinimcp/tools has {len(modules)}: {sorted(modules)}"
+        )
