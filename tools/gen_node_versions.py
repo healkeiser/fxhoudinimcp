@@ -42,7 +42,17 @@ _INSTRUCTIONS = (
     REPO_ROOT / "python" / "fxhoudinimcp" / "prompts" / "markdown"
     / "server_instructions.md"
 )
+# The full evidence: every sampled build and the node types it had. Big,
+# diffable, and deliberately NOT shipped -- nothing at runtime reads it.
 _TABLE = Path(__file__).resolve().parent / "node_versions.json"
+
+# What does ship: only which versions have been sampled, so the server can warn
+# that a Houdini nobody has checked may have stale version markers. Derived from
+# _TABLE and kept separate because the evidence is ~1 MB against a few hundred
+# bytes here, and there is no reason to put the former in every install.
+_SAMPLED = (
+    REPO_ROOT / "python" / "fxhoudinimcp" / "data" / "sampled_versions.json"
+)
 _DUMPER = Path(__file__).resolve().parent / "dump_node_types.py"
 
 # Categories the instructions have sections for. Names outside these are in the
@@ -240,6 +250,26 @@ def annotation_for(per_series: dict[str, bool], series: list[str]) -> str | None
     if last == len(flags) - 1:
         return f"({series[first]}+)"
     return f"({series[first]}-{series[last]})"
+
+
+def _write_table(merged: dict) -> None:
+    """Persist the evidence, and the small summary that ships with the package."""
+    _TABLE.write_text(
+        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    _SAMPLED.parent.mkdir(parents=True, exist_ok=True)
+    _SAMPLED.write_text(
+        json.dumps(
+            {
+                "builds": merged["builds"],
+                "series": sorted(set(merged["builds"].values()), key=_series_key),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 ###### The instructions
@@ -476,9 +506,7 @@ def main() -> int:
             f"Wrote the evidence to {_TABLE.relative_to(REPO_ROOT)} anyway -- commit "
             "it and the annotations will follow once another version is contributed."
         )
-        _TABLE.write_text(
-            json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        _write_table(merged)
         return 0
 
     new_text, applied, unexpressible = rewrite_instructions(text, merged)
@@ -491,9 +519,7 @@ def main() -> int:
             print(f"    {item}")
     _report_since(merged, applied)
 
-    _TABLE.write_text(
-        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    _write_table(merged)
     if new_text != text:
         _INSTRUCTIONS.write_text(new_text, encoding="utf-8")
         print(f"\nrewrote {_INSTRUCTIONS.relative_to(REPO_ROOT)}")

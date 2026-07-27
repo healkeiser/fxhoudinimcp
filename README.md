@@ -357,6 +357,15 @@ the same table as someone with six. If a version has never been sampled by
 anyone, the generator says so rather than guessing, and `--check` reports only
 contradictions with the builds you actually have.
 
+That evidence file is ~1 MB and is **not** shipped. The generator also writes
+`python/fxhoudinimcp/data/sampled_versions.json`, a few hundred bytes listing
+only which versions have been sampled, which does ship: the server compares the
+connected Houdini against it at startup and warns when a version has never been
+checked, so a marker like `(21.0+)` silently covering a future 23.0 becomes
+visible instead. `get_houdini_connection_status` reports the same thing. It is
+advisory: `build_network(dry_run=True)` validates node types against the running
+Houdini and cannot go stale.
+
 If Red Giant / Maxon Universe is installed, its OpenFX plug-in crashes `hou`
 initialisation on Houdini 20.5.487 and later, so `hython` cannot start at all.
 Set `HOUDINI_DISABLE_OPENFX_DEFAULT_PATH=1` when running any of the above.

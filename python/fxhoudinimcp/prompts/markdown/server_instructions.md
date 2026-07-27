@@ -85,7 +85,7 @@ A name followed by a version range exists only in those Houdini versions, within
 *   Materials: materiallibrary, assignmaterial, editmaterialproperties, materialvariation, materiallinker
 *   Lights: light, distantlight, domelight, lightmixer, portallight (21.0+), geometrylight (21.0+), lightlinker, lpetag
 *   Instancing: instancer (20.5-21.0), pointinstancer (22.0+), modifypointinstances, splitpointinstancers, extractinstances, mergepointinstancers
-*   Layout: drop, edit, editprototypes, layout (20.5-21.0). In 22.0+ the layout LOP is gone — scatter with the LOP scatterinstances (22.0+) or place with the SOP layoutbrush\* tools, then bring the result up with sopimport
+*   Layout: drop, edit, editprototypes, layout (20.5-21.0). In 22.0+ the layout LOP is gone, so scatter with the LOP scatterinstances (22.0+) or place with the SOP layoutbrush\* tools, then bring the result up with sopimport
 *   Config: prune, configurelayer, configureprimitive, drawmode, configurestage
 *   USD editing: editproperties, addvariant, setvariant, collection, scope, graftbranches, graftstages, splitscene, copyproperty, modifypaths
 *   Constraints: filter='constraint' — blendconstraint, followpathconstraint, lookatconstraint, parentconstraint, surfaceconstraint
