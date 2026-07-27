@@ -47,6 +47,82 @@ else:
 
       <separatorItem/>
 
+      <scriptItem id="fxhoudinimcp_connect">
+        <label>Connect a Client...</label>
+        <scriptCode><![CDATA[
+import hou
+import fxhoudinimcp_server.startup as mcp
+
+# The port the server actually ended up on, which is not always the configured
+# one: a second Houdini moves itself to the next free port. Printing the
+# configured port here would hand out a command pointing at the wrong session.
+port = mcp.get_port()
+
+# A bare "python" on purpose. From inside Houdini, sys.executable is Houdini's
+# own interpreter, not the external Python that has fxhoudinimcp installed, and
+# this side has no reliable way to find that one. Since clients are launched
+# without the user's shell environment, a bare name can resolve against a PATH
+# that lacks the right Python, showing up only as "disconnected" -- which is
+# exactly why the message points at `fxhoudinimcp install`, where sys.executable
+# *is* the right answer.
+command = "python -m fxhoudinimcp"
+
+lines = [
+    "Register this Houdini session with an MCP client.",
+    "",
+    "Claude Code:",
+    f"    claude mcp add --scope user fxhoudini -- {command}",
+]
+
+if port != 8100:
+    lines += [
+        "",
+        f"This session is on port {port}, not the default 8100, because another",
+        "Houdini was already serving. The client scans 8100-8115 and picks the",
+        f"lowest, so pin this one with HOUDINI_PORT={port} if you want it",
+        "specifically.",
+    ]
+else:
+    lines += [
+        "",
+        f"Serving on port {port}. The client finds this automatically.",
+    ]
+
+if not mcp.is_running():
+    lines += [
+        "",
+        "NOTE: the server is not running yet. Use MCP > Start Server first,",
+        "or the client will have nothing to connect to.",
+    ]
+
+lines += [
+    "",
+    "Easier: 'fxhoudinimcp install' does the client registration for you,",
+    "with the absolute Python path filled in.",
+]
+
+text = "\n".join(lines)
+copied = False
+try:
+    hou.ui.copyTextToClipboard(
+        f"claude mcp add --scope user fxhoudini -- {command}"
+    )
+    copied = True
+except Exception:
+    # Deliberately broad. There is no clipboard on a headless or remote display,
+    # and the exact exception is not worth guessing: failing to copy must never
+    # stop the command being shown, which is the part that matters.
+    pass
+
+if copied:
+    text += "\n\n(The Claude Code command is on your clipboard.)"
+
+hou.ui.displayMessage(text, title="FXHoudini-MCP: Connect a Client")
+]]></scriptCode>
+      </scriptItem>
+
+      <separatorItem/>
+
       <scriptItem id="fxhoudinimcp_status">
         <label>Server Status...</label>
         <scriptCode><![CDATA[
