@@ -235,3 +235,68 @@ class TestClose:
     async def test_close_without_client(self):
         bridge = HoudiniBridge()
         await bridge.close()  # should not raise
+
+
+class TestListCommands:
+    """Used to detect a plugin older than this server."""
+
+    @pytest.mark.asyncio
+    async def test_returns_the_command_list(self):
+        bridge = HoudiniBridge()
+        resp = MagicMock(spec=httpx.Response)
+        resp.json.return_value = {"commands": ["scene.get_scene_info", "a.b"]}
+        resp.raise_for_status = MagicMock()
+
+        with patch.object(bridge, "_get_client") as mock_client:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=resp)
+            mock_client.return_value = client
+
+            assert await bridge.list_commands() == ["scene.get_scene_info", "a.b"]
+
+    @pytest.mark.asyncio
+    async def test_calls_mcp_list_commands_not_mcp_execute(self):
+        """It must work even when the dispatcher is missing commands."""
+        bridge = HoudiniBridge()
+        resp = MagicMock(spec=httpx.Response)
+        resp.json.return_value = {"commands": []}
+        resp.raise_for_status = MagicMock()
+
+        with patch.object(bridge, "_get_client") as mock_client:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=resp)
+            mock_client.return_value = client
+            await bridge.list_commands()
+
+        body = client.post.call_args.kwargs.get("data") or client.post.call_args[1]["data"]
+        assert "mcp.list_commands" in body["json"]
+
+    @pytest.mark.parametrize(
+        "payload", [{}, {"commands": None}, {"commands": "nope"}, []]
+    )
+    @pytest.mark.asyncio
+    async def test_unexpected_payload_gives_an_empty_list(self, payload):
+        bridge = HoudiniBridge()
+        resp = MagicMock(spec=httpx.Response)
+        resp.json.return_value = payload
+        resp.raise_for_status = MagicMock()
+
+        with patch.object(bridge, "_get_client") as mock_client:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=resp)
+            mock_client.return_value = client
+
+            assert await bridge.list_commands() == []
+
+    @pytest.mark.asyncio
+    async def test_transport_failure_is_wrapped(self):
+        bridge = HoudiniBridge()
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=httpx.ReadError(""))
+
+        with (
+            patch.object(bridge, "_get_client", return_value=client),
+            patch.object(bridge, "_reset_client", return_value=client),
+            pytest.raises(ConnectionError),
+        ):
+            await bridge.list_commands()

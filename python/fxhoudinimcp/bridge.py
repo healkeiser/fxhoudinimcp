@@ -197,6 +197,27 @@ class HoudiniBridge:
                 details={"original_error": str(e)},
             ) from e
 
+    async def list_commands(self) -> list[str]:
+        """Return the command names the connected plugin has registered.
+
+        Used to detect a plugin older than this server. Calls mcp.list_commands
+        rather than going through mcp.execute, so it works even when the
+        dispatcher is missing commands.
+        """
+        try:
+            response = await self._post(_rpc_body("mcp.list_commands"))
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.TransportError as e:
+            raise ConnectionError(
+                f"Could not list plugin commands at {self.base_url} "
+                f"({type(e).__name__})",
+                details={"original_error": str(e)},
+            ) from e
+
+        commands = payload.get("commands") if isinstance(payload, dict) else None
+        return commands if isinstance(commands, list) else []
+
     async def close(self) -> None:
         """Close the HTTP client connection."""
         if self._client and not self._client.is_closed:
