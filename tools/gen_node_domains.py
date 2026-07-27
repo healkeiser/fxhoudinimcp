@@ -88,11 +88,12 @@ _MAX_FLAT_NAMES = 24
 _INTERNAL = re.compile(r"^#internal:\s*(\S+)", re.M)
 _CONTEXT = re.compile(r"^#context:\s*(\S+)", re.M)
 
-# Only emit names test_instruction_accuracy_live can actually claim. Its parser
-# requires all-lowercase to avoid mistaking prose for node names, so a name like
-# mtlxLamaAdd would be advertised and silently never verified. Advertising what
-# cannot be checked is exactly what this generator exists to avoid.
-_VERIFIABLE = re.compile(r"[a-z][a-z0-9_:.]*[a-z0-9]$")
+# Only emit names test_instruction_accuracy_live can actually claim, so nothing
+# is advertised without being verified. Its pattern allows internal capitals,
+# because MaterialX types are spelled mtlxLamaAdd and dropping them would hide a
+# whole shading family; it still requires a lowercase first character, which is
+# what keeps prose out.
+_VERIFIABLE = re.compile(r"[a-z][A-Za-z0-9_:.]*[A-Za-z0-9]$")
 
 
 def _verifiable(name: str) -> bool:

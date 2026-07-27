@@ -113,7 +113,11 @@ def _claimed_names() -> list[tuple[str, str, tuple | None]]:
         tail = re.sub(r"\([^)]*\)", "", tail)
         for chunk in re.split(r"[,—]", tail):
             token = chunk.strip().rstrip(".")
-            if re.fullmatch(r"[a-z][a-z0-9_:.]*[a-z0-9]", token) and (
+            # Internal capitals are allowed: MaterialX node types are spelled
+            # mtlxLamaAdd, and a lowercase-only pattern silently skipped a whole
+            # shading family. Still anchored to a lowercase first character, which
+            # is what keeps prose ("Houdini", "SOP") out.
+            if re.fullmatch(r"[a-z][A-Za-z0-9_:.]*[A-Za-z0-9]", token) and (
                 "_" in token or "::" in token or len(token) >= 4
             ):
                 claims.append((category, token, None))
@@ -176,6 +180,21 @@ def test_every_advertised_node_type_exists():
     assert not missing, (
         f"server_instructions.md advertises {len(missing)} node types that "
         f"do not exist in {hou.applicationVersionString()}: {missing}"
+    )
+
+
+def test_mixed_case_node_names_are_claimed():
+    """A lowercase-only claim pattern silently hid a whole shading family.
+
+    MaterialX VOP types are spelled mtlxLamaAdd. They were being advertised and
+    never checked, and the first fix was to stop advertising them, which threw
+    away useful nodes to satisfy the parser. Guard the parser instead.
+    """
+    claims = {name for _, name, _ in _claimed_names()}
+    mixed = {name for name in claims if any(char.isupper() for char in name)}
+    assert mixed, (
+        "no mixed-case node name is claimed; the pattern has regressed to "
+        "lowercase-only and MaterialX VOPs would go unverified again"
     )
 
 

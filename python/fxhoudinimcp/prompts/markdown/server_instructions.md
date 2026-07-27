@@ -156,7 +156,7 @@ appear here, so use `list_node_types` to see everything actually loaded.
 
 ### Vop (context='Vop')
 
-*   1054 stock types: filter='kma'|'rsl'|'volume'|'mtlx'|'osl'|'mtlxco'|'mtlxdi'|'pxrdis'|'agentc'|'lens' — e.g. kma_aov, rsl_bias, volumegradient, osl_bias, mtlxcombine2, mtlxdielectric_bsdf
+*   1054 stock types: filter='kma'|'rsl'|'volume'|'mtlx'|'osl'|'mtlxco'|'mtlxdi'|'pxrdis'|'agentc'|'lens' — e.g. kma_aov, rsl_bias, volumegradient, mtlxLamaAdd, osl_bias, mtlxcombine2
 
 ### Shop (context='Shop')
 
