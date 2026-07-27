@@ -148,6 +148,33 @@ A name followed by a version range exists only in those Houdini versions, within
 *   External: ffmpegencodevideo, ffmpegextractimages, imagemagick, downloadfile, urlrequest
 *   USD: usdimport, usdimportfiles, usdrender
 
+### Other contexts (generated)
+
+<!-- BEGIN GENERATED: additional node contexts -->
+Counts are stock nodes only: a plugin your studio installs will not
+appear here, so use `list_node_types` to see everything actually loaded.
+
+### Vop (context='Vop')
+
+*   1054 stock types: filter='kma'|'rsl'|'volume'|'mtlx'|'osl'|'mtlxco'|'mtlxdi'|'pxrdis'|'agentc'|'lens' — e.g. kma_aov, rsl_bias, volumegradient, osl_bias, mtlxcombine2, mtlxdielectric_bsdf
+
+### Shop (context='Shop')
+
+*   151 stock types: filter='gen'|'rsl' — e.g. gen_bsdfshader, rsl_vopdisplace
+
+### Cop2 (context='Cop2')
+
+*   137 stock types: aidenoise, anaglyph, atop, average, blend, blur, border, bright, bump, channelcopy, chromakey, color, colorcorrect, colorcurve, colormap, colorreplace, colorwheel, composite, contrast, convert, convolve, cornerramp, crop, cryptomatte, etc.
+
+### Object (context='Obj')
+
+*   71 stock types: filter='mocapb'|'pxrstd'|'simple' — e.g. mocapbiped1, pxrstdarealight, simplebiped
+
+### Driver (context='Driver')
+
+*   38 stock types: agent, alembic, bake_animation, baketexture, batch, channel, comp, dembones_skinningconverter, fetch, filmboxfbx, flipbook, framecontainer, framedep, geo2i3d, geometry, gltf, haircardtex, hq_render, ifdarchive, image3d, karma, merge, netbarrier, null, etc.
+<!-- END GENERATED: additional node contexts -->
+
 ## DOCUMENTATION LOOKUP (when internet/web tools are available)
 
 If you have access to web browsing or URL-fetching tools, consult these trusted Houdini sources before writing VEX or Python workarounds:

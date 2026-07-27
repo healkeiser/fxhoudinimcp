@@ -368,6 +368,10 @@ python tests/run_integration.py
 # Contribute this machine's Houdini builds to the node-availability table and
 # regenerate the version annotations in server_instructions.md:
 python tools/gen_node_versions.py
+# Regenerate the derived search hints and the plugin-command manifest
+# (run gen_node_domains after gen_node_versions, it reads that table):
+python tools/gen_node_domains.py
+python tools/gen_required_commands.py
 python tools/gen_node_versions.py --check   # verify the table against this machine
 HYTHON=/path/to/hython python tools/gen_node_versions.py   # one specific build
 ```
