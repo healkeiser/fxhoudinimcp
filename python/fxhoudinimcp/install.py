@@ -204,6 +204,28 @@ def install_desktop(config: Path, command: list[str], dry_run: bool) -> list[str
     return lines
 
 
+def claude_code_current_command() -> str | None:
+    """The command Claude Code has registered for us, if any.
+
+    Read with `claude mcp get`, whose output is meant for humans, so this only
+    looks for the "Command:" line rather than trying to parse the whole thing.
+    Returns None when the server is not registered or the output is unfamiliar.
+    """
+    try:
+        result = subprocess.run(
+            ["claude", "mcp", "get", SERVER_NAME], capture_output=True, text=True
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    for line in (result.stdout or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Command:"):
+            return stripped.split(":", 1)[1].strip()
+    return None
+
+
 def install_claude_code(dry_run: bool) -> list[str]:
     """Register with Claude Code via its own CLI. Returns report lines."""
     argv = claude_code_add_argv()
@@ -223,13 +245,33 @@ def install_claude_code(dry_run: bool) -> list[str]:
     result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode == 0:
         return [f"  Registered '{SERVER_NAME}' with Claude Code (user scope)."]
-    detail = (result.stderr or result.stdout or "").strip().splitlines()
+
+    output = (result.stderr or "") + (result.stdout or "")
+    detail = output.strip().splitlines()
     first = detail[0] if detail else f"exit code {result.returncode}"
+
+    # `claude mcp add` has no --force, so re-running over an existing entry is
+    # an error rather than an update. That is not a problem when the entry is
+    # already correct, and reporting "failed" there sends people chasing a
+    # non-issue, so check what is actually registered before saying anything.
+    if "already exists" in output.lower():
+        current = claude_code_current_command()
+        wanted = client_command()[0]
+        if current == wanted:
+            return ["  Claude Code already points at this Python. Nothing to do."]
+        return [
+            f"  Claude Code already has '{SERVER_NAME}', pointing at:",
+            f"      {current or '<could not read it>'}",
+            "  This install is:",
+            f"      {wanted}",
+            "  It cannot be updated in place, so repoint it with:",
+            f"      claude mcp remove {SERVER_NAME} -s user",
+            "      fxhoudinimcp install --client-only",
+        ]
+
     return [
         f"  Claude Code registration failed: {first}",
-        "  Already added under this name? Remove it first:",
-        f"      claude mcp remove {SERVER_NAME}",
-        f"  Or run it yourself: {printable}",
+        f"  Run it yourself to see the whole error: {printable}",
     ]
 
 
@@ -253,14 +295,23 @@ def main(argv: list[str] | None = None) -> int:
         "whichever of the two is present)",
     )
     parser.add_argument(
+        "--client-only",
+        action="store_true",
+        help="skip the Houdini plugin and only register with the MCP client; "
+        "needs no --houdini-dir, so it works when several candidates exist",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="report what would change without changing anything",
     )
     args = parser.parse_args(argv)
 
+    if args.client_only and args.houdini_dir:
+        parser.error("--client-only and --houdini-dir contradict each other")
+
     plugin = plugin_path()
-    if not plugin.is_dir():
+    if not plugin.is_dir() and not args.client_only:
         print(
             f"The plugin directory is missing: {plugin}\n"
             "This install predates the plugin shipping inside the package "
@@ -272,10 +323,37 @@ def main(argv: list[str] | None = None) -> int:
     prefix = "Would install" if args.dry_run else "Installing"
     print(f"{prefix} FXHoudini-MCP")
     print(f"  Python : {sys.executable}")
-    print(f"  Plugin : {plugin.as_posix()}")
+    if not args.client_only:
+        print(f"  Plugin : {plugin.as_posix()}")
     print()
 
     # -- Half one: the Houdini plugin
+    if args.client_only:
+        print("Houdini plugin")
+        print("  Skipped (--client-only). The plugin already installed is left")
+        print("  exactly as it is.")
+    else:
+        result = _install_plugin_half(args, plugin)
+        if result != 0:
+            return result
+
+    _install_client_half(args)
+
+    if args.dry_run:
+        print("\nNothing was changed (--dry-run).")
+    elif args.client_only:
+        print("\nRestart your MCP client to pick up the change.")
+    else:
+        print("\nRestart Houdini, then check the MCP menu.")
+        print(
+            "MCP > Connect a Client... prints the command again, with the port "
+            "the\nserver actually ended up on."
+        )
+    return 0
+
+
+def _install_plugin_half(args, plugin: Path) -> int:
+    """Write the Houdini package file. Returns an exit code."""
     chosen, candidates, reason = resolve_houdini_dir(args.houdini_dir)
     print("Houdini plugin")
     if chosen is None:
@@ -325,7 +403,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"      {path}\n          -> {points_at}")
         print("  Delete the ones you do not want.")
 
-    # -- Half two: the MCP client
+    return 0
+
+
+def _install_client_half(args) -> None:
+    """Register the server with whichever MCP clients are in scope."""
     print("\nMCP client")
     wanted = args.client
     if wanted == "auto":
@@ -361,13 +443,3 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             for line in install_desktop(config, client_command(), args.dry_run):
                 print(line)
-
-    if args.dry_run:
-        print("\nNothing was changed (--dry-run).")
-    else:
-        print("\nRestart Houdini, then check the MCP menu.")
-        print(
-            "MCP > Connect a Client... prints the command again, with the port "
-            "the\nserver actually ended up on."
-        )
-    return 0

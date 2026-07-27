@@ -142,6 +142,51 @@ def test_dry_run_changes_nothing(plugin_dir, isolated, tmp_path, capsys):
     assert "Nothing was changed" in capsys.readouterr().out
 
 
+def test_client_only_skips_the_houdini_half(plugin_dir, isolated, tmp_path, capsys):
+    """What the MCP menu recommends, so it must not need a packages directory.
+
+    The menu cannot know which of several candidates is the right one, and a
+    command that stops to ask would be useless coming from a dialog.
+    """
+    packages = tmp_path / "packages"
+    packages.mkdir()
+
+    assert inst.main(["--client-only"]) == 0
+
+    assert not list(packages.iterdir())
+    out = capsys.readouterr().out
+    assert "Skipped (--client-only)" in out
+    assert "Restart your MCP client" in out
+
+
+def test_client_only_survives_ambiguous_candidates(
+    plugin_dir, monkeypatch, tmp_path, capsys
+):
+    """Several candidates block a normal install but must not block this one."""
+    monkeypatch.setattr(
+        inst, "candidate_package_dirs", lambda: [tmp_path / "a", tmp_path / "b"]
+    )
+    monkeypatch.setattr(inst, "claude_code_available", lambda: False)
+    monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
+
+    assert inst.main(["--client-only", "--client", "none"]) == 0
+    assert "Cannot choose for you" not in capsys.readouterr().out
+
+
+def test_client_only_works_without_a_plugin_directory(monkeypatch, tmp_path, capsys):
+    """Registering a client says nothing about the plugin being present."""
+    monkeypatch.setattr(inst, "plugin_path", lambda: tmp_path / "absent")
+    monkeypatch.setattr(inst, "claude_code_available", lambda: False)
+    monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
+
+    assert inst.main(["--client-only", "--client", "none"]) == 0
+
+
+def test_client_only_rejects_a_contradictory_houdini_dir(plugin_dir, tmp_path):
+    with pytest.raises(SystemExit):
+        inst.main(["--client-only", "--houdini-dir", str(tmp_path)])
+
+
 def test_missing_plugin_is_reported(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(inst, "plugin_path", lambda: tmp_path / "absent")
     assert inst.main([]) == 1
@@ -298,19 +343,87 @@ def test_claude_code_missing_prints_the_command(monkeypatch):
     assert any("claude mcp add" in line for line in lines)
 
 
-def test_claude_code_failure_is_explained(monkeypatch):
-    """A duplicate name is the likely failure, so name the way out of it."""
-    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+def _fails_with(message: str):
+    """A `claude mcp add` that fails with *message*."""
 
     def fake_run(argv, **kwargs):
-        return subprocess.CompletedProcess(
-            argv, 1, stdout="", stderr="server already exists"
-        )
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr=message)
 
-    monkeypatch.setattr(inst.subprocess, "run", fake_run)
+    return fake_run
+
+
+def test_already_registered_and_correct_is_not_reported_as_failure(monkeypatch):
+    """`claude mcp add` has no --force, so re-running is an error.
+
+    That is not a problem when the entry already points at this Python, and
+    calling it a failure sends people chasing a non-issue.
+    """
+    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(
+        inst.subprocess, "run", _fails_with("MCP server fxhoudini already exists")
+    )
+    monkeypatch.setattr(
+        inst, "claude_code_current_command", lambda: inst.client_command()[0]
+    )
+
     lines = inst.install_claude_code(dry_run=False)
-    assert any("already exists" in line for line in lines)
-    assert any(f"claude mcp remove {inst.SERVER_NAME}" in line for line in lines)
+
+    assert any("Nothing to do" in line for line in lines)
+    assert not any("failed" in line.lower() for line in lines)
+
+
+def test_already_registered_elsewhere_shows_both_paths(monkeypatch):
+    """Repointing needs remove-then-add, and the user needs to see why."""
+    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(
+        inst.subprocess, "run", _fails_with("MCP server fxhoudini already exists")
+    )
+    monkeypatch.setattr(inst, "claude_code_current_command", lambda: "/other/python")
+
+    lines = inst.install_claude_code(dry_run=False)
+    joined = "\n".join(lines)
+
+    assert "/other/python" in joined
+    assert inst.client_command()[0] in joined
+    assert f"claude mcp remove {inst.SERVER_NAME}" in joined
+
+
+def test_genuine_failure_is_reported(monkeypatch):
+    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(inst.subprocess, "run", _fails_with("disk on fire"))
+
+    lines = inst.install_claude_code(dry_run=False)
+
+    assert any("disk on fire" in line for line in lines)
+    assert any("failed" in line.lower() for line in lines)
+
+
+def test_current_command_parses_the_human_output(monkeypatch):
+    """`claude mcp get` prints for humans, so only the Command: line is read."""
+    output = (
+        "fxhoudini:\n"
+        "  Scope: User config\n"
+        "  Status: Connected\n"
+        "  Command: C:\\Program Files\\Python311\\python.exe\n"
+        "  Args: -m fxhoudinimcp\n"
+    )
+    monkeypatch.setattr(
+        inst.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout=output),
+    )
+    assert (
+        inst.claude_code_current_command() == "C:\\Program Files\\Python311\\python.exe"
+    )
+
+
+def test_current_command_none_when_not_registered(monkeypatch):
+    monkeypatch.setattr(
+        inst.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout=""),
+    )
+    assert inst.claude_code_current_command() is None
 
 
 def test_claude_code_dry_run_does_not_shell_out(monkeypatch):

@@ -164,7 +164,13 @@ fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
 ```
 
 Other flags: `--client claude-code|claude-desktop|both|none` to control which
-client is touched, `none` if you wire it up yourself.
+client is touched, and `--client-only` to register a client without touching the
+Houdini side (useful on a second machine, or after moving to a different Python).
+
+Prefer `python -m fxhoudinimcp install` over the bare `fxhoudinimcp install` if
+you have more than one Python. Both work, but the module form is
+self-correcting: whichever interpreter you run it with is the one written into
+the client config, so if the command runs at all, the path it registers is right.
 
 The step-by-step version follows, for when something needs untangling.
 
