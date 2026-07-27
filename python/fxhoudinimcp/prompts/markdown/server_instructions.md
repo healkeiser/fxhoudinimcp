@@ -41,12 +41,14 @@ Producing geometry in a wrangle when native nodes exist is a failure, not a shor
 
 The lists below are search hints, not exhaustive. Always call `list_node_types(context, filter)` with the prefix/keyword to discover the full set.
 
+A name followed by a version range exists only in those Houdini versions: `colorcorrect (21.0+)` was added in 21.0, and `instancer (20.5-21.0)` was removed after 21.0. Unannotated names exist throughout 20.5–22.0. Check `get_scene_info` for the running version before relying on an annotated name, and use `list_node_types` if you need to be certain.
+
 ### SOPs (context='Sop')
 
 *   Camera/projection: ray, project, uvproject, texture
 *   Volumes/VDB: filter='vdb' — vdbfrompolygons, convertvdb, vdbcombine, vdbsmooth, vdbreshapesdf, vdbmorphsdf, vdbadvectpoints, etc. Also: isooffset, pointsfromvolume, volumewrangle
 *   Attributes: filter='attrib' — attribtransfer, attribpromote, attribrandomize, attribreorient, attribinterpolate, attribfrommap, attribexpression, attribnoise, attribfromvolume, etc.
-*   Deformers: mountain, ripple, twist, bend, lattice, pathdeform, pointdeform, deltamush, shrinkwrap, creep, surfacedeform, inflate, deflate, bulge, wrinkledeformer
+*   Deformers: mountain, ripple, twist, bend, lattice, pathdeform, pointdeform, deltamush, shrinkwrap, creep, surfacedeform, inflate, deflate (21.0+), bulge, wrinkledeformer
 *   UVs: filter='uv' — uvautoseam, uvflatten, uvlayout, uvtransform, uvproject, uvunwrap
 *   Topology: boolean, booleanfracture, polyextrude, polybridge, polysplit, polyfill, polydoctor, polyreduce, remesh, fuse, join, clean, clip, divide, triangulate2d
 *   Groups: filter='group' — groupcreate, groupcombine, grouppromote, groupexpression, grouprange
@@ -64,8 +66,8 @@ The lists below are search hints, not exhaustive. Always call `list_node_types(c
 *   Clouds: cloudnoise, cloudshapegenerate, cloudbillowynoise
 *   Distance: findshortestpath, distancealonggeometry, distancefromgeometry
 *   Agents/Crowds: filter='agent'|'crowd' — agent, agentclip, agentlayer, agentprep, crowdsource, crowdassignlayers
-*   Muscles: filter='muscle'|'tissue' — tissueproperties, muscledeform, muscletensionlines, otissolver
-*   ML: filter='ml'|'onnx' — ml\_regressioninference, onnx, neuralpointsurface
+*   Muscles: filter='muscle'|'tissue' — tissueproperties, muscledeform, muscletensionlines, otissolver (21.0+)
+*   ML: filter='ml'|'onnx' — ml\_regressioninference (21.0+), onnx, neuralpointsurface (21.0+)
 *   Packing: pack, unpack, repack, packfolder, packpoints, mergepacked
 *   File I/O: file, filecache, filemerge, tableimport, lidarimport, gltf
 *   Intersection: intersectionanalysis, intersectionstitch, windingnumber, proximity
@@ -78,12 +80,12 @@ The lists below are search hints, not exhaustive. Always call `list_node_types(c
 *   Scene assembly: sublayer, reference (handles payloads), componentoutput, stagemanager, sceneimport
 *   SOP bridge: sopimport, sopcreate, sopmodify, sopcrowdimport, kinefx::sopcharacterimport
 *   Transforms: xform, edit, matchsize, restructurescenegraph, duplicate
-*   Rendering: filter='karma'|'render' — karmarendersettings, renderproduct, rendervar, karmastandardrendervars
+*   Rendering: filter='karma'|'render' — karmarendersettings (21.0+), renderproduct, rendervar, karmastandardrendervars
 *   Karma effects: karmaphysicalsky, karmaskyatmosphere, karmafogbox, karmatexturebaker, karmacryptomatte, backgroundplate
 *   Materials: materiallibrary, assignmaterial, editmaterialproperties, materialvariation, materiallinker
-*   Lights: light, distantlight, domelight, lightmixer, portallight, geometrylight, lightlinker, lpetag
-*   Instancing: instancer, modifypointinstances, splitpointinstancers, extractinstances
-*   Layout: layout, drop, edit, editprototypes
+*   Lights: light, distantlight, domelight, lightmixer, portallight (21.0+), geometrylight (21.0+), lightlinker, lpetag
+*   Instancing: instancer (20.5-21.0), pointinstancer (22.0+), modifypointinstances, splitpointinstancers, extractinstances, mergepointinstancers
+*   Layout: drop, edit, editprototypes, layout (20.5-21.0). In 22.0+ the layout LOP is gone — scatter with the LOP scatterinstances (22.0+) or place with the SOP layoutbrush\* tools, then bring the result up with sopimport
 *   Config: prune, configurelayer, configureprimitive, drawmode, configurestage
 *   USD editing: editproperties, addvariant, setvariant, collection, scope, graftbranches, graftstages, splitscene, copyproperty, modifypaths
 *   Constraints: filter='constraint' — blendconstraint, followpathconstraint, lookatconstraint, parentconstraint, surfaceconstraint
@@ -107,22 +109,22 @@ The lists below are search hints, not exhaustive. Always call `list_node_types(c
 *   Forces: gravity, uniformforce, drag, windforce, vortexforce, buoyancyforce, magnetforce, fieldforce
 *   RBD constraints: constraintnetwork, conetwistconrel, rbdhingeconstraint, rbdpinconstraint, rbdspringconstraint
 *   Collision: staticobject, groundplane, terrainobject
-*   Microsolvers: filter='gas' — gasturbulence, gasdisturb, gasshred, gasbuoyancy, gasvortexconfinement, gasadvect, gasresizefield, gasdissipate, gasburn, gasprojectnondivergent, etc.
+*   Microsolvers: filter='gas' — gasturbulence, gasdisturb, gasshred, gasbuoyancy, gasvortexconfinement, gasadvect, gasresizefield, gasdissipate, gasburn (21.0+), gasprojectnondivergent, etc.
 *   Anchors: filter='anchor' — anchorobjpointidpos, anchorobjpointnumpos, anchorobjspacepos, etc.
 
 ### COPs (prefer Copernicus context='Cop'; COP2 context='Cop2' is deprecated since H20.5)
 
-*   Color: colorcorrect, hsv, gamma, bright, contrast, invert, tonemap
+*   Color: colorcorrect (21.0+), hsv, gamma, bright, contrast, invert, tonemap (21.0+)
 *   Keying: chromakey, cryptomatte, dilateerode
-*   Filters: blur, sharpen, median, defocus, edgedetect, denoisetvd, denoiseai
+*   Filters: blur, sharpen (21.0+), median, defocus (21.0+), edgedetect, denoisetvd, denoiseai
 *   Compositing: blend, layer, zcomp
-*   Transforms: xform, crop, flip, cornerpin, latticedeform, tilepattern, distort
+*   Transforms: xform, crop, flip, cornerpin (21.0+), latticedeform (21.0+), tilepattern, distort
 *   Generators: font, ramp, constant, checkerboard
 *   Channels: channelextract, channeljoin, channelsplit, channelswap, premult, switch
-*   Copernicus noise: fractalnoise, worleynoise, crystalnoise, phasornoise, bubblenoise
-*   Copernicus 3D: rasterizegeo, rasterizecurves, rasterizevolume, raytrace, bakegeometrytextures, triplanar
+*   Copernicus noise: fractalnoise, worleynoise, crystalnoise (21.0+), phasornoise (21.0+), bubblenoise (21.0+)
+*   Copernicus 3D: rasterizegeo, rasterizecurves (21.0+), rasterizevolume (21.0+), raytrace (21.0+), bakegeometrytextures (21.0+), triplanar (21.0+)
 *   Copernicus height/SDF: heighttonormal, heighttoambientocclusion, sdfshape, sdfblend, monotosdf
-*   Copernicus pyro: pyro\_configure, pyro\_advect, pyro\_buoyancy, pyro\_turbulence, pyro\_dissipate
+*   Copernicus pyro: pyro\_configure (21.0+), pyro\_advect (21.0+), pyro\_buoyancy (21.0+), pyro\_turbulence (21.0+), pyro\_dissipate (21.0+)
 
 ### CHOPs (context='Chop')
 
@@ -137,7 +139,7 @@ The lists below are search hints, not exhaustive. Always call `list_node_types(c
 ### TOPs (context='Top')
 
 *   Processors: genericgenerator, pythonprocessor, pythonscript, hdaprocessor
-*   ROP rendering: filter='rop' — ropfetch, ropgeometry, ropmantra, ropkarma, ropusd, ropalembic, ropfbx, ropflipbook, ropopengl
+*   ROP rendering: filter='rop' — ropfetch, ropgeometry, ropmantra, ropkarma, ropusd, ropalembic, ropfbx, ropflipbook (21.0+), ropopengl
 *   Partition/wait: filter='partition' — partitionbyframe, partitionbyattribute, partitionbyexpression, partitionbyindex, waitforall
 *   File ops: filter='file' — filepattern, filerange, fileremove, filerename, filecopy, filecompress, makedir
 *   Data I/O: csvoutput, csvinput, jsoninput, jsonoutput, sqlinput, xmlinput
