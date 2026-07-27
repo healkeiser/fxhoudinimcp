@@ -137,7 +137,7 @@ Uses Houdini's built-in `hwebserver`. No custom socket servers, no rpyc. Uses `h
 
 ### Requirements
 
-- **Houdini** 20.5+ (tested on 21.0 and 22.0)
+- **Houdini** 20.5+ (integration suite green on 20.5.278, 20.5.487, 20.5.613, 20.5.654, 21.0.440 and 22.0.368)
 - **Python** 3.10+
 - **MCP SDK** (`mcp` package) 1.8+
 

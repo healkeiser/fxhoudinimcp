@@ -14,6 +14,20 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
+def _first_available_lop(*candidates: str) -> str:
+    """Return the first candidate LOP type that exists in this Houdini.
+
+    Keeps scenarios runnable across the supported range: karmarendersettings
+    only arrived in 21.0, so on 20.5 the equivalent step has to use
+    karmarenderproperties.
+    """
+    available = hou.nodeTypeCategories()["Lop"].nodeTypes()
+    for name in candidates:
+        if name in available:
+            return name
+    pytest.skip(f"none of {candidates} exist in {hou.applicationVersionString()}")
+
+
 class TestHdaAuthoringScenario:
     """User: 'Package this setup into a reusable asset and use it again.'"""
 
@@ -145,7 +159,9 @@ class TestSolarisSceneScenario:
         settings = call(
             "lops.create_lop_node",
             parent_path=lopnet,
-            lop_type="karmarendersettings",
+            lop_type=_first_available_lop(
+                "karmarendersettings", "karmarenderproperties"
+            ),
             name="karma",
         )["node_path"]
         call("nodes.connect_nodes", source_path=camera, dest_path=settings)
