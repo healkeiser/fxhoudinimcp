@@ -188,7 +188,7 @@ pip install -e ".[dev]"
    ```
 
    Forward slashes work on every platform. The path must end in `/houdini` and
-   must contain `scripts/`, `toolbar/` and the `python3.Xlibs/` folders.
+   must contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders.
 
 The package file is also where you configure the plugin. It ships every
 Houdini-side setting at its default, so they are all visible in one place:
@@ -209,8 +209,8 @@ for what each does). Two things to know:
 Two ways this step fails silently, both worth knowing:
 
 - **A path that does not exist.** Houdini skips a package whose path cannot be
-  resolved without printing anything. Nothing loads: no shelf, no auto-start,
-  no `fxhoudinimcp_server` module.
+  resolved without printing anything. Nothing loads: no **MCP** menu, no
+  auto-start, no `fxhoudinimcp_server` module.
 - **A UTF-8 BOM.** Houdini's JSON parser rejects a leading BOM and skips the
   whole package. On Windows, `Set-Content -Encoding UTF8` adds one; use
   `Set-Content -Encoding utf8NoBOM` (PowerShell 7+) or an editor that can save
@@ -235,7 +235,7 @@ A working package prints both a `Loading:` and a `Processing:` line for
 Copy the contents of `houdini/` into your Houdini user preferences directory so that:
 - `scripts/python/fxhoudinimcp_server/` is on Houdini's Python path
 - `python3.Xlibs/uiready.py` auto-starts the server (copy the folder matching your Houdini's Python version: 3.11 for Houdini 20.5 and 21.0, 3.13 for Houdini 22.0)
-- `toolbar/fxhoudinimcp.shelf` appears in your shelf
+- `MainMenuCommon.xml` adds the **MCP** menu to Houdini's menu bar
 
 ### 3. Configure Your MCP Client
 
@@ -291,7 +291,7 @@ Or to scope it to a single project, add a `.mcp.json` in the project root:
 <!-- USAGE -->
 ## Usage
 
-Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also toggle it manually via the **MCP Server** shelf tool.
+Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also control it manually from the **MCP** menu (Start Server, Stop Server, Server Status).
 
 Startup verifies that Houdini's `mcp.health` endpoint answers from the current
 Houdini process before printing that the server is ready. If your assistant
