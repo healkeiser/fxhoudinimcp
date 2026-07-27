@@ -60,6 +60,13 @@ if mcp.is_running():
         f"Status: RUNNING on port {mcp.get_port()}",
         f"Bind address: {os.environ.get('FXHOUDINIMCP_BIND', '127.0.0.1')}",
     ]
+elif mcp.is_starting():
+    # Auto-start confirms readiness on a worker thread, so there is a window
+    # where the server is neither stopped nor confirmed running.
+    lines = [
+        f"Status: STARTING on port {mcp.get_port()}",
+        "Auto-start is still confirming the server answers.",
+    ]
 else:
     lines = [
         "Status: STOPPED",
