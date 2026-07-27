@@ -2323,7 +2323,12 @@ produces an install that fails silently:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>fxhoudinimcp<span class="w"> </span>install<span class="w"> </span>--houdini-dir<span class="w"> </span><span class="s2">&quot;~/Documents/houdini22.0/packages&quot;</span>
 </code></pre></div>
 <p>Other flags: <code>--client claude-code|claude-desktop|both|none</code> to control which
-client is touched, <code>none</code> if you wire it up yourself.</p>
+client is touched, and <code>--client-only</code> to register a client without touching the
+Houdini side (useful on a second machine, or after moving to a different Python).</p>
+<p>Prefer <code>python -m fxhoudinimcp install</code> over the bare <code>fxhoudinimcp install</code> if
+you have more than one Python. Both work, but the module form is
+self-correcting: whichever interpreter you run it with is the one written into
+the client config, so if the command runs at all, the path it registers is right.</p>
 <p>The step-by-step version follows, for when something needs untangling.</p>
 <h3 id="1-install-the-mcp-server">1. Install the MCP Server<a class="headerlink" href="#1-install-the-mcp-server" title="Permanent link">&para;</a></h3>
 <p><strong>From PyPI:</strong></p>
