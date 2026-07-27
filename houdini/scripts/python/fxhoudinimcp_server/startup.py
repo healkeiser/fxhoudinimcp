@@ -15,6 +15,13 @@ import urllib.request
 _server_started = False
 _port = 8100
 
+# Ceiling for the readiness poll. This runs on the calling thread -- the main
+# thread during UI auto-start -- so it is a stall budget on genuine failure,
+# not free headroom. A healthy start answers in well under a second, since
+# mcp.health needs nothing from the main thread; the old 3s was tight only
+# because the health endpoint used to deadlock against this very loop.
+_READINESS_TIMEOUT = 10.0
+
 
 def _health_url(port: int) -> str:
     return f"http://127.0.0.1:{port}/api"
@@ -48,7 +55,7 @@ def _query_health(port: int, timeout: float = 0.5) -> dict | None:
 
 def _wait_for_current_process_health(
     port: int,
-    timeout_seconds: float = 3.0,
+    timeout_seconds: float = _READINESS_TIMEOUT,
 ) -> dict | None:
     deadline = time.time() + max(0.0, timeout_seconds)
     current_pid = os.getpid()
@@ -63,13 +70,47 @@ def _wait_for_current_process_health(
     return last_health
 
 
-def start(port: int | None = None) -> None:
+def _bind_localhost_only(hwebserver) -> None:
+    """Restrict the server to loopback before it starts listening.
+
+    hwebserver binds the any-address (0.0.0.0) by default, which would put
+    this bridge on the LAN. That matters more here than for a typical web
+    endpoint: the bridge runs arbitrary Python inside Houdini (see
+    handlers/code_handlers.py) and has no authentication, so anyone able to
+    reach the port has the session.
+
+    Set FXHOUDINIMCP_BIND to override, e.g. "0.0.0.0" to accept remote
+    connections deliberately.
+    """
+    address = os.environ.get("FXHOUDINIMCP_BIND", "127.0.0.1")
+    try:
+        # Note the argument order: (settings, port_name). Passing the port
+        # number first raises AttributeError on 'int'.
+        hwebserver.setSettingsForPort({"ADDRESS": address}, "main")
+    except Exception as exc:
+        print(
+            f"[fxhoudinimcp] Warning: could not restrict bind address to "
+            f"{address}: {exc}. The port may be reachable from the network."
+        )
+
+
+def start(port: int | None = None, background: bool | None = None) -> None:
     """Start the FXHoudini-MCP server.
 
     Registers all command handlers and ensures hwebserver is running.
 
+    Must be called from the thread that will own the server. hwebserver keeps
+    its ``Server`` object in a ``threading.local()``, so API functions
+    registered on one thread are invisible to ``run()`` on another -- calling
+    ``run()`` from a fresh thread fails outright with "No URL handlers have
+    been added to the server."
+
     Args:
         port: Port for hwebserver. Defaults to FXHOUDINIMCP_PORT env var or 8100.
+        background: Serve on a background thread instead of blocking. Defaults
+            to Houdini's own choice, which is True in a UI session and False
+            under hython. Pass True from a headless script that needs start()
+            to return while the server keeps serving.
     """
     global _server_started, _port
 
@@ -89,13 +130,34 @@ def start(port: int | None = None) -> None:
     # be running for built-in features; in that case registering the functions
     # above is enough. Either way, prove the HTTP endpoint is reachable before
     # advertising readiness.
+    import hou
     import hwebserver
+
+    if background is None:
+        # hwebserver.run() already defaults in_background to isUIAvailable(),
+        # so this matches its behaviour; it is passed explicitly so the choice
+        # is visible here and does not silently change under us. Blocking in a
+        # UI session would wedge Houdini's main thread; blocking under hython
+        # is what keeps the process alive to serve.
+        background = hou.isUIAvailable()
+
+    _bind_localhost_only(hwebserver)
 
     run_error = None
     try:
-        hwebserver.run(_port, debug=False)
+        hwebserver.run(_port, debug=False, in_background=background)
     except Exception as exc:
         run_error = exc
+
+    if not background:
+        # run() blocks until shutdown when serving in the foreground, so
+        # reaching this point means it either finished or never started.
+        _server_started = False
+        if run_error is not None:
+            raise RuntimeError(
+                f"hwebserver failed to start on port {_port}: {run_error}"
+            )
+        return
 
     health = _wait_for_current_process_health(_port)
     if health is None:
