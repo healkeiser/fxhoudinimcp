@@ -121,9 +121,10 @@ class TestCompatibilityWarning:
         assert "and 24 more" in warning
         assert warning.count("ns.cmd") == compat._MAX_NAMED
 
-    def test_mentions_that_pip_does_not_update_the_plugin(self, manifest):
+    def test_points_at_the_command_that_diagnoses_it(self, manifest):
+        """A warning the reader cannot act on is only half useful."""
         warning = compat.compatibility_warning(["scene.get_scene_info"])
-        assert "PyPI" in warning or "repository" in warning
+        assert "houdini-package" in warning
 
 
 ###### Degradation

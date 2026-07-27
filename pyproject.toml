@@ -67,6 +67,16 @@ version-file = "python/fxhoudinimcp/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["python/fxhoudinimcp"]
+# Never ship bytecode caches from the working tree.
+exclude = ["**/__pycache__/**", "**/*.pyc"]
+
+# Ship the Houdini-side plugin inside the package. Without this the two halves
+# are distributed separately -- server from PyPI, plugin from a git clone -- so a
+# `pip install --upgrade` silently leaves the plugin behind. `fxhoudinimcp
+# houdini-package` resolves this path and writes the Houdini package file, so
+# nobody has to type a site-packages path by hand.
+[tool.hatch.build.targets.wheel.force-include]
+"houdini" = "fxhoudinimcp/houdini"
 
 [tool.ruff]
 target-version = "py310"

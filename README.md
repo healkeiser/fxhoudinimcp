@@ -163,32 +163,55 @@ pip install -e ".[dev]"
 
 ### 2. Install the Houdini Plugin
 
-> **The PyPI package does not contain the Houdini plugin.** `pip install
-> fxhoudinimcp` installs only the MCP server that Claude talks to. The
-> Houdini-side half lives in this repository's `houdini/` directory, so clone
-> the repo even if you installed the server from PyPI:
->
-> ```shell
-> git clone https://github.com/healkeiser/fxhoudinimcp
-> ```
+Since **2.1.0** the plugin ships inside the Python package, so `pip install
+--upgrade fxhoudinimcp` updates both halves together. Before that they were
+distributed separately and it was easy to upgrade one and leave the other
+behind; the server now warns at startup when it finds a plugin older than
+itself.
 
-**Option A: Houdini package (recommended)**
+**Option A: let the CLI write the package file (recommended)**
 
-1. Copy `houdini/fxhoudinimcp.json` to your Houdini packages directory:
-   - Windows: `%USERPROFILE%/Documents/houdiniXX.X/packages/`
-   - Linux: `~/houdiniXX.X/packages/`
-   - macOS: `~/Library/Preferences/houdini/XX.X/packages/`
+```shell
+fxhoudinimcp houdini-package
+```
 
-2. Edit the copy and replace the placeholder `FXHOUDINIMCP` value with the
-   absolute path to this repository's `houdini` directory:
+That prints the Houdini package file with the plugin path already filled in for
+*this* install, plus the Houdini packages directories it found on your machine.
+Write it with:
 
-   ```json
-   { "env": [ { "FXHOUDINIMCP": "C:/Users/you/code/fxhoudinimcp/houdini" } ],
-     "path": "$FXHOUDINIMCP" }
-   ```
+```shell
+fxhoudinimcp houdini-package --write "~/Documents/houdini22.0/packages"
+```
 
-   Forward slashes work on every platform. The path must end in `/houdini` and
-   must contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders.
+Then restart Houdini and check the **MCP** menu.
+
+Do not type the plugin path by hand. It lives inside the Python environment you
+installed into, so it changes if you recreate a virtualenv, switch to uv or
+pipx, or move between Python versions, and Houdini says nothing when a package
+path stops resolving. `--path-only` prints just the path if you need it for
+scripting.
+
+The command deliberately does not pick a packages directory for you. On Windows
+with OneDrive's Documents redirection, a desktop-launched Houdini and a
+shell-launched one can resolve different preference directories, so it lists
+candidates and lets you choose. It also warns if another `fxhoudinimcp.json`
+already exists elsewhere, because Houdini processes every packages directory and
+lets the last one win, which is how a stale clone silently overrides a fresh
+install.
+
+**Option A2: point at a clone instead**
+
+Contributors, or anyone who wants the plugin tracked by git, can skip the CLI and
+write the package file by hand against a checkout:
+
+```json
+{ "env": [ { "FXHOUDINIMCP": "C:/Users/you/code/fxhoudinimcp/houdini" } ],
+  "path": "$FXHOUDINIMCP" }
+```
+
+Forward slashes work on every platform. The path must end in `/houdini` and must
+contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders. Do not
+do this *and* Option A, or the two package files will fight.
 
 The package file is also where you configure the plugin. It ships every
 Houdini-side setting at its default, so they are all visible in one place:

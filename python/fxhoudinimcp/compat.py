@@ -79,8 +79,10 @@ def compatibility_warning(available: list[str] | None) -> str | None:
         shown += f", and {len(missing) - _MAX_NAMED} more"
     return (
         f"The Houdini plugin is missing {len(missing)} command(s) this server "
-        f"expects ({shown}). The plugin half is probably older than the MCP "
-        f"server: it is installed from the repository, not from PyPI, so "
-        f"upgrading the package does not update it. Tools that need those "
-        f"commands will fail until the plugin is updated."
+        f"expects ({shown}), so it is older than the MCP server and tools that "
+        f"need those commands will fail. The packaged plugin travels with this "
+        f"install, so the likely cause is a Houdini package file pointing "
+        f"somewhere else, for example an older clone. Run "
+        f"'fxhoudinimcp houdini-package' to see the path this install expects "
+        f"and to be warned about competing package files."
     )
