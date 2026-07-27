@@ -8,6 +8,7 @@ not a type and would make isinstance() raise.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import importlib
 import json
 import os
@@ -148,10 +149,8 @@ def serialize():
         else:
             sys.modules.pop("hou", None)
         # Leave the module as the rest of the suite expects to find it.
-        try:
+        with contextlib.suppress(ImportError):
             importlib.reload(module)
-        except ImportError:
-            pass
 
 
 ###### JSON-native passthrough

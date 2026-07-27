@@ -14,6 +14,7 @@ from mcp.server.fastmcp import Context
 
 # Internal
 from fxhoudinimcp.errors import ConnectionError as HoudiniConnectionError
+from fxhoudinimcp.node_versions import sampled_series, staleness_warning
 from fxhoudinimcp.server import mcp, _get_bridge
 
 
@@ -62,11 +63,23 @@ async def get_houdini_connection_status(ctx: Context) -> dict:
                 if scene.get(key) is not None:
                     health.setdefault(key, scene[key])
 
-    return {
+    payload = {
         "connected": True,
         "base_url": bridge.base_url,
         "health": health,
     }
+
+    # Advisory only: tells the assistant when the version markers in the
+    # instructions were never checked against this Houdini, so it knows to
+    # confirm node names rather than trusting a "(21.0+)" to include it.
+    stale = staleness_warning(health.get("houdini_version"))
+    if stale:
+        payload["node_version_data"] = {
+            "sampled_series": sampled_series(),
+            "warning": stale,
+        }
+
+    return payload
 
 
 @mcp.tool()

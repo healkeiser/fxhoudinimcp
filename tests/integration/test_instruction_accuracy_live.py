@@ -3,6 +3,14 @@
 The instructions tell assistants to trust specific built-in node names
 (the COMMONLY MISSED NODE DOMAINS lists). Any name that does not exist
 in this Houdini version is guidance that makes the assistant hallucinate.
+
+Some names only exist in part of the supported range -- Houdini 21 added a
+lot of Copernicus, and 22 renamed the LOP ``instancer`` to ``pointinstancer``
+and dropped ``layout`` entirely. Those carry an inline version annotation in
+the markdown, e.g. ``colorcorrect (21.0+)`` or ``instancer (20.5-21.0)``, and
+this test holds each name to its declared range. The annotation is written for
+the assistant to read as well, so the markdown stays the single source of
+truth rather than duplicating a table here.
 """
 
 from __future__ import annotations
@@ -16,6 +24,11 @@ import hou
 import pytest
 
 pytestmark = pytest.mark.integration
+
+# "21.0+" or "20.5-21.0" immediately after a node name.
+_VERSION_SPEC = re.compile(
+    r"([a-z][a-z0-9_:.]*[a-z0-9])\s*\((\d+\.\d+)(\+|-(\d+\.\d+))\)"
+)
 
 _MD = (
     Path(__file__).resolve().parents[2]
@@ -40,10 +53,26 @@ _SECTIONS = {
 }
 
 
-def _claimed_names() -> list[tuple[str, str]]:
-    """Extract (category, node_type_name) claims from the instructions."""
+def _parse_spec(low: str, tail: str) -> tuple[tuple[int, int], tuple[int, int] | None]:
+    """Turn a matched annotation into (min_version, max_version).
+
+    ``max_version`` is inclusive of that whole minor series, and None means
+    "still present in the newest supported build".
+    """
+    minimum = tuple(int(part) for part in low.split("."))
+    if tail == "+":
+        return minimum, None  # type: ignore[return-value]
+    maximum = tuple(int(part) for part in tail.lstrip("-").split("."))
+    return minimum, maximum  # type: ignore[return-value]
+
+
+def _claimed_names() -> list[tuple[str, str, tuple | None]]:
+    """Extract (category, node_type_name, version_range) claims.
+
+    ``version_range`` is None for names expected in every supported version.
+    """
     text = _MD.read_text(encoding="utf-8").replace("\\_", "_")
-    claims: list[tuple[str, str]] = []
+    claims: list[tuple[str, str, tuple | None]] = []
     category = None
     for line in text.splitlines():
         if line.startswith("### "):
@@ -56,15 +85,29 @@ def _claimed_names() -> list[tuple[str, str]]:
             continue
         # Node names appear after the colon, comma-separated. Only tokens
         # that look like node type names (identifier characters only).
-        # Parenthesized fragments are prose, not type names.
         _, _, tail = line.partition(":")
+
+        # Pull out version-annotated names first: the prose strip below would
+        # otherwise discard the annotation and leave the bare name looking
+        # like a claim for every version.
+        for match in _VERSION_SPEC.finditer(tail):
+            claims.append(
+                (
+                    category,
+                    match.group(1),
+                    _parse_spec(match.group(2), match.group(3)),
+                )
+            )
+        tail = _VERSION_SPEC.sub("", tail)
+
+        # Remaining parenthesized fragments are prose, not type names.
         tail = re.sub(r"\([^)]*\)", "", tail)
         for chunk in re.split(r"[,—]", tail):
             token = chunk.strip().rstrip(".")
             if re.fullmatch(r"[a-z][a-z0-9_:.]*[a-z0-9]", token) and (
                 "_" in token or "::" in token or len(token) >= 4
             ):
-                claims.append((category, token))
+                claims.append((category, token, None))
     return claims
 
 
@@ -75,19 +118,39 @@ def _exists(category_types: dict, name: str) -> bool:
     return any(key.startswith(prefix) for key in category_types)
 
 
+def _applies(version_range: tuple | None, version: tuple[int, int]) -> bool:
+    """Is a name with this annotation expected to exist in *version*?"""
+    if version_range is None:
+        return True
+    minimum, maximum = version_range
+    if version < minimum:
+        return False
+    return maximum is None or version <= maximum
+
+
 def test_every_advertised_node_type_exists():
     claims = _claimed_names()
     assert len(claims) > 150, f"parser broke, only {len(claims)} claims found"
 
+    version = hou.applicationVersion()[:2]
     categories = hou.nodeTypeCategories()
     missing: list[str] = []
     optional_missing: list[str] = []
-    for category_name, node_name in claims:
+    out_of_range: list[str] = []
+    for category_name, node_name, version_range in claims:
         category = categories.get(category_name)
         if category is None:
             missing.append(f"{category_name}: category itself missing")
             continue
-        if _exists(category.nodeTypes(), node_name):
+
+        exists = _exists(category.nodeTypes(), node_name)
+        if not _applies(version_range, version):
+            # Not expected here. If it turns up anyway the annotation is too
+            # narrow -- worth surfacing, but it is not broken guidance.
+            if exists:
+                out_of_range.append(f"{category_name}/{node_name}")
+            continue
+        if exists:
             continue
         if node_name.startswith(_OPTIONAL_PREFIXES):
             optional_missing.append(f"{category_name}/{node_name}")
@@ -96,7 +159,31 @@ def test_every_advertised_node_type_exists():
 
     if optional_missing:
         print(f"[info] optional packs not installed: {len(optional_missing)} names")
+    if out_of_range:
+        print(
+            f"[info] present despite a narrower annotation, consider widening: "
+            f"{out_of_range}"
+        )
     assert not missing, (
         f"server_instructions.md advertises {len(missing)} node types that "
         f"do not exist in {hou.applicationVersionString()}: {missing}"
     )
+
+
+def test_version_annotations_are_actually_used():
+    """Guard the annotation syntax itself.
+
+    A typo in an annotation degrades silently: the name would be read as an
+    unconditional claim, which either passes for the wrong reason or fails on
+    the versions the annotation was meant to exempt.
+    """
+    annotated = [claim for claim in _claimed_names() if claim[2] is not None]
+    assert annotated, (
+        "no version-annotated names parsed from server_instructions.md -- the "
+        "'name (21.0+)' syntax or the regex has drifted"
+    )
+    for _, name, version_range in annotated:
+        minimum, maximum = version_range
+        assert len(minimum) == 2, f"{name}: bad minimum {minimum}"
+        if maximum is not None:
+            assert maximum >= minimum, f"{name}: range ends before it starts"

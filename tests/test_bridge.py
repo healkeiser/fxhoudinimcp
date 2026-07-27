@@ -131,9 +131,9 @@ class TestExecute:
         with (
             patch.object(bridge, "_get_client", return_value=client),
             patch.object(bridge, "_reset_client", return_value=client),
+            pytest.raises(ConnectionError) as exc_info,
         ):
-            with pytest.raises(ConnectionError) as exc_info:
-                await bridge.execute("scene.get_info")
+            await bridge.execute("scene.get_info")
 
         message = str(exc_info.value)
         assert message.strip()
@@ -212,9 +212,9 @@ class TestHealthCheck:
         with (
             patch.object(bridge, "_get_client", return_value=client),
             patch.object(bridge, "_reset_client", return_value=client),
+            pytest.raises(ConnectionError) as exc_info,
         ):
-            with pytest.raises(ConnectionError) as exc_info:
-                await bridge.health_check()
+            await bridge.health_check()
 
         assert "cannot reach Houdini" in str(exc_info.value)
 

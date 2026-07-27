@@ -14,6 +14,7 @@ from mcp.server.fastmcp import FastMCP
 from fxhoudinimcp.bridge import HoudiniBridge
 from fxhoudinimcp._loader import load_markdown
 from fxhoudinimcp._version import __version__
+from fxhoudinimcp.node_versions import staleness_warning
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,16 @@ async def lifespan(server: FastMCP):
 
     try:
         info = await bridge.health_check()
-        logger.info(
-            "Connected to Houdini %s", info.get("houdini_version", "unknown")
-        )
+        houdini_version = info.get("houdini_version", "unknown")
+        logger.info("Connected to Houdini %s", houdini_version)
+
+        # The version markers in server_instructions.md are derived from the
+        # Houdini builds contributors have sampled. A version outside that set
+        # is not an error, but the markers stop being trustworthy and saying so
+        # beats letting them quietly mislead.
+        stale = staleness_warning(houdini_version)
+        if stale:
+            logger.warning(stale)
     except Exception as e:
         logger.warning("Cannot reach Houdini at startup: %s", e)
         logger.warning("Tools will attempt to connect on first use.")

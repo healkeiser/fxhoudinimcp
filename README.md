@@ -137,7 +137,7 @@ Uses Houdini's built-in `hwebserver`. No custom socket servers, no rpyc. Uses `h
 
 ### Requirements
 
-- **Houdini** 20.5+ (tested on 21.0 and 22.0)
+- **Houdini** 20.5+ (integration suite green on 20.5.278, 20.5.487, 20.5.613, 20.5.654, 21.0.440 and 22.0.368)
 - **Python** 3.10+
 - **MCP SDK** (`mcp` package) 1.8+
 
@@ -341,7 +341,35 @@ pytest
 # Works on Windows, macOS, and Linux:
 python tests/run_integration.py
 # Convenience wrappers: tests/run_integration.ps1 / tests/run_integration.sh
+
+# Contribute this machine's Houdini builds to the node-availability table and
+# regenerate the version annotations in server_instructions.md:
+python tools/gen_node_versions.py
+python tools/gen_node_versions.py --check   # verify the table against this machine
+HYTHON=/path/to/hython python tools/gen_node_versions.py   # one specific build
 ```
+
+`tools/node_versions.json` accumulates. It records which builds have been
+sampled and what node types each had, so **one installed Houdini is enough**:
+your build merges into the shared evidence and the annotations are derived from
+everything sampled so far. A contributor with a single Houdini produces exactly
+the same table as someone with six. If a version has never been sampled by
+anyone, the generator says so rather than guessing, and `--check` reports only
+contradictions with the builds you actually have.
+
+That evidence file is ~1 MB and is **not** shipped. The generator also writes
+`python/fxhoudinimcp/data/sampled_versions.json`, a few hundred bytes listing
+only which versions have been sampled, which does ship: the server compares the
+connected Houdini against it at startup and warns when a version has never been
+checked, so a marker like `(21.0+)` silently covering a future 23.0 becomes
+visible instead. `get_houdini_connection_status` reports the same thing. It is
+advisory: `build_network(dry_run=True)` validates node types against the running
+Houdini and cannot go stale.
+
+If Red Giant / Maxon Universe is installed, its OpenFX plug-in crashes `hou`
+initialisation on Houdini 20.5.487 and later, so `hython` cannot start at all.
+Set `HOUDINI_DISABLE_OPENFX_DEFAULT_PATH=1` when running any of the above.
+This is a Houdini/Universe conflict, not something this repo causes.
 
 Unit tests mock `hou` and run anywhere. The integration suite in
 `tests/integration/` executes all 179 commands against live Houdini via
