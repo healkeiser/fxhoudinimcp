@@ -936,6 +936,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../technical/compat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    compat
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../technical/config/" class="md-nav__link">
         
   
@@ -972,6 +1000,34 @@
     
   
     errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../technical/houdini_package/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    houdini_package
   
 
     
@@ -1035,7 +1091,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_8" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1057,14 +1113,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_8" id="__nav_4_1_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_10" id="__nav_4_1_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_8">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1160,7 +1216,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1182,14 +1238,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_10" id="__nav_4_1_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_12" id="__nav_4_1_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1341,7 +1397,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_12" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_14" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1363,14 +1419,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1_12" id="__nav_4_1_12_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1_14" id="__nav_4_1_14_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_12_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_12">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1_14">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2213,32 +2269,41 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
 </code></pre></div>
 <h3 id="2-install-the-houdini-plugin">2. Install the Houdini Plugin<a class="headerlink" href="#2-install-the-houdini-plugin" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>The PyPI package does not contain the Houdini plugin.</strong> <code>pip install
-fxhoudinimcp</code> installs only the MCP server that Claude talks to. The
-Houdini-side half lives in this repository's <code>houdini/</code> directory, so clone
-the repo even if you installed the server from PyPI:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/healkeiser/fxhoudinimcp
+<p>Since <strong>2.1.0</strong> the plugin ships inside the Python package, so <code>pip install
+--upgrade fxhoudinimcp</code> updates both halves together. Before that they were
+distributed separately and it was easy to upgrade one and leave the other
+behind; the server now warns at startup when it finds a plugin older than
+itself.</p>
+<p><strong>Option A: let the CLI write the package file (recommended)</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>fxhoudinimcp<span class="w"> </span>houdini-package
 </code></pre></div>
-</blockquote>
-<p><strong>Option A: Houdini package (recommended)</strong></p>
-<ol>
-<li>Copy <code>houdini/fxhoudinimcp.json</code> to your Houdini packages directory:</li>
-<li>Windows: <code>%USERPROFILE%/Documents/houdiniXX.X/packages/</code></li>
-<li>Linux: <code>~/houdiniXX.X/packages/</code></li>
-<li>
-<p>macOS: <code>~/Library/Preferences/houdini/XX.X/packages/</code></p>
-</li>
-<li>
-<p>Edit the copy and replace the placeholder <code>FXHOUDINIMCP</code> value with the
-   absolute path to this repository's <code>houdini</code> directory:</p>
-</li>
-</ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;FXHOUDINIMCP&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:/Users/you/code/fxhoudinimcp/houdini&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$FXHOUDINIMCP&quot;</span><span class="w"> </span><span class="p">}</span>
+<p>That prints the Houdini package file with the plugin path already filled in for
+<em>this</em> install, plus the Houdini packages directories it found on your machine.
+Write it with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>fxhoudinimcp<span class="w"> </span>houdini-package<span class="w"> </span>--write<span class="w"> </span><span class="s2">&quot;~/Documents/houdini22.0/packages&quot;</span>
 </code></pre></div>
-<p>Forward slashes work on every platform. The path must end in <code>/houdini</code> and
-   must contain <code>scripts/</code>, <code>MainMenuCommon.xml</code> and the <code>python3.Xlibs/</code> folders.</p>
+<p>Then restart Houdini and check the <strong>MCP</strong> menu.</p>
+<p>Do not type the plugin path by hand. It lives inside the Python environment you
+installed into, so it changes if you recreate a virtualenv, switch to uv or
+pipx, or move between Python versions, and Houdini says nothing when a package
+path stops resolving. <code>--path-only</code> prints just the path if you need it for
+scripting.</p>
+<p>The command deliberately does not pick a packages directory for you. On Windows
+with OneDrive's Documents redirection, a desktop-launched Houdini and a
+shell-launched one can resolve different preference directories, so it lists
+candidates and lets you choose. It also warns if another <code>fxhoudinimcp.json</code>
+already exists elsewhere, because Houdini processes every packages directory and
+lets the last one win, which is how a stale clone silently overrides a fresh
+install.</p>
+<p><strong>Option A2: point at a clone instead</strong></p>
+<p>Contributors, or anyone who wants the plugin tracked by git, can skip the CLI and
+write the package file by hand against a checkout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;FXHOUDINIMCP&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:/Users/you/code/fxhoudinimcp/houdini&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$FXHOUDINIMCP&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Forward slashes work on every platform. The path must end in <code>/houdini</code> and must
+contain <code>scripts/</code>, <code>MainMenuCommon.xml</code> and the <code>python3.Xlibs/</code> folders. Do not
+do this <em>and</em> Option A, or the two package files will fight.</p>
 <p>The package file is also where you configure the plugin. It ships every
 Houdini-side setting at its default, so they are all visible in one place:
 <code>FXHOUDINIMCP_PORT</code>, <code>FXHOUDINIMCP_BIND</code>, <code>FXHOUDINIMCP_AUTOSTART</code> and
@@ -2268,10 +2333,10 @@ for what each does). Two things to know:</p>
 </ul>
 <p>To see what Houdini actually did with your package, start it with the package
 log enabled and look for your file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Windows (PowerShell)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">$env</span>:HOUDINI_PACKAGE_VERBOSE<span class="o">=</span><span class="m">1</span><span class="p">;</span><span class="w"> </span>houdini
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Linux / macOS</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nv">HOUDINI_PACKAGE_VERBOSE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>houdini
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Windows (PowerShell)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">$env</span>:HOUDINI_PACKAGE_VERBOSE<span class="o">=</span><span class="m">1</span><span class="p">;</span><span class="w"> </span>houdini
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Linux / macOS</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nv">HOUDINI_PACKAGE_VERBOSE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>houdini
 </code></pre></div>
 <p>A working package prints both a <code>Loading:</code> and a <code>Processing:</code> line for
 <code>fxhoudinimcp.json</code>.</p>
@@ -2282,38 +2347,38 @@ log enabled and look for your file:</p>
 - <code>MainMenuCommon.xml</code> adds the <strong>MCP</strong> menu to Houdini's menu bar</p>
 <h3 id="3-configure-your-mcp-client">3. Configure Your MCP Client<a class="headerlink" href="#3-configure-your-mcp-client" title="Permanent link">&para;</a></h3>
 <p><strong>Claude Desktop</strong> (<code>claude_desktop_config.json</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">&quot;fxhoudini&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fxhoudinimcp&quot;</span><span class="p">],</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="nt">&quot;HOUDINI_HOST&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="nt">&quot;HOUDINI_PORT&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8100&quot;</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="p">}</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">&quot;fxhoudini&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fxhoudinimcp&quot;</span><span class="p">],</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="nt">&quot;HOUDINI_HOST&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">        </span><span class="nt">&quot;HOUDINI_PORT&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8100&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Claude Code</strong> (global — available in every project):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>fxhoudini<span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>fxhoudini<span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
 </code></pre></div>
 <p>Or to scope it to a single project, add a <code>.mcp.json</code> in the project root:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">&quot;fxhoudini&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fxhoudinimcp&quot;</span><span class="p">]</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">&quot;fxhoudini&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fxhoudinimcp&quot;</span><span class="p">]</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
 </code></pre></div>
 <blockquote>
 <p>[!TIP]
 If Claude Desktop reports the server as <strong>disconnected</strong>, replace <code>"python"</code> with the
 <strong>full absolute path</strong> to your Python executable. Claude Desktop does not always inherit
 your system PATH. Find it with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sys; print(sys.executable)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sys; print(sys.executable)&quot;</span>
 </code></pre></div>
 <p>Then use the result in your config, e.g. <code>"command": "C:\\Program Files\\Python311\\python.exe"</code>.
 After any config change, fully quit Claude Desktop (system tray → Quit) and relaunch.</p>
@@ -2321,7 +2386,7 @@ After any config change, fully quit Claude Desktop (system tray → Quit) and re
 <h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
 <h3 id="mkdocs-documentation">MkDocs Documentation<a class="headerlink" href="#mkdocs-documentation" title="Permanent link">&para;</a></h3>
 <p>For building the documentation locally:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[mkdocs]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[mkdocs]&quot;</span>
 </code></pre></div>
 
 
