@@ -57,13 +57,22 @@ _DUMPER = Path(__file__).resolve().parent / "dump_node_types.py"
 
 # Categories the instructions have sections for. Names outside these are in the
 # table but never annotated, because nothing advertises them.
+# Headings emitted by tools/gen_node_domains.py, e.g. "### Sop (context='Sop',
+# 663 documented)". These must track that generator: they previously read
+# "### SOPs" and silently matched nothing after the section became generated,
+# which produced zero annotations and looked like there was nothing to annotate.
 _SECTIONS = {
-    "### SOPs": "Sop",
-    "### LOPs": "Lop",
-    "### DOPs": "Dop",
-    "### COPs": "Cop",
-    "### CHOPs": "Chop",
-    "### TOPs": "Top",
+    "### Sop": "Sop",
+    "### Lop": "Lop",
+    "### Dop": "Dop",
+    "### Cop2": "Cop2",
+    "### Cop": "Cop",
+    "### Chop": "Chop",
+    "### Top": "Top",
+    "### Vop": "Vop",
+    "### Shop": "Shop",
+    "### Object": "Object",
+    "### Driver": "Driver",
 }
 
 # A previously generated annotation, so regeneration is idempotent. Deliberately

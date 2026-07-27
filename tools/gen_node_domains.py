@@ -1,32 +1,35 @@
-"""Generate search hints for the node contexts nobody had written up.
+"""Generate the whole node-domain section of server_instructions.md.
 
-The hand-written "COMMONLY MISSED NODE DOMAINS" lists cover six contexts. The
-other categories had no entry at all, and Vop is the second largest in Houdini:
-
-    Vop 1501, Data 539, Object 237, Shop 230, Cop2 178, Driver 99
-
-That is a large fraction of Houdini invisible to the assistant. Writing those
-lists by hand would be the same curation problem one level down, and worse here,
-since picking which of 1501 VOPs to mention is pure editorial judgement. So this
-derives them.
+Every node name advertised to the assistant is derived here. Nothing in that
+section is hand-written, so there is no half-curated, half-generated boundary for
+a reader to guess at.
 
     python tools/gen_node_domains.py            # regenerate
     python tools/gen_node_domains.py --check    # fail if stale
 
-Two sources, intersected:
+Run it before tools/gen_node_versions.py: this writes the names, that annotates
+the ones which do not exist across the whole supported range.
 
-* SideFX's shipped node help, for what is *stock*. The installed node lists
-  include whatever plugins happen to be on the generating machine, and advertising
-  another studio's Redshift or Octane nodes to every user would be wrong.
-  Verified: redshift:: and octane_ nodes are absent from SideFX's help.
-* tools/node_versions.json, for what actually *exists* across the sampled
-  builds. Only names present in every sampled series are emitted, so generated
-  hints never need a version annotation.
+Sources, and why each:
 
-What gets emitted is a usable ``filter=`` value plus real node names, because
-``list_node_types(context, filter)`` matches names and labels rather than SideFX's
-help tags. Advertising a tag would send the assistant looking for something the
-filter cannot find.
+* SideFX's shipped node help (``nodes.zip``) decides which names appear. It is
+  the only signal available for "ships with Houdini": the installed node lists
+  include whatever plugins are on the generating machine, and advertising one
+  studio's Redshift or Octane nodes to every user would manufacture exactly the
+  hallucinations this section exists to prevent. Verified: redshift:: and
+  octane_ are absent from the help.
+* ``#tags`` supply the grouping where SideFX populated them, which in practice
+  means SOPs and DOPs. Elsewhere they are near-empty (3 tagged VOPs out of 1257,
+  0 COPs, 0 SHOPs), so those contexts fall back to name stems usable as a
+  ``filter=`` value, then to a flat list of names.
+* ``tools/node_versions.json`` decides what exists at all, from the builds
+  contributors have sampled.
+
+Known limitation, stated in the generated text as well: the help documents 3974
+nodes against 5566 installed on a full 22.0 install, so real stock nodes SideFX
+never documented (surfacedeform, deflate, wrinkledeformer) are absent. The lists
+are a floor, not an inventory, which is why the generated preamble points at
+list_node_types and search_help.
 """
 
 from __future__ import annotations
@@ -47,62 +50,64 @@ _INSTRUCTIONS = (
 )
 _TABLE = Path(__file__).resolve().parent / "node_versions.json"
 
-_BEGIN = "<!-- BEGIN GENERATED: additional node contexts -->"
-_END = "<!-- END GENERATED: additional node contexts -->"
+_BEGIN = "<!-- BEGIN GENERATED: node domains -->"
+_END = "<!-- END GENERATED: node domains -->"
 
-# SideFX's help #context values mapped to hou node type categories. Enumerated
-# from the shipped help rather than guessed: "obj" and "out" do not capitalise
-# into "Object" and "Driver", which silently produced zero coverage for both.
+# SideFX's help #context values mapped to hou node type categories, enumerated
+# from the help rather than guessed: "obj" and "out" do not capitalise into
+# "Object" and "Driver", which silently produced zero coverage for both.
 _HELP_CONTEXT_TO_CATEGORY = {
-    "vop": "Vop",
     "sop": "Sop",
+    "vop": "Vop",
     "dop": "Dop",
-    "shop": "Shop",
     "lop": "Lop",
-    "cop2": "Cop2",
     "cop": "Cop",
+    "cop2": "Cop2",
     "chop": "Chop",
+    "top": "Top",
+    "shop": "Shop",
     "obj": "Object",
     "out": "Driver",
-    "top": "Top",
 }
 
-# Categories the hand-written sections already cover; these are left alone.
-_ALREADY_COVERED = {"Sop", "Lop", "Dop", "Cop", "Chop", "Top"}
+# The context= argument the tools take, where it differs from the category name.
+_CONTEXT_ARG = {"Object": "Obj"}
 
-# The context= argument each category needs, which is not always the category
-# name: hou calls them Object and Driver, the tools take Obj and Driver.
-_CONTEXT_ARG = {"Object": "Obj", "Driver": "Driver"}
-
-_MIN_TYPES = 25  # below this a context is not worth a line
+_MIN_TYPES = 25
+_MIN_TAG_MEMBERS = 4
+_MIN_TAGS_TO_GROUP = 4
+_MAX_TAGS = 20
+_MAX_TAG_NAMES = 16
 _MIN_STEM_MEMBERS = 3
 _MAX_STEMS = 10
-_MAX_NAMES = 6
+_MAX_STEM_EXAMPLES = 16
+_MAX_FLAT_NAMES = 48
 _STEM_LEN = 6
-
-# Some contexts have no naming families at all: Cop2 and Driver names are
-# diverse single words (colorcorrect, blend / geometry, alembic, karma), so
-# stem-grouping finds nothing and the names themselves are the vocabulary.
-_MAX_FLAT_NAMES = 24
 
 _INTERNAL = re.compile(r"^#internal:\s*(\S+)", re.M)
 _CONTEXT = re.compile(r"^#context:\s*(\S+)", re.M)
+_TAGS = re.compile(r"^#tags:\s*(.+)$", re.M)
 
-# Only emit names test_instruction_accuracy_live can actually claim, so nothing
-# is advertised without being verified. Its pattern allows internal capitals,
-# because MaterialX types are spelled mtlxLamaAdd and dropping them would hide a
-# whole shading family; it still requires a lowercase first character, which is
-# what keeps prose out.
+# Only emit names test_instruction_accuracy_live can claim, so nothing is
+# advertised without being verified. Internal capitals are allowed because
+# MaterialX types are spelled mtlxLamaAdd; a lowercase first character is what
+# keeps prose out of the claim set.
 _VERIFIABLE = re.compile(r"[a-z][A-Za-z0-9_:.]*[A-Za-z0-9]$")
 
 
 def _verifiable(name: str) -> bool:
-    return bool(_VERIFIABLE.match(name)) and ("_" in name or "::" in name or len(name) >= 4)
+    return bool(_VERIFIABLE.match(name)) and (
+        "_" in name or "::" in name or len(name) >= 4
+    )
 
 
-def documented_nodes(help_zip: Path) -> dict[str, set[str]]:
-    """Category -> node names SideFX documents, i.e. the stock ones."""
-    found: dict[str, set[str]] = defaultdict(set)
+def read_help(
+    help_zip: Path,
+) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
+    """Return (category -> documented names, category -> tag -> names)."""
+    documented: dict[str, set[str]] = defaultdict(set)
+    tagged: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+
     with zipfile.ZipFile(help_zip) as archive:
         for entry in archive.namelist():
             if not entry.endswith(".txt"):
@@ -114,33 +119,48 @@ def documented_nodes(help_zip: Path) -> dict[str, set[str]]:
             if not (internal and context):
                 continue
             category = _HELP_CONTEXT_TO_CATEGORY.get(context.group(1))
-            if category:
-                found[category].add(internal.group(1))
-    return found
+            if not category:
+                continue
+            name = internal.group(1)
+            documented[category].add(name)
+            tags = _TAGS.search(text)
+            if tags:
+                for tag in (part.strip() for part in tags.group(1).split(",")):
+                    if tag:
+                        tagged[category][tag].add(name)
+    return documented, tagged
 
 
-def present_everywhere(table: dict) -> dict[str, set[str]]:
-    """Category -> names present in every sampled series.
+def existing_names(table: dict) -> set[str]:
+    """"Category/name" keys any sampled build reported.
 
-    Restricting to names that exist throughout keeps generated hints free of
-    version annotations, which the annotation generator would otherwise have to
-    add to text it does not own.
+    Deliberately "any", not "every": a name that exists in only part of the range
+    still belongs here, and tools/gen_node_versions.py marks it with a version
+    range afterwards. Requiring presence everywhere would silently drop
+    instancer, pointinstancer and layout, which are precisely the cases the
+    version markers exist for.
     """
-    builds_by_series: dict[str, set[str]] = defaultdict(set)
-    for build, series in table["builds"].items():
-        builds_by_series[series].add(build)
-
-    everywhere: dict[str, set[str]] = defaultdict(set)
-    for key, builds in table["present"].items():
-        seen = set(builds)
-        if all(series_builds <= seen for series_builds in builds_by_series.values()):
-            category, _, name = key.partition("/")
-            everywhere[category].add(name)
-    return everywhere
+    return set(table["present"])
 
 
-def _stems(names: list[str]) -> list[tuple[str, list[str]]]:
-    """Group names by a leading-letters stem usable as a `filter=` value."""
+def _tag_lines(names: list[str], tagged: dict[str, set[str]]) -> list[str] | None:
+    available = set(names)
+    groups = {tag: sorted(members & available) for tag, members in tagged.items()}
+    groups = {
+        tag: found for tag, found in groups.items() if len(found) >= _MIN_TAG_MEMBERS
+    }
+    if len(groups) < _MIN_TAGS_TO_GROUP:
+        return None
+
+    lines = []
+    for tag, found in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:_MAX_TAGS]:
+        shown = found[:_MAX_TAG_NAMES]
+        suffix = ", etc." if len(found) > len(shown) else ""
+        lines.append(f"*   {tag}: {', '.join(shown)}{suffix}")
+    return lines
+
+
+def _stem_line(names: list[str]) -> str | None:
     members: dict[str, list[str]] = defaultdict(list)
     for name in names:
         match = re.match(r"[a-z]{3,}", name.split("::")[0])
@@ -148,54 +168,80 @@ def _stems(names: list[str]) -> list[tuple[str, list[str]]]:
             members[match.group(0)[:_STEM_LEN]].append(name)
 
     counted = Counter({stem: len(found) for stem, found in members.items()})
-    return [
-        (stem, sorted(members[stem]))
+    top = [
+        stem
         for stem, count in counted.most_common(_MAX_STEMS)
         if count >= _MIN_STEM_MEMBERS
     ]
+    if not top:
+        return None
+    filters = "|".join(f"'{stem}'" for stem in top)
+    # Prefer a mixed-case member when the family has one: MaterialX types are
+    # spelled mtlxLamaAdd, and always taking the alphabetically first name hid
+    # that spelling from both the assistant and the verifier.
+    examples = []
+    for stem in top[:_MAX_STEM_EXAMPLES]:
+        family = sorted(members[stem])
+        mixed = next((n for n in family if any(c.isupper() for c in n)), None)
+        examples.append(mixed or family[0])
+    # The leading label matters: test_instruction_accuracy_live reads names from
+    # after the first ":" on a bullet, so a colon-less line advertises names it
+    # never verifies. That silently left Vop, Cop, Cop2, Chop and Shop unchecked.
+    return f"*   Name prefixes: filter={filters} — e.g. {', '.join(examples)}"
 
 
-def build_block(documented: dict[str, set[str]], everywhere: dict[str, set[str]]) -> str:
-    # A heading per context, so test_instruction_accuracy_live verifies these
-    # names per Houdini version exactly as it does the hand-written sections.
-    # Generated coverage that nothing checks would be worth little.
+def build_block(
+    documented: dict[str, set[str]],
+    tagged: dict[str, dict[str, set[str]]],
+    existing: set[str],
+) -> str:
     lines = [
-        "Counts are stock nodes only: a plugin your studio installs will not",
-        "appear here, so use `list_node_types` to see everything actually loaded.",
+        "Generated by `tools/gen_node_domains.py` from Houdini's own shipped node",
+        "help. Do not hand-edit.",
+        "",
+        "These lists are a floor, not an inventory: SideFX documents fewer nodes",
+        "than ship, and a plugin your studio installs is never listed. Call",
+        "`list_node_types(context, filter)` to see what is actually loaded, and",
+        "`search_help(query)` to find a node by what it does rather than by name.",
+        "",
+        "A name followed by a version range exists only in those Houdini versions,",
+        "within the 20.5-22.0 range this server supports: `colorcorrect (21.0+)` is",
+        "absent before 21.0, and `instancer (20.5-21.0)` is gone from 22.0 onward.",
+        "Unannotated names exist throughout. Check `get_scene_info` for the running",
+        "version before relying on an annotated name.",
     ]
-    for category in sorted(
-        documented, key=lambda c: -len(documented[c] & everywhere.get(c, set()))
-    ):
-        if category in _ALREADY_COVERED:
-            continue
-        stock = sorted(documented[category] & everywhere.get(category, set()))
-        if len(stock) < _MIN_TYPES:
+
+    def stock(category: str) -> list[str]:
+        return sorted(
+            name
+            for name in documented[category]
+            if f"{category}/{name}" in existing and _verifiable(name)
+        )
+
+    for category in sorted(documented, key=lambda c: -len(stock(c))):
+        names = stock(category)
+        if len(names) < _MIN_TYPES:
             continue
 
         context = _CONTEXT_ARG.get(category, category)
         lines.append("")
-        lines.append(f"### {category} (context='{context}')")
+        lines.append(f"### {category} (context='{context}', {len(names)} documented)")
         lines.append("")
 
-        grouped = _stems(stock)
+        grouped = _tag_lines(names, tagged.get(category, {}))
         if grouped:
-            filters = "|".join(f"'{stem}'" for stem, _ in grouped)
-            examples = []
-            for _, found in grouped:
-                usable = next((n for n in found if _verifiable(n)), None)
-                if usable:
-                    examples.append(usable)
-            examples = examples[:_MAX_NAMES]
-            lines.append(
-                f"*   {len(stock)} stock types: filter={filters} "
-                f"— e.g. {', '.join(examples)}"
-            )
+            lines.extend(grouped)
             continue
 
-        # No naming families, so list the names instead: they are the vocabulary.
-        shown = [n for n in stock if _verifiable(n)][:_MAX_FLAT_NAMES]
-        suffix = ", etc." if len(stock) > len(shown) else ""  # count is of all stock
-        lines.append(f"*   {len(stock)} stock types: {', '.join(shown)}{suffix}")
+        stem = _stem_line(names)
+        if stem:
+            lines.append(stem)
+            continue
+
+        shown = names[:_MAX_FLAT_NAMES]
+        suffix = ", etc." if len(names) > len(shown) else ""
+        lines.append(f"*   Types: {', '.join(shown)}{suffix}")
+
     return "\n".join(lines)
 
 
@@ -204,10 +250,9 @@ def _newest_help_zip() -> Path | None:
     from run_integration import find_all_hython  # noqa: E402
 
     for hython in find_all_hython():
-        # Walk up rather than index a fixed depth: the interpreter sits at
-        # <install>/bin on Windows and Linux but six levels down inside the
-        # framework bundle on macOS, and a hardcoded index silently found
-        # nothing.
+        # Walk up rather than index a fixed depth: the interpreter is at
+        # <install>/bin on Windows and Linux but six levels into the framework
+        # bundle on macOS.
         for parent in hython.parents:
             candidate = parent / "houdini" / "help" / "nodes.zip"
             if candidate.is_file():
@@ -231,15 +276,14 @@ def main() -> int:
         )
         return 1
 
-    documented = documented_nodes(help_zip)
-    everywhere = present_everywhere(json.loads(_TABLE.read_text(encoding="utf-8")))
-    block = build_block(documented, everywhere)
+    documented, tagged = read_help(help_zip)
+    existing = existing_names(json.loads(_TABLE.read_text(encoding="utf-8")))
+    block = build_block(documented, tagged, existing)
 
     text = _INSTRUCTIONS.read_text(encoding="utf-8")
     if _BEGIN not in text or _END not in text:
         print(
             f"Markers missing from {_INSTRUCTIONS.relative_to(REPO_ROOT)}.\n"
-            f"Add these two lines where the generated block belongs:\n"
             f"    {_BEGIN}\n    {_END}"
         )
         return 1
@@ -249,7 +293,8 @@ def main() -> int:
     updated = text[:start] + "\n" + block + "\n" + text[end:]
 
     print(f"help source : {help_zip}")
-    print(block)
+    print(f"contexts    : {block.count(chr(10) + '### ')}")
+    print(f"block size  : {len(block)} bytes")
 
     if args.check:
         if updated != text:
