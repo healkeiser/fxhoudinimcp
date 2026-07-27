@@ -57,13 +57,22 @@ _DUMPER = Path(__file__).resolve().parent / "dump_node_types.py"
 
 # Categories the instructions have sections for. Names outside these are in the
 # table but never annotated, because nothing advertises them.
+# Headings emitted by tools/gen_node_domains.py, e.g. "### Sop (context='Sop',
+# 663 documented)". These must track that generator: they previously read
+# "### SOPs" and silently matched nothing after the section became generated,
+# which produced zero annotations and looked like there was nothing to annotate.
 _SECTIONS = {
-    "### SOPs": "Sop",
-    "### LOPs": "Lop",
-    "### DOPs": "Dop",
-    "### COPs": "Cop",
-    "### CHOPs": "Chop",
-    "### TOPs": "Top",
+    "### Sop": "Sop",
+    "### Lop": "Lop",
+    "### Dop": "Dop",
+    "### Cop2": "Cop2",
+    "### Cop": "Cop",
+    "### Chop": "Chop",
+    "### Top": "Top",
+    "### Vop": "Vop",
+    "### Shop": "Shop",
+    "### Object": "Object",
+    "### Driver": "Driver",
 }
 
 # A previously generated annotation, so regeneration is idempotent. Deliberately
@@ -161,6 +170,8 @@ def load_table() -> dict:
     table.setdefault("builds", {})
     table.setdefault("present", {})
     table.setdefault("since", {})
+    table.setdefault("deprecated", {})
+    table.setdefault("aliases", {})
     return table
 
 
@@ -175,6 +186,8 @@ def merge(table: dict, dumps: list[dict]) -> dict:
         key: set(values) for key, values in table["present"].items()
     }
     since = dict(table["since"])
+    deprecated = dict(table.get("deprecated") or {})
+    aliases = dict(table.get("aliases") or {})
 
     for dump in dumps:
         build = dump["version"]
@@ -195,6 +208,12 @@ def merge(table: dict, dumps: list[dict]) -> dict:
             if prior is None or _version_key(value) < _version_key(prior):
                 since[key] = value
 
+        # Kept per build rather than merged: a node deprecated in 22.0 was
+        # perfectly current in 20.5, and collapsing the two would misreport the
+        # older version. Same for renames, which happen at a specific release.
+        deprecated[build] = sorted(dump.get("deprecated") or [])
+        aliases[build] = dict(sorted((dump.get("aliases") or {}).items()))
+
     # A name nothing has ever reported is dead weight.
     present = {key: values for key, values in present.items() if values}
 
@@ -202,6 +221,8 @@ def merge(table: dict, dumps: list[dict]) -> dict:
         "builds": dict(sorted(builds.items())),
         "present": {key: sorted(values) for key, values in sorted(present.items())},
         "since": dict(sorted(since.items())),
+        "deprecated": dict(sorted(deprecated.items())),
+        "aliases": dict(sorted(aliases.items())),
     }
 
 
@@ -316,14 +337,18 @@ def rewrite_instructions(text: str, table: dict) -> tuple[str, list[str], list[s
     applied: list[str] = []
     unexpressible: list[str] = []
 
-    wanted: dict[str, str] = {}
+    # Keyed by (category, name), not name alone: several names exist in more than
+    # one category with different histories -- testgeometry_capybara is 22.0+ as a
+    # COP but has been a SOP since 20.5. Keying by name applied the COP's marker
+    # to the SOP line, telling the model a node it can use is unavailable.
+    wanted: dict[tuple[str, str], str] = {}
     for category, name in _markdown_names(text):
         per_series = avail.get(f"{category}/{name}")
         if per_series is None:
             continue
         marker = annotation_for(per_series, series)
         if marker:
-            wanted[name] = marker
+            wanted[(category, name)] = marker
             applied.append(f"{category}/{name} {marker}")
         elif not all(per_series.get(s, False) for s in series) and any(
             per_series.get(s, False) for s in series
@@ -346,15 +371,23 @@ def rewrite_instructions(text: str, table: dict) -> tuple[str, list[str], list[s
 
         head, sep, tail = line.partition(":")
         tail = _ANNOTATION.sub("", tail)
-        for name, marker in wanted.items():
+        for (name_category, name), marker in wanted.items():
+            if name_category != category:
+                continue
             # ``\_`` escapes in the markdown mean the literal name may be
             # spelled with backslashes, so allow one before each underscore.
             escaped = re.escape(name).replace("_", r"\\?_")
             # count=1: a name can legitimately appear again in prose on the same
             # line ("layout ... the layout LOP is gone"), and annotating the
             # sentence occurrence would mangle it. The list position comes first.
+            #
+            # The quote exclusions skip the "Name prefixes: filter='pyro'|..."
+            # tokens, which are six-character prefixes rather than node names. A
+            # prefix that happens to spell a whole name ('camera') otherwise
+            # swallowed the count=1 substitution, producing the meaningless
+            # "'camera (22.0+)'" and leaving the actual example unannotated.
             tail = re.sub(
-                r"(?<![a-z0-9_\\])(" + escaped + r")(?![a-z0-9_])",
+                r"(?<![a-z0-9_\\'])(" + escaped + r")(?![a-z0-9_'])",
                 r"\1 " + marker,
                 tail,
                 count=1,

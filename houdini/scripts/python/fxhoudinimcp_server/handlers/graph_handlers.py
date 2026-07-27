@@ -411,8 +411,9 @@ _CATEGORY_HELP_DIRS = {
 def _help_text(node_type, category_name: str) -> str | None:
     """Houdini's own help for a node type, version-exact, headless-safe."""
     global _HELP_ZIP_INDEX
+    # hou.text.expandString, not the deprecated hou.expandString.
     zip_path = os.path.join(
-        hou.expandString("$HFS"), "houdini", "help", "nodes.zip"
+        hou.text.expandString("$HFS"), "houdini", "help", "nodes.zip"
     )
     if _HELP_ZIP_INDEX is None:
         _HELP_ZIP_INDEX = {}
