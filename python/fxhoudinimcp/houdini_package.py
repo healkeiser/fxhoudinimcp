@@ -121,6 +121,24 @@ def existing_packages(exclude: Path | None = None) -> list[tuple[Path, str]]:
     return found
 
 
+def write_package(destination: Path, path: Path | None = None) -> Path:
+    """Write ``fxhoudinimcp.json`` into *destination* and return the file written.
+
+    Shared with ``fxhoudinimcp install`` so there is one place that knows the
+    encoding rules. utf-8 *without* a BOM: Houdini's JSON parser rejects a BOM
+    and skips the whole package silently, which is the trap behind issue #11.
+
+    Raises NotADirectoryError if *destination* does not exist, rather than
+    creating it: a typo'd path would otherwise produce a package file in a
+    directory Houdini never reads, and Houdini reports nothing when that happens.
+    """
+    if not destination.is_dir():
+        raise NotADirectoryError(destination)
+    target = destination / _PACKAGE_NAME
+    target.write_text(package_json(path), encoding="utf-8", newline="\n")
+    return target
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="fxhoudinimcp houdini-package",
@@ -157,7 +175,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.write:
         destination = Path(args.write).expanduser()
-        if not destination.is_dir():
+        try:
+            target = write_package(destination, plugin)
+        except NotADirectoryError:
             print(
                 f"Not a directory: {destination}\n"
                 "Create it first, or pick one of the candidates listed by "
@@ -165,10 +185,6 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
-        target = destination / _PACKAGE_NAME
-        # utf-8 without a BOM: Houdini's JSON parser rejects a BOM and skips the
-        # whole package, which is the trap documented in issue #11.
-        target.write_text(contents, encoding="utf-8", newline="\n")
         print(f"Wrote {target}")
 
         others = existing_packages(exclude=target)

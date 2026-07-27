@@ -141,6 +141,33 @@ Uses Houdini's built-in `hwebserver`. No custom socket servers, no rpyc. Uses `h
 - **Python** 3.10+
 - **MCP SDK** (`mcp` package) 1.8+
 
+### Quick start
+
+Two commands, if nothing on your machine is ambiguous:
+
+```shell
+pip install fxhoudinimcp
+fxhoudinimcp install
+```
+
+`install` does both halves: it writes the Houdini package file pointing at this
+exact install, and registers the server with Claude Code and Claude Desktop
+using the absolute path of the Python you installed into. Add `--dry-run` to see
+what it would touch without changing anything.
+
+It stops and asks when it cannot know the answer. If several Houdini packages
+directories exist, it lists them rather than guessing, because guessing wrongly
+produces an install that fails silently:
+
+```shell
+fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
+```
+
+Other flags: `--client claude-code|claude-desktop|both|none` to control which
+client is touched, `none` if you wire it up yourself.
+
+The step-by-step version follows, for when something needs untangling.
+
 ### 1. Install the MCP Server
 
 **From PyPI:**
@@ -168,6 +195,9 @@ Since **2.1.0** the plugin ships inside the Python package, so `pip install
 distributed separately and it was easy to upgrade one and leave the other
 behind; the server now warns at startup when it finds a plugin older than
 itself.
+
+`fxhoudinimcp install` (above) does this step for you. The rest of this section
+is the manual route.
 
 **Option A: let the CLI write the package file (recommended)**
 
@@ -314,7 +344,12 @@ Or to scope it to a single project, add a `.mcp.json` in the project root:
 <!-- USAGE -->
 ## Usage
 
-Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also control it manually from the **MCP** menu (Start Server, Stop Server, Server Status).
+Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also control it manually from the **MCP** menu (Start Server, Stop Server, Connect a Client, Server Status).
+
+**MCP > Connect a Client...** prints the `claude mcp add` line for the port this
+session actually ended up on, and copies it to the clipboard. That matters with
+more than one Houdini open: a second session moves itself to the next free port,
+so the configured port and the real one differ.
 
 Startup verifies that Houdini's `mcp.health` endpoint answers from the current
 Houdini process before printing that the server is ready. If your assistant
