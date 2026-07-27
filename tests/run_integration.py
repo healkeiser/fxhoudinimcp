@@ -49,8 +49,17 @@ def _search_patterns() -> list[str]:
 _HYTHON_SUBPATHS = [
     "bin/hython.exe",
     "bin/hython",
-    # macOS keeps the interpreter inside the framework bundle.
+    # macOS keeps the interpreter inside the framework bundle. SideFX document
+    # both this and a version-numbered directory, so the glob below covers the
+    # case where the Current symlink is absent.
     "Frameworks/Houdini.framework/Versions/Current/Resources/bin/hython",
+]
+
+# Tried after the exact paths above. Houdini's own help documents the macOS
+# location as ".../Houdini.framework/Versions/<version>/Resources/bin", so
+# relying on "Current" alone would miss an install without that symlink.
+_HYTHON_GLOBS = [
+    "Frameworks/Houdini.framework/Versions/*/Resources/bin/hython",
 ]
 
 
@@ -60,10 +69,23 @@ def _version_key(path: Path) -> tuple[int, ...]:
 
 
 def _hython_in(install: Path) -> Path | None:
+    """Find the interpreter inside one install directory.
+
+    Exact paths first because they are the common case and cost one stat each;
+    the globs exist so a layout variation degrades to a slower search rather
+    than to "no Houdini found".
+    """
     for subpath in _HYTHON_SUBPATHS:
         hython = install / subpath
         if hython.is_file():
             return hython
+
+    for pattern in _HYTHON_GLOBS:
+        # Sorted so the choice is deterministic when several versions of the
+        # framework are present inside one install.
+        for hython in sorted(install.glob(pattern)):
+            if hython.is_file():
+                return hython
     return None
 
 
