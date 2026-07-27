@@ -24,7 +24,8 @@ auto-start by setting:
 export FXHOUDINIMCP_AUTOSTART=0
 ```
 
-You can still toggle the server manually using the **MCP Server** shelf tool.
+You can still control the server manually from Houdini's **MCP** menu, which
+provides Start Server, Stop Server and Server Status.
 
 If an assistant cannot reach Houdini, use `get_houdini_connection_status` to
 return structured diagnostics without raising a tool error. If port `8100` is

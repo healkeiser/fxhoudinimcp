@@ -44,6 +44,24 @@ async def get_houdini_connection_status(ctx: Context) -> dict:
             "details": {"type": type(exc).__name__},
         }
 
+    # mcp.health is deliberately free of hou.* access, so it cannot report the
+    # open scene. Fetch that separately to keep this tool's payload shape
+    # unchanged for callers that read health["hip_file"].
+    #
+    # Best-effort with a short timeout, and never fatal: unlike health, this
+    # goes through main-thread dispatch, so a busy Houdini would otherwise turn
+    # a diagnostic that is supposed to always answer into one that hangs.
+    health = dict(health)
+    if "hip_file" not in health:
+        try:
+            scene = await bridge.execute("scene.get_scene_info", timeout=5.0)
+        except Exception:
+            scene = None
+        if isinstance(scene, dict):
+            for key in ("hip_file", "houdini_version"):
+                if scene.get(key) is not None:
+                    health.setdefault(key, scene[key])
+
     return {
         "connected": True,
         "base_url": bridge.base_url,

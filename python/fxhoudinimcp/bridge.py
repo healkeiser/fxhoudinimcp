@@ -54,6 +54,38 @@ class HoudiniBridge:
             self._client = httpx.AsyncClient(timeout=self.timeout)
         return self._client
 
+    async def _reset_client(self) -> httpx.AsyncClient:
+        """Discard the connection pool and return a fresh client."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+        self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
+
+    async def _post(
+        self,
+        data: dict[str, Any],
+        timeout: float | None = None,
+    ) -> httpx.Response:
+        """POST to the bridge, retrying once past a dead pooled connection.
+
+        Houdini closes its side of the keep-alive connections when it exits,
+        so the first request after a Houdini restart reuses a socket that is
+        already gone and httpx raises RemoteProtocolError. Retrying on a fresh
+        pool reconnects to the new Houdini, instead of leaving this process
+        permanently "disconnected" until the MCP client itself is restarted.
+        """
+        # httpx reads timeout=None as "wait forever", so fall back to the
+        # configured timeout rather than passing None straight through.
+        effective = self.timeout if timeout is None else timeout
+
+        client = await self._get_client()
+        try:
+            return await client.post(self._api_url, data=data, timeout=effective)
+        except httpx.RemoteProtocolError:
+            logger.info("Stale connection to Houdini; reconnecting.")
+            client = await self._reset_client()
+            return await client.post(self._api_url, data=data, timeout=effective)
+
     async def execute(
         self,
         command: str,
@@ -77,12 +109,9 @@ class HoudiniBridge:
         request_id = str(uuid.uuid4())
         logger.info("→ Houdini: %s", command)
 
-        client = await self._get_client()
-
         try:
-            response = await client.post(
-                self._api_url,
-                data=_rpc_body(
+            response = await self._post(
+                _rpc_body(
                     "mcp.execute",
                     command=command,
                     params=params or {},
@@ -91,7 +120,7 @@ class HoudiniBridge:
                 timeout=timeout or self.timeout,
             )
             response.raise_for_status()
-        except httpx.ConnectError as e:
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
             raise ConnectionError(
                 f"Cannot connect to Houdini at {self.base_url}. "
                 "Is Houdini running with the fxhoudinimcp plugin loaded?",
@@ -109,6 +138,20 @@ class HoudiniBridge:
             raise ConnectionError(
                 f"Request to Houdini timed out after {timeout or self.timeout}s",
                 details={"timeout": timeout or self.timeout},
+            ) from e
+        except httpx.TransportError as e:
+            # Everything the branches above do not name: ReadError/WriteError/
+            # CloseError on a broken socket, and any transport error a future
+            # httpx adds. Without this they reached the MCP client as raw httpx
+            # exceptions, and several carry an empty message -- so the client
+            # saw a failure with no indication of what went wrong or that
+            # Houdini was the cause. ReadError is the one that actually escaped
+            # in testing, which is why naming individual classes is a losing
+            # game.
+            raise ConnectionError(
+                f"Lost the connection to Houdini at {self.base_url} "
+                f"({type(e).__name__}). Has Houdini been closed or restarted?",
+                details={"url": self.base_url, "original_error": str(e)},
             ) from e
 
         result = response.json()
@@ -132,20 +175,25 @@ class HoudiniBridge:
     async def health_check(self) -> dict[str, Any]:
         """Check if Houdini is responsive.
 
+        Deliberately cheap: the plugin answers this without touching HOM, so it
+        works while Houdini's main thread is busy. That is also why it reports
+        no scene details -- use scene.get_scene_info for hip_file.
+
         Returns:
-            Dict with houdini_version, hip_file, pid, etc.
+            Dict with status, pid and houdini_version.
         """
-        client = await self._get_client()
         try:
-            response = await client.post(
-                self._api_url,
-                data=_rpc_body("mcp.health"),
-            )
+            response = await self._post(_rpc_body("mcp.health"))
             response.raise_for_status()
             return response.json()
-        except (httpx.ConnectError, httpx.TimeoutException) as e:
+        except httpx.TransportError as e:
+            # TransportError is the base for ConnectError, the timeout family,
+            # RemoteProtocolError and the socket errors, so this covers every
+            # way the transport can fail rather than the ones we happened to
+            # name.
             raise ConnectionError(
-                f"Health check failed: cannot reach Houdini at {self.base_url}",
+                f"Health check failed: cannot reach Houdini at {self.base_url} "
+                f"({type(e).__name__})",
                 details={"original_error": str(e)},
             ) from e
 

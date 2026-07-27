@@ -44,6 +44,56 @@ class TestSceneTools:
         }
 
     @pytest.mark.asyncio
+    async def test_connection_status_backfills_hip_file(self, mock_ctx, mock_bridge):
+        """mcp.health is HOM-free, so hip_file comes from the scene handler.
+
+        Callers read health["hip_file"], so the key has to keep appearing even
+        though the health endpoint no longer knows it.
+        """
+        mock_bridge.base_url = "http://localhost:8100"
+        mock_bridge.health_check.return_value = {"status": "ok", "pid": 123}
+        mock_bridge.execute.return_value = {
+            "hip_file": "/tmp/shot.hip",
+            "houdini_version": "22.0.368",
+        }
+
+        result = await get_houdini_connection_status(mock_ctx)
+
+        assert result["connected"] is True
+        assert result["health"]["hip_file"] == "/tmp/shot.hip"
+        assert result["health"]["houdini_version"] == "22.0.368"
+        assert result["health"]["pid"] == 123
+
+    @pytest.mark.asyncio
+    async def test_connection_status_survives_scene_lookup_failure(
+        self, mock_ctx, mock_bridge
+    ):
+        """A busy or wedged Houdini must not stop this reporting connected."""
+        mock_bridge.base_url = "http://localhost:8100"
+        mock_bridge.health_check.return_value = {"status": "ok", "pid": 123}
+        mock_bridge.execute.side_effect = HoudiniConnectionError("timed out")
+
+        result = await get_houdini_connection_status(mock_ctx)
+
+        assert result["connected"] is True
+        assert result["health"] == {"status": "ok", "pid": 123}
+
+    @pytest.mark.asyncio
+    async def test_connection_status_keeps_health_hip_file(self, mock_ctx, mock_bridge):
+        """An older plugin still reporting hip_file must not be second-guessed."""
+        mock_bridge.base_url = "http://localhost:8100"
+        mock_bridge.health_check.return_value = {
+            "status": "ok",
+            "pid": 123,
+            "hip_file": "/from/health.hip",
+        }
+
+        result = await get_houdini_connection_status(mock_ctx)
+
+        assert result["health"]["hip_file"] == "/from/health.hip"
+        mock_bridge.execute.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_connection_status_disconnect(self, mock_ctx, mock_bridge):
         mock_bridge.base_url = "http://localhost:8100"
         mock_bridge.health_check.side_effect = HoudiniConnectionError(

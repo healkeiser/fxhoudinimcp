@@ -137,7 +137,7 @@ Uses Houdini's built-in `hwebserver`. No custom socket servers, no rpyc. Uses `h
 
 ### Requirements
 
-- **Houdini** 20.5+ (tested on 21.0)
+- **Houdini** 20.5+ (tested on 21.0 and 22.0)
 - **Python** 3.10+
 - **MCP SDK** (`mcp` package) 1.8+
 
@@ -163,6 +163,15 @@ pip install -e ".[dev]"
 
 ### 2. Install the Houdini Plugin
 
+> **The PyPI package does not contain the Houdini plugin.** `pip install
+> fxhoudinimcp` installs only the MCP server that Claude talks to. The
+> Houdini-side half lives in this repository's `houdini/` directory, so clone
+> the repo even if you installed the server from PyPI:
+>
+> ```shell
+> git clone https://github.com/healkeiser/fxhoudinimcp
+> ```
+
 **Option A: Houdini package (recommended)**
 
 1. Copy `houdini/fxhoudinimcp.json` to your Houdini packages directory:
@@ -170,14 +179,63 @@ pip install -e ".[dev]"
    - Linux: `~/houdiniXX.X/packages/`
    - macOS: `~/Library/Preferences/houdini/XX.X/packages/`
 
-2. Edit the JSON file to set `FXHOUDINIMCP` to point to the `houdini` directory in this repo.
+2. Edit the copy and replace the placeholder `FXHOUDINIMCP` value with the
+   absolute path to this repository's `houdini` directory:
+
+   ```json
+   { "env": [ { "FXHOUDINIMCP": "C:/Users/you/code/fxhoudinimcp/houdini" } ],
+     "path": "$FXHOUDINIMCP" }
+   ```
+
+   Forward slashes work on every platform. The path must end in `/houdini` and
+   must contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders.
+
+The package file is also where you configure the plugin. It ships every
+Houdini-side setting at its default, so they are all visible in one place:
+`FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART` and
+`FXHOUDINIMCP_AUTO_LAYOUT` (see [Environment Variables](#environment-variables)
+for what each does). Two things to know:
+
+- Because the package sets these explicitly, it **wins over the same variable
+  set in your shell**. Change them here, not in your environment. Houdini's
+  package format has no "only if unset" method, and it rejects JSON comments,
+  so there is no way to ship them inert.
+- `HOUDINI_HOST`, `HOUDINI_PORT`, `MCP_TRANSPORT` and `LOG_LEVEL` do **not**
+  belong here. They are read by the MCP server process that your client
+  launches, not by Houdini, so setting them in this file has no effect --
+  configure those in your MCP client instead. If you change
+  `FXHOUDINIMCP_PORT`, set `HOUDINI_PORT` to match on the client side.
+
+Two ways this step fails silently, both worth knowing:
+
+- **A path that does not exist.** Houdini skips a package whose path cannot be
+  resolved without printing anything. Nothing loads: no **MCP** menu, no
+  auto-start, no `fxhoudinimcp_server` module.
+- **A UTF-8 BOM.** Houdini's JSON parser rejects a leading BOM and skips the
+  whole package. On Windows, `Set-Content -Encoding UTF8` adds one; use
+  `Set-Content -Encoding utf8NoBOM` (PowerShell 7+) or an editor that can save
+  without a BOM. The file looks correct either way, which is what makes this
+  one nasty.
+
+To see what Houdini actually did with your package, start it with the package
+log enabled and look for your file:
+
+```shell
+# Windows (PowerShell)
+$env:HOUDINI_PACKAGE_VERBOSE=1; houdini
+# Linux / macOS
+HOUDINI_PACKAGE_VERBOSE=1 houdini
+```
+
+A working package prints both a `Loading:` and a `Processing:` line for
+`fxhoudinimcp.json`.
 
 **Option B: Manual copy**
 
 Copy the contents of `houdini/` into your Houdini user preferences directory so that:
 - `scripts/python/fxhoudinimcp_server/` is on Houdini's Python path
-- `python3.Xlibs/uiready.py` auto-starts the server (copy the folder matching your Houdini's Python version)
-- `toolbar/fxhoudinimcp.shelf` appears in your shelf
+- `python3.Xlibs/uiready.py` auto-starts the server (copy the folder matching your Houdini's Python version: 3.11 for Houdini 20.5 and 21.0, 3.13 for Houdini 22.0)
+- `MainMenuCommon.xml` adds the **MCP** menu to Houdini's menu bar
 
 ### 3. Configure Your MCP Client
 
@@ -233,7 +291,7 @@ Or to scope it to a single project, add a `.mcp.json` in the project root:
 <!-- USAGE -->
 ## Usage
 
-Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also toggle it manually via the **MCP Server** shelf tool.
+Launch Houdini normally. The plugin auto-starts once when the UI is ready (controlled by `FXHOUDINIMCP_AUTOSTART` env var). The startup script uses `uiready.py`, which stacks correctly with other Houdini packages. You can also control it manually from the **MCP** menu (Start Server, Stop Server, Server Status).
 
 Startup verifies that Houdini's `mcp.health` endpoint answers from the current
 Houdini process before printing that the server is ready. If your assistant
@@ -261,6 +319,7 @@ Once connected, your AI assistant can:
 | `FXHOUDINIMCP_PORT` | `8100` | Port for the Houdini plugin to listen on |
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Set to `0` to disable auto-start |
 | `FXHOUDINIMCP_AUTO_LAYOUT` | `1` | Set to `0` to disable automatic node layout (preserves manual layouts) |
+| `FXHOUDINIMCP_BIND` | `127.0.0.1` | Address the Houdini plugin binds. Loopback by default: the bridge runs arbitrary Python in your Houdini session and has no authentication, so only widen this on a network you trust |
 | `MCP_TRANSPORT` | `stdio` | MCP transport (`stdio` or `streamable-http`) |
 | `LOG_LEVEL` | `INFO` | Logging level |
 

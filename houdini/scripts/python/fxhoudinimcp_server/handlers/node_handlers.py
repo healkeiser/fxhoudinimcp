@@ -12,6 +12,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import auto_layout_enabled, layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.serialize import to_jsonable
 
 
 ###### Helpers
@@ -213,13 +214,19 @@ def get_node_info(node_path: str) -> dict:
                 default = default[0]
         except Exception:
             default = None
-        if val == default:
-            continue
+        # Ramp and Data parameters have no comparable defaultValue(), so this
+        # guard never filters them out and they always reach the response --
+        # which is why they have to survive JSON encoding (see serialize.py).
+        try:
+            if val == default:
+                continue
+        except Exception:
+            pass
         parms_summary.append({
             "name": parm.name(),
             "label": parm.description(),
-            "value": val if not isinstance(val, (hou.Vector2, hou.Vector3, hou.Vector4)) else list(val),
-            "default": default if not isinstance(default, tuple) else list(default),
+            "value": to_jsonable(val),
+            "default": to_jsonable(default),
             "type": parm.parmTemplate().type().name(),
         })
 

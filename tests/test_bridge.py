@@ -94,6 +94,51 @@ class TestExecute:
                 await bridge.execute("scene.get_info")
             assert "timed out" in str(exc_info.value)
 
+    @pytest.mark.parametrize(
+        ("exc", "expected"),
+        [
+            # _post retries this one on a fresh pool first; reaching the
+            # handler at all means the retry failed too, so Houdini is gone.
+            (
+                httpx.RemoteProtocolError("Server disconnected without sending"),
+                "Cannot connect to Houdini",
+            ),
+            (httpx.ReadError(""), "ReadError"),
+            (httpx.WriteError(""), "WriteError"),
+            (httpx.CloseError(""), "CloseError"),
+            # A TimeoutException subclass, so it keeps the more specific
+            # timeout message from the branch above rather than falling through.
+            (httpx.PoolTimeout(""), "timed out"),
+        ],
+        ids=["remote_protocol", "read", "write", "close", "pool_timeout"],
+    )
+    @pytest.mark.asyncio
+    async def test_transport_errors_are_wrapped(self, bridge, exc, expected):
+        """Every transport failure must surface as our own ConnectionError.
+
+        These used to escape as raw httpx exceptions, and ReadError/WriteError
+        carry an empty message, so the MCP client got a failure with no hint
+        that Houdini was even involved.
+
+        _reset_client is patched alongside _get_client because _post retries a
+        RemoteProtocolError on a fresh pool; left real, that retry would make an
+        actual connection attempt to port 8100 -- slow, and it would resolve
+        differently if a Houdini happened to be listening.
+        """
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=exc)
+
+        with (
+            patch.object(bridge, "_get_client", return_value=client),
+            patch.object(bridge, "_reset_client", return_value=client),
+        ):
+            with pytest.raises(ConnectionError) as exc_info:
+                await bridge.execute("scene.get_info")
+
+        message = str(exc_info.value)
+        assert message.strip()
+        assert expected in message
+
     @pytest.mark.asyncio
     async def test_http_status_error(self, bridge, mock_response):
         resp = mock_response({"error": "server error"}, status_code=500)
@@ -145,6 +190,33 @@ class TestHealthCheck:
 
             with pytest.raises(ConnectionError):
                 await bridge.health_check()
+
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            httpx.RemoteProtocolError("disconnected"),
+            httpx.ReadError(""),
+            httpx.PoolTimeout(""),
+            httpx.ReadTimeout("slow"),
+        ],
+        ids=["remote_protocol", "read", "pool_timeout", "read_timeout"],
+    )
+    @pytest.mark.asyncio
+    async def test_transport_errors_are_wrapped(self, exc):
+        bridge = HoudiniBridge()
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=exc)
+
+        # See the note in TestExecute: _reset_client must be patched too, or
+        # _post's retry makes a real connection attempt.
+        with (
+            patch.object(bridge, "_get_client", return_value=client),
+            patch.object(bridge, "_reset_client", return_value=client),
+        ):
+            with pytest.raises(ConnectionError) as exc_info:
+                await bridge.health_check()
+
+        assert "cannot reach Houdini" in str(exc_info.value)
 
 
 class TestClose:
