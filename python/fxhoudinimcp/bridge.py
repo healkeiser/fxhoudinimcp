@@ -31,6 +31,42 @@ def _rpc_body(func_name: str, **kwargs: Any) -> dict[str, str]:
     return {"json": json.dumps([func_name, [], kwargs])}
 
 
+# Matches the plugin's own search range: a second Houdini moves itself to the
+# next free port, so the client has to look there rather than assume 8100.
+PORT_SEARCH_RANGE = 16
+
+
+async def find_servers(
+    host: str,
+    base: int,
+    max_tries: int = PORT_SEARCH_RANGE,
+    timeout: float = 1.0,
+) -> list[dict[str, Any]]:
+    """Probe base..base+max_tries for live plugins, lowest port first.
+
+    Each entry is the mcp.health payload plus the port it answered on. Returns
+    every server found rather than just the first, so a caller can say how many
+    Houdini sessions are running instead of silently picking one.
+
+    Probing is cheap because mcp.health touches no HOM: a closed port refuses
+    immediately, and a live one answers without waiting on Houdini's main thread.
+    """
+    found: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for port in range(base, base + max_tries):
+            try:
+                response = await client.post(
+                    f"http://{host}:{port}/api", data=_rpc_body("mcp.health")
+                )
+                response.raise_for_status()
+                payload = response.json()
+            except Exception:
+                continue  # nothing there, or not our endpoint
+            if isinstance(payload, dict) and payload.get("status") == "ok":
+                found.append({**payload, "port": port})
+    return found
+
+
 class HoudiniBridge:
     """Manages HTTP communication between the MCP server and Houdini's hwebserver.
 
