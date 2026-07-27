@@ -97,9 +97,11 @@ class TestExecute:
     @pytest.mark.parametrize(
         ("exc", "expected"),
         [
+            # _post retries this one on a fresh pool first; reaching the
+            # handler at all means the retry failed too, so Houdini is gone.
             (
                 httpx.RemoteProtocolError("Server disconnected without sending"),
-                "RemoteProtocolError",
+                "Cannot connect to Houdini",
             ),
             (httpx.ReadError(""), "ReadError"),
             (httpx.WriteError(""), "WriteError"),
@@ -117,12 +119,19 @@ class TestExecute:
         These used to escape as raw httpx exceptions, and ReadError/WriteError
         carry an empty message, so the MCP client got a failure with no hint
         that Houdini was even involved.
-        """
-        with patch.object(bridge, "_get_client") as mock_client:
-            client = AsyncMock()
-            client.post = AsyncMock(side_effect=exc)
-            mock_client.return_value = client
 
+        _reset_client is patched alongside _get_client because _post retries a
+        RemoteProtocolError on a fresh pool; left real, that retry would make an
+        actual connection attempt to port 8100 -- slow, and it would resolve
+        differently if a Houdini happened to be listening.
+        """
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=exc)
+
+        with (
+            patch.object(bridge, "_get_client", return_value=client),
+            patch.object(bridge, "_reset_client", return_value=client),
+        ):
             with pytest.raises(ConnectionError) as exc_info:
                 await bridge.execute("scene.get_info")
 
@@ -195,11 +204,15 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_transport_errors_are_wrapped(self, exc):
         bridge = HoudiniBridge()
-        with patch.object(bridge, "_get_client") as mock_client:
-            client = AsyncMock()
-            client.post = AsyncMock(side_effect=exc)
-            mock_client.return_value = client
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=exc)
 
+        # See the note in TestExecute: _reset_client must be patched too, or
+        # _post's retry makes a real connection attempt.
+        with (
+            patch.object(bridge, "_get_client", return_value=client),
+            patch.object(bridge, "_reset_client", return_value=client),
+        ):
             with pytest.raises(ConnectionError) as exc_info:
                 await bridge.health_check()
 

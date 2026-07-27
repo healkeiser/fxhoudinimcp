@@ -39,6 +39,47 @@ def _get_pdg_node(node: hou.Node):
     return pdg_node
 
 
+def _assert_has_generating_node(node: hou.Node) -> None:
+    """Raise unless *node* resolves to a TOP node that produces work items.
+
+    Blocking PDG calls (generateStaticWorkItems(True), cookWorkItems(block=True))
+    run on the main thread here, because the dispatcher marshals every hou.*
+    call through hdefereval. When the target cannot produce work items the
+    blocking call waits on a cook that never starts, and since the main thread
+    is what would advance that cook, Houdini's UI deadlocks and the app has to
+    be force-quit. A freshly created topnet hits this: it contains only a
+    localscheduler, so it is the common case rather than an exotic one.
+
+    Schedulers are the tell -- their PDG object has no ``nodeType``, while
+    Processor/Partitioner/Mapper nodes do.
+    """
+    target = node
+    if node.getPDGNode() is None and hasattr(node, "displayNode"):
+        # TOP networks have no PDG node of their own; they generate through
+        # whichever child is displayed.
+        target = node.displayNode()
+
+    if target is None:
+        raise ValueError(
+            f"TOP network {node.path()} is empty, so there is nothing to "
+            "generate. Add a TOP node (for example wedge or filepattern) first."
+        )
+
+    pdg_node = target.getPDGNode()
+    if pdg_node is None:
+        raise ValueError(
+            f"Node {target.path()} has no PDG node, so it cannot generate "
+            "work items. It may not be a TOP node."
+        )
+
+    if not hasattr(pdg_node, "nodeType"):
+        raise ValueError(
+            f"TOP network {node.path()} contains no work-item-generating "
+            f"nodes -- '{target.name()}' is a scheduler. Add a TOP node "
+            "(for example wedge or filepattern) before generating or cooking."
+        )
+
+
 def _get_graph_context(node: hou.Node):
     """Return the PDG graph context for a TOP node."""
     pdg_node = node.getPDGNode()
@@ -50,6 +91,17 @@ def _get_graph_context(node: hou.Node):
     parent = node
     while parent is not None:
         if parent.type().category().name() == "TopNet" or parent.type().name() == "topnet":
+            # A TOP network has no PDG node of its own -- it cooks through the
+            # node it displays -- so borrow the context from there. Houdini 22
+            # removed hou.pdg entirely, so the legacy lookup below cannot
+            # resolve anything there and this is the path that works.
+            display = parent.displayNode() if hasattr(parent, "displayNode") else None
+            if display is not None:
+                display_pdg = display.getPDGNode()
+                if display_pdg is not None and display_pdg.context is not None:
+                    return display_pdg.context
+
+            # Legacy path for Houdini versions that still expose hou.pdg.
             try:
                 contexts = hou.pdg.GraphContext.contexts()
                 for ctx in contexts:
@@ -221,6 +273,8 @@ def cook_top_node(
         generate_only: If True, only generate work items without cooking.
     """
     node = _get_top_node(node_path)
+    if block or generate_only:
+        _assert_has_generating_node(node)
 
     if generate_only:
         try:
@@ -490,6 +544,7 @@ def generate_static_items(node_path: str) -> dict:
         node_path: Path to the TOP node.
     """
     node = _get_top_node(node_path)
+    _assert_has_generating_node(node)
 
     try:
         node.generateStaticWorkItems(True)
