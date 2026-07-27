@@ -341,7 +341,17 @@ pytest
 # Works on Windows, macOS, and Linux:
 python tests/run_integration.py
 # Convenience wrappers: tests/run_integration.ps1 / tests/run_integration.sh
+
+# Regenerate the node-availability annotations after a new Houdini release
+# (samples every installed Houdini and diffs their node type lists):
+python tools/gen_node_versions.py
+python tools/gen_node_versions.py --check   # fail if the committed files are stale
 ```
+
+If Red Giant / Maxon Universe is installed, its OpenFX plug-in crashes `hou`
+initialisation on Houdini 20.5.487 and later, so `hython` cannot start at all.
+Set `HOUDINI_DISABLE_OPENFX_DEFAULT_PATH=1` when running any of the above.
+This is a Houdini/Universe conflict, not something this repo causes.
 
 Unit tests mock `hou` and run anywhere. The integration suite in
 `tests/integration/` executes all 179 commands against live Houdini via

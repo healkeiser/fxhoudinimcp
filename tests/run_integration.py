@@ -43,6 +43,29 @@ def _version_key(path: Path) -> tuple[int, ...]:
     return tuple(int(d) for d in digits) if digits else (0,)
 
 
+def find_all_hython() -> list[Path]:
+    """Return every installed hython executable, newest first.
+
+    Used by tools/gen_node_versions.py, which needs to sample all installs
+    rather than just the newest.
+    """
+    installs: list[Path] = []
+    for pattern in _SEARCH_PATTERNS:
+        root = Path(pattern.split("*")[0]).parent
+        glob = pattern.split("/")[-1]
+        if root.is_dir():
+            installs.extend(p for p in root.glob(glob) if p.is_dir())
+
+    found: list[Path] = []
+    for install in sorted(installs, key=_version_key, reverse=True):
+        for subpath in _HYTHON_SUBPATHS:
+            hython = install / subpath
+            if hython.is_file():
+                found.append(hython)
+                break
+    return found
+
+
 def find_hython() -> Path:
     """Return the hython executable: $HYTHON, newest install, or PATH."""
     env_override = os.environ.get("HYTHON")
@@ -52,18 +75,8 @@ def find_hython() -> Path:
             return candidate
         sys.exit(f"HYTHON is set but does not exist: {env_override}")
 
-    installs: list[Path] = []
-    for pattern in _SEARCH_PATTERNS:
-        root = Path(pattern.split("*")[0]).parent
-        glob = pattern.split("/")[-1]
-        if root.is_dir():
-            installs.extend(p for p in root.glob(glob) if p.is_dir())
-
-    for install in sorted(installs, key=_version_key, reverse=True):
-        for subpath in _HYTHON_SUBPATHS:
-            hython = install / subpath
-            if hython.is_file():
-                return hython
+    for hython in find_all_hython():
+        return hython
 
     on_path = shutil.which("hython")
     if on_path:

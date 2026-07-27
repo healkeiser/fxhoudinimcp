@@ -41,7 +41,7 @@ Producing geometry in a wrangle when native nodes exist is a failure, not a shor
 
 The lists below are search hints, not exhaustive. Always call `list_node_types(context, filter)` with the prefix/keyword to discover the full set.
 
-A name followed by a version range exists only in those Houdini versions: `colorcorrect (21.0+)` was added in 21.0, and `instancer (20.5-21.0)` was removed after 21.0. Unannotated names exist throughout 20.5–22.0. Check `get_scene_info` for the running version before relying on an annotated name, and use `list_node_types` if you need to be certain.
+A name followed by a version range exists only in those Houdini versions, within the 20.5–22.0 range this server supports: `colorcorrect (21.0+)` is absent before 21.0, and `instancer (20.5-21.0)` is gone from 22.0 onward. A range says nothing about Houdini versions older than 20.5. Unannotated names exist throughout. Check `get_scene_info` for the running version before relying on an annotated name, and use `list_node_types` if you need to be certain.
 
 ### SOPs (context='Sop')
 
@@ -54,7 +54,7 @@ A name followed by a version range exists only in those Houdini versions: `color
 *   Groups: filter='group' — groupcreate, groupcombine, grouppromote, groupexpression, grouprange
 *   Terrain: filter='heightfield' — heightfield\_noise, heightfield\_erode, heightfield\_scatter, heightfield\_maskby\*, heightfield\_blur, heightfield\_project, heightfield\_tilesplit, heightfield\_terrace, etc.
 *   KineFX/rigging: filter='kinefx' — kinefx::rigpose, kinefx::fullbodyik, kinefx::skeletonblend, bonecapturebiharmonic, bonedeform, orientalongcurve
-*   APEX rigging: filter='apex' — apex::packcharacter, apex::configurecharacter, apex::graph, apex::buildfkgraph, etc.
+*   APEX rigging: filter='apex' — apex::packcharacter (21.0+), apex::configurecharacter, apex::graph (21.0+), apex::buildfkgraph, etc.
 *   Curves: line, curve, resample, sweep, polywire, revolve, fillet, ends, carve, convertline, surfsect
 *   Scatter/points: scatter, scatteralign, pointgenerate, pointjitter, relax, pointreplicate, pointvelocity
 *   Copy/instance: copytopoints, copytocurves, copyxform, pack, unpack, repack, assemble
