@@ -1,10 +1,19 @@
 {
     "env": [
         {
-            "FXHOUDINIMCP": {
-                "value": "$HOUDINI_USER_PREF_DIR/fxhoudinimcp/houdini",
-                "method": "default"
-            }
+            "FXHOUDINIMCP": "/absolute/path/to/fxhoudinimcp/houdini"
+        },
+        {
+            "FXHOUDINIMCP_PORT": "8100"
+        },
+        {
+            "FXHOUDINIMCP_BIND": "127.0.0.1"
+        },
+        {
+            "FXHOUDINIMCP_AUTOSTART": "1"
+        },
+        {
+            "FXHOUDINIMCP_AUTO_LAYOUT": "1"
         }
     ],
     "path": "$FXHOUDINIMCP"
