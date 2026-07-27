@@ -275,7 +275,13 @@ def install_claude_code(dry_run: bool) -> list[str]:
     ]
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The argument parser, exposed so the README's flag table can be checked.
+
+    The table in the README is the first thing anyone reads, so a flag that is
+    renamed here and not there is a documented lie. tests/test_install.py
+    compares the two.
+    """
     parser = argparse.ArgumentParser(
         prog="fxhoudinimcp install",
         description="Install the Houdini plugin and register this server "
@@ -305,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="report what would change without changing anything",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.client_only and args.houdini_dir:

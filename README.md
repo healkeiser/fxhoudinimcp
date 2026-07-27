@@ -135,122 +135,71 @@ Uses Houdini's built-in `hwebserver`. No custom socket servers, no rpyc. Uses `h
 <!-- --8<-- [start:installation] -->
 ## Installation
 
+FXHoudini-MCP has two halves: a **Houdini plugin** that runs inside Houdini, and
+an **MCP server** that your AI client starts and which relays to it over
+loopback. Both ship in the same Python package, so one install command sets up
+both and one upgrade moves them together.
+
 ### Requirements
 
 - **Houdini** 20.5+ (integration suite green on 20.5.278, 20.5.487, 20.5.613, 20.5.654, 21.0.440 and 22.0.368)
-- **Python** 3.10+
-- **MCP SDK** (`mcp` package) 1.8+
+- **Python** 3.10+, separate from the one inside Houdini
+- **MCP SDK** (`mcp` package) 1.8+, installed for you as a dependency
 
-### Quick start
-
-Two commands, if nothing on your machine is ambiguous:
+### Install
 
 ```shell
 pip install fxhoudinimcp
-fxhoudinimcp install
+python -m fxhoudinimcp install
 ```
 
-`install` does both halves: it writes the Houdini package file pointing at this
-exact install, and registers the server with Claude Code and Claude Desktop
-using the absolute path of the Python you installed into. Add `--dry-run` to see
-what it would touch without changing anything.
+Then restart Houdini, restart your MCP client, and check the **MCP** menu in
+Houdini's menu bar.
 
-It stops and asks when it cannot know the answer. If several Houdini packages
-directories exist, it lists them rather than guessing, because guessing wrongly
-produces an install that fails silently:
+`install` does both halves. It writes a Houdini package file pointing at this
+exact install, and registers the server with Claude Code and Claude Desktop,
+whichever it finds, using the absolute path of the Python you ran it with.
+
+Use `python -m fxhoudinimcp install` rather than the bare `fxhoudinimcp install`
+if you have more than one Python. Both work, but the module form is
+self-correcting: whichever interpreter runs it is the one written into your
+client config, so if the command runs at all, the path it registers is correct.
+
+Add `--dry-run` first if you want to see every file it would touch and change
+nothing.
+
+It stops rather than guessing when it cannot know the answer. If several Houdini
+packages directories exist it lists them and asks, because choosing wrongly
+produces an install that fails **silently**:
 
 ```shell
-fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
+python -m fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
 ```
 
-Other flags: `--client claude-code|claude-desktop|both|none` to control which
-client is touched, and `--client-only` to register a client without touching the
-Houdini side (useful on a second machine, or after moving to a different Python).
+| Flag | What it does |
+| --- | --- |
+| `--dry-run` | Report every change, make none |
+| `--houdini-dir DIR` | Which packages directory to write into |
+| `--client-only` | Register a client, leave Houdini untouched. Needs no packages directory, so it works when several exist |
+| `--client auto\|claude-code\|claude-desktop\|both\|none` | Which client to register. `none` if you wire it up yourself |
 
-Prefer `python -m fxhoudinimcp install` over the bare `fxhoudinimcp install` if
-you have more than one Python. Both work, but the module form is
-self-correcting: whichever interpreter you run it with is the one written into
-the client config, so if the command runs at all, the path it registers is right.
-
-The step-by-step version follows, for when something needs untangling.
-
-### 1. Install the MCP Server
-
-**From PyPI:**
+Upgrading later moves both halves at once, because the plugin lives inside the
+wheel:
 
 ```shell
-pip install fxhoudinimcp
+pip install --upgrade fxhoudinimcp
 ```
 
-**From source:**
-
-```shell
-pip install -e .
-```
-
-Or with development dependencies:
-
-```shell
-pip install -e ".[dev]"
-```
-
-### 2. Install the Houdini Plugin
-
-Since **2.1.0** the plugin ships inside the Python package, so `pip install
---upgrade fxhoudinimcp` updates both halves together. Before that they were
-distributed separately and it was easy to upgrade one and leave the other
-behind; the server now warns at startup when it finds a plugin older than
+The one thing to know: if you told Houdini to load the plugin from a **git
+clone** instead of the installed package (see [by hand](#installing-by-hand)),
+`pip install --upgrade` will not move that half. Those two halves are then
+independent, and the server warns at startup when it finds a plugin older than
 itself.
 
-`fxhoudinimcp install` (above) does this step for you. The rest of this section
-is the manual route.
+### Configuring the plugin
 
-**Option A: let the CLI write the package file (recommended)**
-
-```shell
-fxhoudinimcp houdini-package
-```
-
-That prints the Houdini package file with the plugin path already filled in for
-*this* install, plus the Houdini packages directories it found on your machine.
-Write it with:
-
-```shell
-fxhoudinimcp houdini-package --write "~/Documents/houdini22.0/packages"
-```
-
-Then restart Houdini and check the **MCP** menu.
-
-Do not type the plugin path by hand. It lives inside the Python environment you
-installed into, so it changes if you recreate a virtualenv, switch to uv or
-pipx, or move between Python versions, and Houdini says nothing when a package
-path stops resolving. `--path-only` prints just the path if you need it for
-scripting.
-
-The command deliberately does not pick a packages directory for you. On Windows
-with OneDrive's Documents redirection, a desktop-launched Houdini and a
-shell-launched one can resolve different preference directories, so it lists
-candidates and lets you choose. It also warns if another `fxhoudinimcp.json`
-already exists elsewhere, because Houdini processes every packages directory and
-lets the last one win, which is how a stale clone silently overrides a fresh
-install.
-
-**Option A2: point at a clone instead**
-
-Contributors, or anyone who wants the plugin tracked by git, can skip the CLI and
-write the package file by hand against a checkout:
-
-```json
-{ "env": [ { "FXHOUDINIMCP": "C:/Users/you/code/fxhoudinimcp/houdini" } ],
-  "path": "$FXHOUDINIMCP" }
-```
-
-Forward slashes work on every platform. The path must end in `/houdini` and must
-contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders. Do not
-do this *and* Option A, or the two package files will fight.
-
-The package file is also where you configure the plugin. It ships every
-Houdini-side setting at its default, so they are all visible in one place:
+The package file `install` writes is also where the Houdini-side settings live.
+It ships every one of them at its default, so they are all visible in one place:
 `FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART` and
 `FXHOUDINIMCP_AUTO_LAYOUT` (see [Environment Variables](#environment-variables)
 for what each does). Two things to know:
@@ -265,19 +214,112 @@ for what each does). Two things to know:
   configure those in your MCP client instead. If you change
   `FXHOUDINIMCP_PORT`, set `HOUDINI_PORT` to match on the client side.
 
-Two ways this step fails silently, both worth knowing:
+Note that pinning `HOUDINI_PORT` on the client switches off the port scan. A
+second Houdini moves itself to the next free port, and the client normally finds
+it by scanning 8100-8115 and taking the lowest that answers. Pin it only when you
+want one specific session.
 
-- **A path that does not exist.** Houdini skips a package whose path cannot be
-  resolved without printing anything. Nothing loads: no **MCP** menu, no
-  auto-start, no `fxhoudinimcp_server` module.
-- **A UTF-8 BOM.** Houdini's JSON parser rejects a leading BOM and skips the
-  whole package. On Windows, `Set-Content -Encoding UTF8` adds one; use
-  `Set-Content -Encoding utf8NoBOM` (PowerShell 7+) or an editor that can save
-  without a BOM. The file looks correct either way, which is what makes this
-  one nasty.
+### Installing by hand
 
-To see what Houdini actually did with your package, start it with the package
-log enabled and look for your file:
+`install` is the recommended route and the rest of this section is the manual
+equivalent, for contributors working from a clone, locked-down machines, or when
+something needs untangling. It is the same two halves.
+
+#### 1. Point Houdini at the plugin
+
+```shell
+fxhoudinimcp houdini-package
+```
+
+That prints the package file with the plugin path filled in for *this* install,
+plus the Houdini packages directories found on your machine. Write it with:
+
+```shell
+fxhoudinimcp houdini-package --write "~/Documents/houdini22.0/packages"
+```
+
+Do not type the plugin path by hand. It lives inside the Python environment you
+installed into, so it changes if you recreate a virtualenv, switch to uv or
+pipx, or move between Python versions, and Houdini says nothing when a package
+path stops resolving. `--path-only` prints just the path for scripting.
+
+Like `install`, this deliberately does not pick a packages directory for you, and
+it warns if another `fxhoudinimcp.json` exists elsewhere, because Houdini
+processes every packages directory and lets the last one win. That is how a stale
+clone silently overrides a fresh install.
+
+**Pointing at a clone instead.** Contributors, or anyone wanting the plugin
+tracked by git, can write the package file against a checkout:
+
+```json
+{ "env": [ { "FXHOUDINIMCP": "C:/Users/you/code/fxhoudinimcp/houdini" } ],
+  "path": "$FXHOUDINIMCP" }
+```
+
+Forward slashes work on every platform. The path must end in `/houdini` and must
+contain `scripts/`, `MainMenuCommon.xml` and the `python3.Xlibs/` folders. Do not
+do this *and* the CLI, or the two package files will fight. Remember that
+`pip install --upgrade` cannot move a clone.
+
+> [!NOTE]
+> Copying `houdini/` into your Houdini preferences directory also works, but it
+> is not recommended: `pip` cannot update a copy, so the plugin drifts behind the
+> server, which is the skew the startup compatibility warning exists to catch.
+> Use a package file so there is one copy of the plugin.
+
+#### 2. Point your MCP client at the server
+
+Both examples need the **absolute path** to the Python that has `fxhoudinimcp`
+installed. Clients start their servers without your shell environment, so a bare
+`python` resolves against a PATH they may not share, and the only symptom is the
+client reporting **disconnected** with nothing explaining why. Find the path
+with:
+
+```shell
+python -c "import sys; print(sys.executable)"
+```
+
+**Claude Code** (user scope, available in every project):
+
+```shell
+claude mcp add --scope user fxhoudini -- "C:\Program Files\Python311\python.exe" -m fxhoudinimcp
+```
+
+There is no in-place update. To repoint an existing entry, remove it first:
+
+```shell
+claude mcp remove fxhoudini -s user
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "fxhoudini": {
+      "command": "C:\\Program Files\\Python311\\python.exe",
+      "args": ["-m", "fxhoudinimcp"]
+    }
+  }
+}
+```
+
+After any change, fully quit Claude Desktop (system tray → Quit) and relaunch;
+closing the window is not enough.
+
+To scope the server to a single project instead, add a `.mcp.json` in the project
+root with the same `mcpServers` block.
+
+`python -m fxhoudinimcp install --client-only` does this step for you, with the
+right path already filled in, and leaves the Houdini side alone. **MCP > Connect
+a Client...** inside Houdini prints the same command along with the port that
+session actually ended up on.
+
+### When Houdini does not load the plugin
+
+No **MCP** menu means the package file was skipped, and Houdini does that
+without printing anything. Start it with the package log enabled and look for
+your file:
 
 ```shell
 # Windows (PowerShell)
@@ -287,64 +329,23 @@ HOUDINI_PACKAGE_VERBOSE=1 houdini
 ```
 
 A working package prints both a `Loading:` and a `Processing:` line for
-`fxhoudinimcp.json`.
+`fxhoudinimcp.json`. Three ways this fails quietly:
 
-**Option B: Manual copy**
+- **A path that does not exist.** Houdini skips the package and says nothing.
+  Nothing loads: no menu, no auto-start, no `fxhoudinimcp_server` module.
+- **A UTF-8 BOM.** Houdini's JSON parser rejects a leading BOM and skips the
+  whole package. On Windows, `Set-Content -Encoding UTF8` adds one; use
+  `-Encoding utf8NoBOM` (PowerShell 7+) or an editor that can save without one.
+  The file looks correct either way, which is what makes this one nasty. Both
+  `install` and `houdini-package` write without a BOM.
+- **A second `fxhoudinimcp.json`.** Houdini processes every packages directory
+  and the last one wins, so a leftover file can override a fresh install. Both
+  commands warn when they find another one. `fxhoudinimcp houdini-package` lists
+  every one it can see, and what each points at.
 
-Copy the contents of `houdini/` into your Houdini user preferences directory so that:
-- `scripts/python/fxhoudinimcp_server/` is on Houdini's Python path
-- `python3.Xlibs/uiready.py` auto-starts the server (copy the folder matching your Houdini's Python version: 3.11 for Houdini 20.5 and 21.0, 3.13 for Houdini 22.0)
-- `MainMenuCommon.xml` adds the **MCP** menu to Houdini's menu bar
-
-### 3. Configure Your MCP Client
-
-**Claude Desktop** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "fxhoudini": {
-      "command": "python",
-      "args": ["-m", "fxhoudinimcp"],
-      "env": {
-        "HOUDINI_HOST": "localhost",
-        "HOUDINI_PORT": "8100"
-      }
-    }
-  }
-}
-```
-
-**Claude Code** (global — available in every project):
-
-```shell
-claude mcp add --scope user fxhoudini -- python -m fxhoudinimcp
-```
-
-Or to scope it to a single project, add a `.mcp.json` in the project root:
-
-```json
-{
-  "mcpServers": {
-    "fxhoudini": {
-      "command": "python",
-      "args": ["-m", "fxhoudinimcp"]
-    }
-  }
-}
-```
-
-> [!TIP]
-> If Claude Desktop reports the server as **disconnected**, replace `"python"` with the
-> **full absolute path** to your Python executable. Claude Desktop does not always inherit
-> your system PATH. Find it with:
->
-> ```shell
-> python -c "import sys; print(sys.executable)"
-> ```
->
-> Then use the result in your config, e.g. `"command": "C:\\Program Files\\Python311\\python.exe"`.
-> After any config change, fully quit Claude Desktop (system tray → Quit) and relaunch.
+On Windows, note that OneDrive's Documents redirection means a desktop-launched
+Houdini and a shell-launched one can resolve different preference directories.
+The package log is what settles which one your Houdini actually reads.
 <!-- --8<-- [end:installation] -->
 
 <!-- USAGE -->

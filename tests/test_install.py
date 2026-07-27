@@ -11,6 +11,7 @@ from __future__ import annotations
 
 # Built-in
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -446,3 +447,56 @@ def test_claude_code_success(monkeypatch):
     )
     lines = inst.install_claude_code(dry_run=False)
     assert any("Registered" in line for line in lines)
+
+
+###### The README's flag table
+
+
+_README = Path(__file__).resolve().parents[1] / "README.md"
+
+
+def _documented_flags() -> set[str]:
+    """Long options named in the README's install flag table."""
+    text = _README.read_text(encoding="utf-8")
+    table = re.search(r"\n\| Flag \| What it does \|\n(.+?)\n\n", text, re.S)
+    assert table, "the install flag table has moved or been removed from README.md"
+    return set(re.findall(r"`(--[a-z-]+)", table.group(1)))
+
+
+def test_readme_flag_table_matches_the_cli():
+    """The table is the first thing anyone reads, so drift there is a lie.
+
+    Checked in both directions: a flag renamed in code and not in the README, and
+    a flag added to the code that the README never mentions.
+    """
+    parser = inst.build_parser()
+    real = {
+        option
+        for action in parser._actions
+        for option in action.option_strings
+        if option.startswith("--") and option != "--help"
+    }
+    documented = _documented_flags()
+
+    assert documented == real, (
+        f"README and CLI disagree.\n"
+        f"  documented but gone: {sorted(documented - real)}\n"
+        f"  real but undocumented: {sorted(real - documented)}"
+    )
+
+
+def test_readme_recommends_the_self_correcting_install_form():
+    """`python -m fxhoudinimcp install` registers the interpreter that runs it."""
+    text = _README.read_text(encoding="utf-8")
+    assert "python -m fxhoudinimcp install" in text
+
+
+def test_readme_never_shows_a_bare_python_client_entry():
+    """A bare `python` in a client config is the documented "disconnected" bug.
+
+    The README used to show exactly that and then explain the fix in a tip below,
+    which meant copying the broken form was the path of least resistance.
+    """
+    text = _README.read_text(encoding="utf-8")
+    assert '"command": "python"' not in text
+    assert "fxhoudini -- python -m fxhoudinimcp" not in text
