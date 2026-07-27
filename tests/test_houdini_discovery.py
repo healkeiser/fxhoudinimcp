@@ -141,3 +141,56 @@ def test_every_supported_platform_has_a_pattern():
     assert "Side Effects Software" in joined, "no Windows pattern"
     assert "/Applications/Houdini" in joined, "no macOS pattern"
     assert "/opt/hfs" in joined, "no Linux pattern"
+
+
+###### macOS framework layouts
+#
+# Neither of the maintainers has a Mac, so these reproduce the two layouts
+# SideFX's own shipped help documents under ":platform:Mac" rather than relying
+# on an assumption about which one is real:
+#
+#     .../Houdini.framework/Versions/Current/Resources          (x2 in the docs)
+#     .../Houdini.framework/Versions/<version>/Resources/bin     (x1, the Mac bin)
+
+
+def _framework_hython(root: Path, version: str) -> Path:
+    hython = (
+        root
+        / "Houdini20.5.654"
+        / "Frameworks"
+        / "Houdini.framework"
+        / "Versions"
+        / version
+        / "Resources"
+        / "bin"
+        / "hython"
+    )
+    hython.parent.mkdir(parents=True, exist_ok=True)
+    hython.write_text("", encoding="utf-8")
+    return hython
+
+
+def test_macos_current_symlink_layout(isolated):
+    expected = _framework_hython(isolated, "Current")
+    assert find_all_hython() == [expected]
+
+
+def test_macos_version_numbered_layout(isolated):
+    """An install without the Current symlink must still be found."""
+    expected = _framework_hython(isolated, "20.5")
+    assert find_all_hython() == [expected]
+
+
+def test_macos_prefers_current_when_both_exist(isolated):
+    current = _framework_hython(isolated, "Current")
+    _framework_hython(isolated, "20.5")
+    assert find_all_hython() == [current], "the exact path should win over the glob"
+
+
+def test_macos_multiple_framework_versions_pick_deterministically(isolated):
+    """Without Current, several versioned dirs must not order randomly."""
+    _framework_hython(isolated, "20.5")
+    _framework_hython(isolated, "19.5")
+    found = find_all_hython()
+    assert len(found) == 1
+    assert "19.5" in str(found[0]), "expected the sorted-first version"
