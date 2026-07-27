@@ -26,6 +26,12 @@ _starting = False
 # loop. Generous now that auto-start no longer waits on the main thread.
 _READINESS_TIMEOUT = 15.0
 
+# How many ports to try from the configured base. A second Houdini used to fail
+# outright with "port 8100 is owned by another Houdini process", leaving that
+# session with no MCP at all. Sixteen covers more concurrent sessions than
+# anyone runs while keeping the failed-probe cost bounded.
+_PORT_SEARCH_RANGE = 16
+
 
 def _health_url(port: int) -> str:
     return f"http://127.0.0.1:{port}/api"
@@ -72,6 +78,41 @@ def _wait_for_current_process_health(
                 return health
         time.sleep(0.1)
     return last_health
+
+
+def _pick_free_port(
+    base: int,
+    probe=None,
+    my_pid: int | None = None,
+    max_tries: int = _PORT_SEARCH_RANGE,
+) -> int:
+    """Return the first port at or after *base* this process can serve on.
+
+    A port is free when nothing answers mcp.health there. A port already answering
+    as *this* process is returned as-is, so restarting the server in a session
+    that already has one is idempotent rather than a move to the next port. A
+    port owned by a different pid is another Houdini and is skipped.
+
+    Idea from @husman2012 (PR #13). Note the limitation: "nothing answers
+    mcp.health" is not the same as "nothing holds the socket", so a port occupied
+    by an unrelated server still fails at bind time. That was true before this
+    existed and is reported by the caller either way.
+    """
+    if probe is None:
+        probe = _query_health
+    if my_pid is None:
+        my_pid = os.getpid()
+
+    for port in range(base, base + max_tries):
+        health = probe(port)
+        if health is None:
+            return port
+        if health.get("pid") == my_pid:
+            return port
+    raise RuntimeError(
+        f"No free port in {base}-{base + max_tries - 1}: every one is answering "
+        f"as another Houdini process."
+    )
 
 
 def _bind_localhost_only(hwebserver) -> None:
@@ -133,7 +174,16 @@ def start(
         print("[fxhoudinimcp] Server is still starting")
         return
 
-    _port = port or int(os.environ.get("FXHOUDINIMCP_PORT", "8100"))
+    base = port or int(os.environ.get("FXHOUDINIMCP_PORT", "8100"))
+    _port = _pick_free_port(base)
+    if _port != base:
+        # Say so loudly: the MCP client scans for the port, but anyone who
+        # pinned HOUDINI_PORT on the client side needs to know it moved.
+        print(
+            f"[fxhoudinimcp] Port {base} is already serving another Houdini; "
+            f"using {_port} instead. Set HOUDINI_PORT={_port} on the MCP client "
+            f"if you pin it."
+        )
 
     # Import handlers to trigger registration via register_handler() calls
     from fxhoudinimcp_server import handlers  # noqa: F401

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 
 # Internal
-from fxhoudinimcp.bridge import HoudiniBridge
+from fxhoudinimcp.bridge import HoudiniBridge, find_servers
 from fxhoudinimcp.compat import compatibility_warning
 from fxhoudinimcp._loader import load_markdown
 from fxhoudinimcp._version import __version__
@@ -29,7 +29,31 @@ def _get_bridge(ctx) -> HoudiniBridge:
 async def lifespan(server: FastMCP):
     """Manage the Houdini bridge connection lifecycle."""
     host = os.getenv("HOUDINI_HOST", "localhost")
-    port = int(os.getenv("HOUDINI_PORT", "8100"))
+    pinned = os.getenv("HOUDINI_PORT")
+    port = int(pinned) if pinned else 8100
+
+    if not pinned:
+        # A second Houdini moves itself to the next free port, so assuming 8100
+        # would leave that session unreachable. Only scan when the port was not
+        # pinned: an explicit HOUDINI_PORT is a deliberate choice, and silently
+        # connecting somewhere else would be worse than failing.
+        servers = await find_servers(host, port)
+        if servers:
+            port = servers[0]["port"]
+            if len(servers) > 1:
+                others = ", ".join(
+                    f"port {s['port']} (pid {s.get('pid')})" for s in servers[1:]
+                )
+                logger.warning(
+                    "%d Houdini sessions are serving; using port %d (pid %s). "
+                    "Others: %s. Set HOUDINI_PORT to pin a specific one.",
+                    len(servers),
+                    port,
+                    servers[0].get("pid"),
+                    others,
+                )
+            elif port != 8100:
+                logger.info("Found Houdini on port %d", port)
 
     bridge = HoudiniBridge(host=host, port=port)
 
@@ -46,9 +70,8 @@ async def lifespan(server: FastMCP):
         if stale:
             logger.warning(stale)
 
-        # The plugin ships from the repository, not from PyPI, so upgrading the
-        # package does not update it. Name the gap now rather than letting one
-        # tool fail later with what looks like a bug.
+        # Name a plugin/server mismatch now, rather than letting one tool fail
+        # later with what looks like a bug.
         try:
             mismatch = compatibility_warning(await bridge.list_commands())
         except Exception as exc:

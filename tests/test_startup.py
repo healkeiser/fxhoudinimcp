@@ -171,3 +171,53 @@ def test_start_declines_while_a_start_is_in_flight(monkeypatch, capsys):
 def test_readiness_timeout_is_generous_now_that_it_is_off_thread():
     """Off the main thread the ceiling costs nothing, so do not keep it tight."""
     assert startup._READINESS_TIMEOUT >= 15.0
+
+
+###### Concurrent Houdini sessions (idea from @husman2012, PR #13)
+
+
+def test_first_port_is_used_when_free():
+    assert startup._pick_free_port(8100, probe=lambda port: None) == 8100
+
+
+def test_skips_a_port_owned_by_another_houdini():
+    """A second session used to fail outright instead of moving over."""
+    other = {"pid": os.getpid() + 1}
+    probe = lambda port: other if port == 8100 else None  # noqa: E731
+    assert startup._pick_free_port(8100, probe=probe) == 8101
+
+
+def test_skips_several_occupied_ports():
+    other = {"pid": os.getpid() + 1}
+    probe = lambda port: other if port < 8103 else None  # noqa: E731
+    assert startup._pick_free_port(8100, probe=probe) == 8103
+
+
+def test_reuses_a_port_this_process_already_serves():
+    """Restarting in a session that already has a server must not move ports."""
+    mine = {"pid": os.getpid()}
+    probe = lambda port: mine if port == 8100 else None  # noqa: E731
+    assert startup._pick_free_port(8100, probe=probe) == 8100
+
+
+def test_our_own_port_wins_over_moving_on():
+    """Ours at 8101 should be reused, not skipped for a free 8102."""
+    def probe(port):
+        if port == 8100:
+            return {"pid": os.getpid() + 1}
+        if port == 8101:
+            return {"pid": os.getpid()}
+        return None
+
+    assert startup._pick_free_port(8100, probe=probe) == 8101
+
+
+def test_raises_when_every_port_is_taken():
+    other = {"pid": os.getpid() + 1}
+    with pytest.raises(RuntimeError, match="No free port"):
+        startup._pick_free_port(8100, probe=lambda port: other, max_tries=4)
+
+
+def test_search_range_is_bounded():
+    """Each failed probe costs a request, so the range must stay small."""
+    assert 4 <= startup._PORT_SEARCH_RANGE <= 64

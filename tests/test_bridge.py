@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 # Internal
-from fxhoudinimcp.bridge import HoudiniBridge
+from fxhoudinimcp.bridge import HoudiniBridge, find_servers
 from fxhoudinimcp.errors import ConnectionError, HoudiniCommandError
 
 
@@ -300,3 +300,62 @@ class TestListCommands:
             pytest.raises(ConnectionError),
         ):
             await bridge.list_commands()
+
+
+class TestFindServers:
+    """Client-side discovery: a second Houdini serves on the next free port."""
+
+    def _client(self, answers: dict[int, object]):
+        """A fake client whose reply depends on the port in the URL."""
+        def post(url, **kwargs):
+            port = int(url.rsplit(":", 1)[1].split("/")[0])
+            if port not in answers:
+                raise httpx.ConnectError("refused")
+            resp = MagicMock(spec=httpx.Response)
+            resp.json.return_value = answers[port]
+            resp.raise_for_status = MagicMock()
+            return resp
+
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=post)
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=False)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_finds_nothing_when_no_server_answers(self):
+        with patch("httpx.AsyncClient", return_value=self._client({})):
+            assert await find_servers("localhost", 8100, max_tries=3) == []
+
+    @pytest.mark.asyncio
+    async def test_finds_a_single_server(self):
+        answers = {8100: {"status": "ok", "pid": 11}}
+        with patch("httpx.AsyncClient", return_value=self._client(answers)):
+            found = await find_servers("localhost", 8100, max_tries=3)
+        assert [s["port"] for s in found] == [8100]
+        assert found[0]["pid"] == 11
+
+    @pytest.mark.asyncio
+    async def test_finds_every_session_lowest_port_first(self):
+        answers = {
+            8102: {"status": "ok", "pid": 33},
+            8100: {"status": "ok", "pid": 11},
+        }
+        with patch("httpx.AsyncClient", return_value=self._client(answers)):
+            found = await find_servers("localhost", 8100, max_tries=4)
+        assert [s["port"] for s in found] == [8100, 8102]
+
+    @pytest.mark.asyncio
+    async def test_ignores_a_non_plugin_endpoint(self):
+        """Something else on the port must not be mistaken for Houdini."""
+        answers = {8100: {"unrelated": "service"}, 8101: {"status": "ok", "pid": 9}}
+        with patch("httpx.AsyncClient", return_value=self._client(answers)):
+            found = await find_servers("localhost", 8100, max_tries=3)
+        assert [s["port"] for s in found] == [8101]
+
+    @pytest.mark.asyncio
+    async def test_search_range_matches_the_plugin(self):
+        """Client and plugin must agree, or a moved server is unreachable."""
+        from fxhoudinimcp.bridge import PORT_SEARCH_RANGE
+
+        assert PORT_SEARCH_RANGE == 16
