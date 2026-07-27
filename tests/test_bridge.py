@@ -94,6 +94,42 @@ class TestExecute:
                 await bridge.execute("scene.get_info")
             assert "timed out" in str(exc_info.value)
 
+    @pytest.mark.parametrize(
+        ("exc", "expected"),
+        [
+            (
+                httpx.RemoteProtocolError("Server disconnected without sending"),
+                "RemoteProtocolError",
+            ),
+            (httpx.ReadError(""), "ReadError"),
+            (httpx.WriteError(""), "WriteError"),
+            (httpx.CloseError(""), "CloseError"),
+            # A TimeoutException subclass, so it keeps the more specific
+            # timeout message from the branch above rather than falling through.
+            (httpx.PoolTimeout(""), "timed out"),
+        ],
+        ids=["remote_protocol", "read", "write", "close", "pool_timeout"],
+    )
+    @pytest.mark.asyncio
+    async def test_transport_errors_are_wrapped(self, bridge, exc, expected):
+        """Every transport failure must surface as our own ConnectionError.
+
+        These used to escape as raw httpx exceptions, and ReadError/WriteError
+        carry an empty message, so the MCP client got a failure with no hint
+        that Houdini was even involved.
+        """
+        with patch.object(bridge, "_get_client") as mock_client:
+            client = AsyncMock()
+            client.post = AsyncMock(side_effect=exc)
+            mock_client.return_value = client
+
+            with pytest.raises(ConnectionError) as exc_info:
+                await bridge.execute("scene.get_info")
+
+        message = str(exc_info.value)
+        assert message.strip()
+        assert expected in message
+
     @pytest.mark.asyncio
     async def test_http_status_error(self, bridge, mock_response):
         resp = mock_response({"error": "server error"}, status_code=500)
@@ -145,6 +181,29 @@ class TestHealthCheck:
 
             with pytest.raises(ConnectionError):
                 await bridge.health_check()
+
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            httpx.RemoteProtocolError("disconnected"),
+            httpx.ReadError(""),
+            httpx.PoolTimeout(""),
+            httpx.ReadTimeout("slow"),
+        ],
+        ids=["remote_protocol", "read", "pool_timeout", "read_timeout"],
+    )
+    @pytest.mark.asyncio
+    async def test_transport_errors_are_wrapped(self, exc):
+        bridge = HoudiniBridge()
+        with patch.object(bridge, "_get_client") as mock_client:
+            client = AsyncMock()
+            client.post = AsyncMock(side_effect=exc)
+            mock_client.return_value = client
+
+            with pytest.raises(ConnectionError) as exc_info:
+                await bridge.health_check()
+
+        assert "cannot reach Houdini" in str(exc_info.value)
 
 
 class TestClose:

@@ -110,6 +110,18 @@ class HoudiniBridge:
                 f"Request to Houdini timed out after {timeout or self.timeout}s",
                 details={"timeout": timeout or self.timeout},
             ) from e
+        except httpx.TransportError as e:
+            # Everything else the transport can raise: RemoteProtocolError when
+            # Houdini goes away mid-request, ReadError/WriteError on a broken
+            # socket, PoolTimeout, and so on. Without this they reached the MCP
+            # client as raw httpx exceptions, and several of them carry an empty
+            # message -- so the client saw a failure with no indication of what
+            # went wrong or that Houdini was the cause.
+            raise ConnectionError(
+                f"Lost the connection to Houdini at {self.base_url} "
+                f"({type(e).__name__}). Has Houdini been closed or restarted?",
+                details={"url": self.base_url, "original_error": str(e)},
+            ) from e
 
         result = response.json()
         timing = result.get("timing_ms", "") if isinstance(result, dict) else ""
@@ -132,8 +144,12 @@ class HoudiniBridge:
     async def health_check(self) -> dict[str, Any]:
         """Check if Houdini is responsive.
 
+        Deliberately cheap: the plugin answers this without touching HOM, so it
+        works while Houdini's main thread is busy. That is also why it reports
+        no scene details -- use scene.get_scene_info for hip_file.
+
         Returns:
-            Dict with houdini_version, hip_file, pid, etc.
+            Dict with status, pid and houdini_version.
         """
         client = await self._get_client()
         try:
@@ -143,9 +159,14 @@ class HoudiniBridge:
             )
             response.raise_for_status()
             return response.json()
-        except (httpx.ConnectError, httpx.TimeoutException) as e:
+        except httpx.TransportError as e:
+            # TransportError is the base for ConnectError, the timeout family,
+            # RemoteProtocolError and the socket errors, so this covers every
+            # way the transport can fail rather than the two we happened to
+            # name.
             raise ConnectionError(
-                f"Health check failed: cannot reach Houdini at {self.base_url}",
+                f"Health check failed: cannot reach Houdini at {self.base_url} "
+                f"({type(e).__name__})",
                 details={"original_error": str(e)},
             ) from e
 
