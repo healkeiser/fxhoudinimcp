@@ -83,6 +83,25 @@ def _set_parm_safe(node: hou.Node, parm_name: str, value: Any) -> bool:
     return False
 
 
+def _create_first_available(
+    parent: hou.Node, type_names: tuple[str, ...], node_name: str
+) -> hou.Node:
+    """Create the first of *type_names* that exists under *parent*.
+
+    Lets a chain be written preferred-type-first without nesting try/except per
+    candidate. Raises hou.OperationFailed naming the whole chain if none exist,
+    which is more useful than the last candidate's own error.
+    """
+    for type_name in type_names:
+        try:
+            return parent.createNode(type_name, node_name)
+        except hou.OperationFailed:
+            continue
+    raise hou.OperationFailed(
+        f"None of these node types exist in {parent.path()}: {', '.join(type_names)}"
+    )
+
+
 ###### workflow.setup_pyro_sim
 
 def _setup_pyro_sim_sop(
@@ -157,8 +176,8 @@ def _setup_pyro_sim_dop(
 ) -> dict:
     """Build a DOP-level Pyro simulation (fallback for older Houdini).
 
-    Uses a DOP Network with smokeobject, sourcevolume, pyrosolver,
-    and gasresizefluiddynamic.
+    Uses a DOP Network with smokeobject_sparse, volumesource and
+    pyrosolver_sparse, merged into the solver's first input.
 
     Args:
         geo: Parent geometry node.
@@ -173,45 +192,65 @@ def _setup_pyro_sim_dop(
     _set_parm_safe(dopnet, "substep", substeps)
 
     # -- Smoke Object
-    print("[workflow] Creating smokeobject DOP")
-    try:
-        smokeobj = dopnet.createNode("smokeobject", "smokeobject1")
-    except hou.OperationFailed:
-        smokeobj = dopnet.createNode("smokeconfigureobject", "smokeobject1")
+    #
+    # smokeobject_sparse first. Houdini 22.0 marks both smokeobject and
+    # smokeconfigureobject deprecated (hou.NodeType.deprecated is True for both)
+    # and the release notes say they are "scheduled to be deleted in an upcoming
+    # revision", naming Smoke Object (Sparse) as the replacement. The sparse node
+    # exists in every build we sample, back to 20.5.278, so preferring it costs
+    # nothing on older Houdini and keeps this path alive once the old nodes go.
+    print("[workflow] Creating smoke object DOP")
+    smokeobj = _create_first_available(
+        dopnet,
+        ("smokeobject_sparse", "smokeobject", "smokeconfigureobject"),
+        "smokeobject1",
+    )
     all_nodes.append(smokeobj.path())
 
-    # -- Source Volume
-    print("[workflow] Creating source volume DOP")
+    # -- Volume Source
+    #
+    # volumesource, not sourcevolume: Houdini marks sourcevolume deprecated and
+    # ships no help page for it, while volumesource is documented as the node
+    # that "imports SOP source geometry into smoke, pyro, and FLIP simulations"
+    # and is present in every build we sample.
+    print("[workflow] Creating volume source DOP")
     source_vol = None
     try:
-        source_vol = dopnet.createNode("sourcevolume", "source_volume1")
+        source_vol = _create_first_available(
+            dopnet, ("volumesource", "sourcevolume"), "source_volume1"
+        )
         all_nodes.append(source_vol.path())
-        # Point the source volume at the Object Merge SOP
+        # Point the volume source at the Object Merge SOP
         for parm_name in ("sop_path", "soppath", "geometry"):
             if _set_parm_safe(source_vol, parm_name, objmerge.path()):
-                print(f"[workflow] Set source volume {parm_name} = {objmerge.path()}")
+                print(f"[workflow] Set volume source {parm_name} = {objmerge.path()}")
                 break
     except hou.OperationFailed:
-        print("[workflow] Warning: sourcevolume not available, skipping")
+        print("[workflow] Warning: no volume source node available, skipping")
 
     # -- Pyro Solver
-    print("[workflow] Creating pyrosolver DOP")
-    try:
-        pyrosolver = dopnet.createNode("pyrosolver::2.0", "pyrosolver1")
-    except hou.OperationFailed:
-        pyrosolver = dopnet.createNode("pyrosolver", "pyrosolver1")
+    #
+    # Same reasoning as the smoke object: the 22.0 notes list "Pyro Solver DOP"
+    # among the deprecated DOP pyro nodes and point at Pyro Solver (Sparse).
+    # Houdini's own deprecated flag is still False on pyrosolver, so the old
+    # versioned types stay as fallbacks rather than being dropped.
+    print("[workflow] Creating pyro solver DOP")
+    pyrosolver = _create_first_available(
+        dopnet,
+        ("pyrosolver_sparse", "pyrosolver::2.0", "pyrosolver"),
+        "pyrosolver1",
+    )
     all_nodes.append(pyrosolver.path())
 
-    # -- Resize Container
-    print("[workflow] Creating resize container DOP")
-    resize = None
-    try:
-        resize = dopnet.createNode("gasresizefluiddynamic", "resize_container1")
-        all_nodes.append(resize.path())
-    except hou.OperationFailed:
-        print("[workflow] Warning: gasresizefluiddynamic not available, skipping")
+    # No resize container. This used to create a gasresizefluiddynamic and wire
+    # it to the solver's output, which is not a valid DOP-level connection -- it
+    # is a microsolver belonging inside a solver's subnet, so the wiring always
+    # failed and the node sat there doing nothing. It is also unnecessary now:
+    # SideFX document the sparse smoke object as growing on its own ("the
+    # container will grow as the simulated smoke and fire inside it" expands,
+    # starting empty and resizing at initial sourcing).
 
-    # -- Merge DOP to combine smoke object and source volume
+    # -- Merge DOP to combine smoke object and volume source
     print("[workflow] Creating merge DOP and wiring solver chain")
     try:
         merge_dop = dopnet.createNode("merge", "merge1")
@@ -223,12 +262,6 @@ def _setup_pyro_sim_dop(
     except Exception as e:
         print(f"[workflow] Warning: merge DOP failed, wiring directly: {e}")
         pyrosolver.setInput(0, smokeobj, 0)
-
-    if resize is not None:
-        try:
-            resize.setInput(0, pyrosolver, 0)
-        except Exception as e:
-            print(f"[workflow] Warning: could not wire resize container: {e}")
 
     # -- DOP Import SOP
     print("[workflow] Creating DOP Import SOP")
@@ -278,7 +311,7 @@ def _setup_pyro_sim(
 
     Tries the modern SOP-level approach first (Houdini 20+, using
     pyrosource + pyrosolver SOPs).  Falls back to the classic DOP
-    approach (smokeobject + sourcevolume + pyrosolver DOPs) for
+    approach (smokeobject_sparse + volumesource + pyrosolver_sparse DOPs) for
     older Houdini versions.
 
     Args:
@@ -566,16 +599,15 @@ def _setup_flip_sim(
     # -- Step 6: Create FLIP Source
     print("[workflow] Creating FLIP Source DOP")
     try:
-        flipsource = dopnet.createNode("flipsource", "flipsource1")
+        # volumesource ahead of the deprecated, undocumented sourcevolume; SideFX
+        # document volumesource as covering FLIP sources too.
+        flipsource = _create_first_available(
+            dopnet, ("flipsource", "volumesource", "sourcevolume"), "flipsource1"
+        )
         all_nodes.append(flipsource.path())
     except hou.OperationFailed:
-        print("[workflow] Warning: flipsource not available, trying volume source")
-        try:
-            flipsource = dopnet.createNode("sourcevolume", "flipsource1")
-            all_nodes.append(flipsource.path())
-        except hou.OperationFailed:
-            print("[workflow] Warning: source volume not available")
-            flipsource = None
+        print("[workflow] Warning: no FLIP/volume source node available")
+        flipsource = None
 
     # -- Step 7: Create FLIP Tank / Domain
     print("[workflow] Creating FLIP Tank / Domain")

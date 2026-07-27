@@ -42,7 +42,9 @@ _CACHE: dict[str, dict[str, tuple[str, str]]] = {}
 
 def _help_dir() -> str:
     """Help root of the running Houdini (separate function for tests)."""
-    return os.path.join(hou.expandString("$HFS"), "houdini", "help")
+    # hou.text.expandString, not hou.expandString: the latter is deprecated and
+    # emits a DeprecationWarning on every call. Present since well before 20.5.
+    return os.path.join(hou.text.expandString("$HFS"), "houdini", "help")
 
 
 def _available_scopes() -> list[str]:
