@@ -16,6 +16,11 @@ def mock_bridge():
     bridge = AsyncMock()
     bridge.execute = AsyncMock(return_value={"executed": True})
     bridge.health_check = AsyncMock(return_value={"status": "ok", "houdini_version": "21.0.440"})
+    # A compatible plugin by default: the connection-status tool checks for a
+    # plugin older than the server, and an unset mock would look like one.
+    from fxhoudinimcp.compat import required_commands
+
+    bridge.list_commands = AsyncMock(return_value=sorted(required_commands()))
     return bridge
 
 

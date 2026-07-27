@@ -12,6 +12,7 @@ from mcp.server.fastmcp import FastMCP
 
 # Internal
 from fxhoudinimcp.bridge import HoudiniBridge
+from fxhoudinimcp.compat import compatibility_warning
 from fxhoudinimcp._loader import load_markdown
 from fxhoudinimcp._version import __version__
 from fxhoudinimcp.node_versions import staleness_warning
@@ -44,6 +45,17 @@ async def lifespan(server: FastMCP):
         stale = staleness_warning(houdini_version)
         if stale:
             logger.warning(stale)
+
+        # The plugin ships from the repository, not from PyPI, so upgrading the
+        # package does not update it. Name the gap now rather than letting one
+        # tool fail later with what looks like a bug.
+        try:
+            mismatch = compatibility_warning(await bridge.list_commands())
+        except Exception as exc:
+            logger.debug("Could not check plugin commands: %s", exc)
+        else:
+            if mismatch:
+                logger.warning(mismatch)
     except Exception as e:
         logger.warning("Cannot reach Houdini at startup: %s", e)
         logger.warning("Tools will attempt to connect on first use.")

@@ -13,6 +13,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 
 # Internal
+from fxhoudinimcp.compat import compatibility_warning, missing_commands
 from fxhoudinimcp.errors import ConnectionError as HoudiniConnectionError
 from fxhoudinimcp.node_versions import sampled_series, staleness_warning
 from fxhoudinimcp.server import mcp, _get_bridge
@@ -78,6 +79,20 @@ async def get_houdini_connection_status(ctx: Context) -> dict:
             "sampled_series": sampled_series(),
             "warning": stale,
         }
+
+    # Surface a plugin older than this server, so a later "No handler registered
+    # for command" is recognisable as a version gap rather than a bug.
+    try:
+        available = await bridge.list_commands()
+    except Exception:
+        available = None
+    if available is not None:
+        mismatch = compatibility_warning(available)
+        if mismatch:
+            payload["plugin_compatibility"] = {
+                "missing_commands": missing_commands(available),
+                "warning": mismatch,
+            }
 
     return payload
 
