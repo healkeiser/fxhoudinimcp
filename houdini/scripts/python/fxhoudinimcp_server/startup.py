@@ -8,6 +8,7 @@ from __future__ import annotations
 # Built-in
 import json
 import os
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -15,12 +16,15 @@ import urllib.request
 _server_started = False
 _port = 8100
 
-# Ceiling for the readiness poll. This runs on the calling thread -- the main
-# thread during UI auto-start -- so it is a stall budget on genuine failure,
-# not free headroom. A healthy start answers in well under a second, since
-# mcp.health needs nothing from the main thread; the old 3s was tight only
-# because the health endpoint used to deadlock against this very loop.
-_READINESS_TIMEOUT = 10.0
+# True while an auto-start readiness check is still in flight on a worker
+# thread, so a menu click during startup does not start a second server.
+_starting = False
+
+# Ceiling for the readiness poll. A healthy start answers in well under a
+# second, since mcp.health needs nothing from the main thread; the old 3s was
+# tight only because the health endpoint used to deadlock against this very
+# loop. Generous now that auto-start no longer waits on the main thread.
+_READINESS_TIMEOUT = 15.0
 
 
 def _health_url(port: int) -> str:
@@ -94,7 +98,11 @@ def _bind_localhost_only(hwebserver) -> None:
         )
 
 
-def start(port: int | None = None, background: bool | None = None) -> None:
+def start(
+    port: int | None = None,
+    background: bool | None = None,
+    wait: bool = True,
+) -> None:
     """Start the FXHoudini-MCP server.
 
     Registers all command handlers and ensures hwebserver is running.
@@ -111,11 +119,18 @@ def start(port: int | None = None, background: bool | None = None) -> None:
             to Houdini's own choice, which is True in a UI session and False
             under hython. Pass True from a headless script that needs start()
             to return while the server keeps serving.
+        wait: Block until the server answers, and raise if it does not. Pass
+            False for auto-start, where nothing reads the result and blocking
+            would stall Houdini's UI; readiness is then confirmed on a worker
+            thread and failure is printed rather than raised.
     """
-    global _server_started, _port
+    global _server_started, _port, _starting
 
     if _server_started:
         print("[fxhoudinimcp] Server already running")
+        return
+    if _starting:
+        print("[fxhoudinimcp] Server is still starting")
         return
 
     _port = port or int(os.environ.get("FXHOUDINIMCP_PORT", "8100"))
@@ -159,6 +174,33 @@ def start(port: int | None = None, background: bool | None = None) -> None:
             )
         return
 
+    if wait:
+        _confirm_ready(run_error)
+        return
+
+    # Auto-start: nobody is waiting on a return value, so do not make Houdini's
+    # main thread sit through the poll. The worker only does urllib and
+    # os.getpid(), never hou.*, which is safe off the main thread and is exactly
+    # why mcp.health had to become HOM-free.
+    _starting = True
+    worker = threading.Thread(
+        target=_confirm_ready_async, args=(run_error,), daemon=True
+    )
+    try:
+        worker.start()
+    except Exception:
+        # The thread never ran, so nothing else will clear this.
+        _starting = False
+        raise
+
+
+def _confirm_ready(run_error: Exception | None) -> None:
+    """Poll until the server answers as this process, then mark it running.
+
+    Raises on failure, so an explicit Start Server can report why.
+    """
+    global _server_started
+
     health = _wait_for_current_process_health(_port)
     if health is None:
         _server_started = False
@@ -186,6 +228,23 @@ def start(port: int | None = None, background: bool | None = None) -> None:
     )
 
 
+def _confirm_ready_async(run_error: Exception | None) -> None:
+    """_confirm_ready for a daemon thread: reports instead of raising.
+
+    An exception here would die unheard in the worker, so the failure is printed
+    in the same shape auto-start used to raise. _starting is always cleared, or
+    a failed start would leave the server permanently un-startable from the menu.
+    """
+    global _starting
+
+    try:
+        _confirm_ready(run_error)
+    except Exception as exc:
+        print(f"[fxhoudinimcp] Auto-start failed: {exc}")
+    finally:
+        _starting = False
+
+
 def stop() -> None:
     """Stop the FXHoudini-MCP server."""
     global _server_started
@@ -208,12 +267,24 @@ def get_port() -> int:
     return _port
 
 
-def ensure_running() -> None:
-    """Start the server if it's not already running."""
+def is_starting() -> bool:
+    """True while an auto-start readiness check is still in flight."""
+    return _starting
+
+
+def ensure_running(wait: bool = True) -> None:
+    """Start the server if it's not already running.
+
+    Args:
+        wait: Passed through to start(). Auto-start uses False so Houdini's UI
+            is never blocked by the readiness poll.
+    """
     global _server_started
+    if _starting:
+        return
     if _server_started:
         health = _wait_for_current_process_health(_port, timeout_seconds=0.5)
         if health is not None and health.get("pid") == os.getpid():
             return
         _server_started = False
-    start()
+    start(wait=wait)
