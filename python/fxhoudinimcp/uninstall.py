@@ -44,6 +44,7 @@ from fxhoudinimcp.install import (
     SERVER_NAME,
     claude_code_available,
     claude_code_remove_argv,
+    config_file_note,
     desktop_config_path,
 )
 
@@ -163,7 +164,10 @@ def remove_claude_code(dry_run: bool) -> list[str]:
 
     result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode == 0:
-        return [f"  Removed '{SERVER_NAME}' from Claude Code (user scope)."]
+        return [
+            f"  Removed '{SERVER_NAME}' from Claude Code (user scope).",
+            *config_file_note(result),
+        ]
 
     output = (result.stderr or "") + (result.stdout or "")
     # Removing something that is not there is the desired end state, not a

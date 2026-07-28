@@ -560,6 +560,80 @@ def test_no_message_recommends_the_bare_console_script(monkeypatch):
         assert not line.strip().startswith("fxhoudinimcp ")
 
 
+###### Saying which config was written
+
+
+_MODIFIED = "Added stdio MCP server fxhoudini\nFile modified: C:\\Users\\me\\.claude.json\n"
+
+
+def test_success_names_the_config_file(monkeypatch):
+    """"Registered with Claude Code (user scope)" is not a checkable claim.
+
+    CLAUDE_CONFIG_DIR decides which profile is user scope, and a machine can
+    have several. A correct, connected registration in one was invisible to
+    every `claude mcp get` run from the other, and read as a failed install.
+    The CLI already prints the path; swallowing it was the whole problem.
+    """
+    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(
+        inst.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout=_MODIFIED),
+    )
+
+    lines = inst.install_claude_code(dry_run=False)
+
+    assert any("C:\\Users\\me\\.claude.json" in line for line in lines)
+
+
+def test_a_windows_drive_letter_survives_the_parse():
+    """The path has a colon in it, so splitting on every colon would truncate."""
+    result = subprocess.CompletedProcess([], 0, stdout=_MODIFIED)
+    assert inst.config_file_note(result) == ["      in C:\\Users\\me\\.claude.json"]
+
+
+def test_repointing_names_the_config_file(monkeypatch):
+    monkeypatch.setattr(inst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(inst, "claude_code_current_command", lambda: "python")
+
+    adds: list[int] = []
+
+    def fake_run(argv, **kwargs):
+        if "remove" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout="")
+        adds.append(1)
+        if len(adds) > 1:  # the re-add, after the removal
+            return subprocess.CompletedProcess(argv, 0, stdout=_MODIFIED)
+        return subprocess.CompletedProcess(
+            argv, 1, stderr="MCP server fxhoudini already exists"
+        )
+
+    monkeypatch.setattr(inst.subprocess, "run", fake_run)
+
+    lines = inst.install_claude_code(dry_run=False)
+
+    assert any("Repointed" in line for line in lines)
+    assert any("C:\\Users\\me\\.claude.json" in line for line in lines)
+
+
+def test_falls_back_to_naming_the_profile(monkeypatch):
+    """An older CLI may not print the path. The profile still beats silence."""
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", r"C:\Users\me\.claude-work")
+    result = subprocess.CompletedProcess([], 0, stdout="Added stdio MCP server\n")
+
+    assert inst.config_file_note(result) == [
+        r"      in the Claude Code profile at C:\Users\me\.claude-work"
+    ]
+
+
+def test_says_nothing_when_there_is_nothing_to_say(monkeypatch):
+    """One profile and a quiet CLI: do not invent a path."""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    result = subprocess.CompletedProcess([], 0, stdout="Added stdio MCP server\n")
+
+    assert inst.config_file_note(result) == []
+
+
 def test_every_parser_spells_itself_the_module_way():
     # Internal
     from fxhoudinimcp import houdini_package as hp_mod
