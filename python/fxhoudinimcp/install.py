@@ -32,6 +32,7 @@ from pathlib import Path
 
 # Internal
 from fxhoudinimcp.houdini_package import (
+    PACKAGE_NAME,
     candidate_package_dirs,
     existing_packages,
     plugin_path,
@@ -106,6 +107,63 @@ def resolve_houdini_dir(explicit: str | None) -> tuple[Path | None, list[Path], 
     if len(candidates) == 1:
         return candidates[0], candidates, "the only candidate on this machine"
     return None, candidates, f"{len(candidates)} candidates, so the choice is yours"
+
+
+def stdin_is_interactive() -> bool:
+    """Whether there is a person on the other end who can answer a question.
+
+    Not cosmetic. This command is also run from Houdini's MCP menu and from
+    setup scripts, where stdin is not a terminal and ``input()`` either raises
+    immediately or blocks forever with a prompt nobody can see. Those callers
+    keep the printed list and the non-zero exit.
+    """
+    try:
+        return sys.stdin is not None and sys.stdin.isatty()
+    except ValueError:  # stdin closed underneath us
+        return False
+
+
+def prompt_for_package_dirs(candidates: list[Path]) -> list[Path]:
+    """Ask which packages directories to write into. Empty means cancelled.
+
+    Refusing to guess was right, but it is only half an answer: the command knew
+    the candidates, printed them, and then made the operator retype one. Asking
+    costs nothing and removes the transcription error.
+
+    "All of them" is offered because several candidates usually means several
+    Houdini versions rather than one ambiguous location. Someone running 21.0
+    and 22.0 wants the menu in both, and two runs is an invitation to do one.
+    """
+    print("  Several Houdini packages directories exist.")
+    print("  Which does the Houdini you want to use read?")
+    for index, candidate in enumerate(candidates, start=1):
+        print(f"      {index}) {candidate}")
+    print("      a) all of them")
+    print("      q) cancel")
+    print(
+        "\n  On Windows with OneDrive redirecting Documents, a desktop-launched\n"
+        "  Houdini and a shell-launched one can disagree. Start Houdini with\n"
+        "  HOUDINI_PACKAGE_VERBOSE=1 to see which it reads."
+    )
+
+    choices = f"1-{len(candidates)}" if len(candidates) > 1 else "1"
+    while True:
+        try:
+            answer = input(f"  Choose [{choices}/a/q]: ").strip().lower()
+        except EOFError:
+            # A piped stdin that runs dry. Looping would hang.
+            print()
+            return []
+        if answer == "q":
+            return []
+        if answer == "a":
+            return list(candidates)
+        if answer.isdigit() and 1 <= int(answer) <= len(candidates):
+            return [candidates[int(answer) - 1]]
+        if answer:
+            print(f"  Not one of the choices: {answer!r}")
+        else:
+            print("  Not one of the choices: nothing was entered")
 
 
 def _merge_desktop_config(existing: dict, command: list[str]) -> dict:
@@ -363,56 +421,90 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _report_missing_directory(destination: Path) -> None:
+    print(f"  Not a directory: {destination}", file=sys.stderr)
+    print("  Create it first, or pass a different --houdini-dir.", file=sys.stderr)
+
+
+def _choose_destinations(args) -> tuple[list[Path], str] | None:
+    """Work out where the package file goes. None means stop, non-zero exit."""
+    chosen, candidates, reason = resolve_houdini_dir(args.houdini_dir)
+
+    if chosen is not None:
+        return [chosen], reason
+
+    if not candidates:
+        print(f"  {reason.capitalize()}.")
+        print(
+            "  Create one inside your Houdini preferences directory, for "
+            "example\n      Documents/houdini22.0/packages\n"
+            "  then re-run this command."
+        )
+        return None
+
+    if not stdin_is_interactive():
+        print(f"  Cannot choose for you: {reason}.")
+        for candidate in candidates:
+            print(f"      {candidate}")
+        print("\n  Re-run with the one your Houdini actually reads:")
+        print(f'      fxhoudinimcp install --houdini-dir "{candidates[0]}"')
+        print(
+            "\n  On Windows with OneDrive redirecting Documents, a "
+            "desktop-launched\n  Houdini and a shell-launched one can "
+            "disagree. Start Houdini with\n  HOUDINI_PACKAGE_VERBOSE=1 to "
+            "see which it reads."
+        )
+        return None
+
+    destinations = prompt_for_package_dirs(candidates)
+    if not destinations:
+        print("  Cancelled. Nothing was written.")
+        return None
+    return destinations, "chosen at the prompt"
+
+
 def _install_plugin_half(args, plugin: Path) -> int:
     """Write the Houdini package file. Returns an exit code."""
-    chosen, candidates, reason = resolve_houdini_dir(args.houdini_dir)
     print("Houdini plugin")
-    if chosen is None:
-        if candidates:
-            print(f"  Cannot choose for you: {reason}.")
-            for candidate in candidates:
-                print(f"      {candidate}")
-            print("\n  Re-run with the one your Houdini actually reads:")
-            print(f'      fxhoudinimcp install --houdini-dir "{candidates[0]}"')
-            print(
-                "\n  On Windows with OneDrive redirecting Documents, a "
-                "desktop-launched\n  Houdini and a shell-launched one can "
-                "disagree. Start Houdini with\n  HOUDINI_PACKAGE_VERBOSE=1 to "
-                "see which it reads."
-            )
-        else:
-            print(f"  {reason.capitalize()}.")
-            print(
-                "  Create one inside your Houdini preferences directory, for "
-                "example\n      Documents/houdini22.0/packages\n"
-                "  then re-run this command."
-            )
-        return 1
 
-    if args.dry_run:
-        print(f"  Would write fxhoudinimcp.json into {chosen} ({reason})")
-    else:
+    resolved = _choose_destinations(args)
+    if resolved is None:
+        return 1
+    destinations, reason = resolved
+
+    # Every destination is checked before any is written, so a typo in the
+    # second one cannot leave the first half-installed. It also keeps --dry-run
+    # honest: it used to report "Would write" for a directory that does not
+    # exist, and then the real run refused.
+    for destination in destinations:
+        if not destination.is_dir():
+            _report_missing_directory(destination)
+            return 1
+
+    for destination in destinations:
+        if args.dry_run:
+            print(f"  Would write {PACKAGE_NAME} into {destination} ({reason})")
+            continue
         try:
-            written = write_package(chosen, plugin)
-        except NotADirectoryError:
-            print(f"  Not a directory: {chosen}", file=sys.stderr)
-            print(
-                "  Create it first, or pass a different --houdini-dir.",
-                file=sys.stderr,
-            )
+            written = write_package(destination, plugin)
+        except NotADirectoryError:  # pragma: no cover - lost a race with rmdir
+            _report_missing_directory(destination)
             return 1
         print(f"  Wrote {written} ({reason})")
 
-    others = existing_packages(exclude=chosen / "fxhoudinimcp.json")
+    others = existing_packages(
+        exclude=[destination / PACKAGE_NAME for destination in destinations]
+    )
     if others:
         print(
-            f"\n  WARNING: {len(others)} other fxhoudinimcp.json exists. Houdini "
+            f"\n  WARNING: {len(others)} other {PACKAGE_NAME} exists. Houdini "
             "processes every\n  packages directory and the last one wins, so a "
             "leftover file can silently\n  override this install:"
         )
         for path, points_at in others:
             print(f"      {path}\n          -> {points_at}")
-        print("  Delete the ones you do not want.")
+        print("  Delete the ones you do not want, or run:")
+        print("      python -m fxhoudinimcp uninstall")
 
     return 0
 

@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 # Internal
+from fxhoudinimcp import houdini_package as hp
 from fxhoudinimcp import install as inst
 
 
@@ -447,6 +448,220 @@ def test_claude_code_success(monkeypatch):
     )
     lines = inst.install_claude_code(dry_run=False)
     assert any("Registered" in line for line in lines)
+
+
+###### Choosing between several candidates, at the prompt
+
+
+def _answers(monkeypatch, *replies: str) -> None:
+    """Feed *replies* to input() in order, then behave like a closed stdin."""
+    pending = list(replies)
+
+    def fake_input(prompt: str = "") -> str:
+        if not pending:
+            raise EOFError
+        return pending.pop(0)
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+
+@pytest.fixture
+def interactive(monkeypatch):
+    """A terminal on the other end, so the installer is allowed to ask."""
+    monkeypatch.setattr(inst, "stdin_is_interactive", lambda: True)
+
+
+@pytest.fixture
+def two_candidates(monkeypatch, tmp_path):
+    """Two real packages directories, the shape of a 21.0 + 22.0 machine."""
+    first, second = tmp_path / "houdini21.0", tmp_path / "houdini22.0"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.setattr(inst, "candidate_package_dirs", lambda: [first, second])
+    monkeypatch.setattr(inst, "existing_packages", lambda exclude=None: [])
+    monkeypatch.setattr(inst, "claude_code_available", lambda: False)
+    monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
+    return first, second
+
+
+def test_prompt_lists_every_candidate(monkeypatch, tmp_path, capsys):
+    first, second = tmp_path / "a", tmp_path / "b"
+    _answers(monkeypatch, "1")
+
+    assert inst.prompt_for_package_dirs([first, second]) == [first]
+
+    out = capsys.readouterr().out
+    assert str(first) in out
+    assert str(second) in out
+
+
+def test_prompt_returns_the_numbered_choice(monkeypatch, tmp_path):
+    first, second = tmp_path / "a", tmp_path / "b"
+    _answers(monkeypatch, "2")
+    assert inst.prompt_for_package_dirs([first, second]) == [second]
+
+
+def test_prompt_can_take_all_of_them(monkeypatch, tmp_path):
+    """Several candidates is usually several Houdini versions, not ambiguity.
+
+    Someone running 21.0 and 22.0 side by side wants the menu in both, and
+    making them run the command twice invites doing it once and forgetting.
+    """
+    first, second = tmp_path / "a", tmp_path / "b"
+    _answers(monkeypatch, "a")
+    assert inst.prompt_for_package_dirs([first, second]) == [first, second]
+
+
+def test_prompt_can_be_cancelled(monkeypatch, tmp_path):
+    _answers(monkeypatch, "q")
+    assert inst.prompt_for_package_dirs([tmp_path / "a", tmp_path / "b"]) == []
+
+
+def test_prompt_treats_end_of_input_as_cancel(monkeypatch, tmp_path):
+    """A piped stdin that runs dry must not loop forever."""
+    _answers(monkeypatch)
+    assert inst.prompt_for_package_dirs([tmp_path / "a", tmp_path / "b"]) == []
+
+
+def test_prompt_re_asks_rather_than_guessing(monkeypatch, tmp_path, capsys):
+    """Out of range, not a number, and empty are all re-asked, never rounded."""
+    first, second = tmp_path / "a", tmp_path / "b"
+    _answers(monkeypatch, "3", "yes", "", "1")
+
+    assert inst.prompt_for_package_dirs([first, second]) == [first]
+
+    out = capsys.readouterr().out
+    assert out.count("Not one of the choices") == 3
+    assert "nothing was entered" in out  # a bare Return is rejected, not defaulted
+
+
+def test_ambiguous_dir_prompts_and_writes_only_the_choice(
+    plugin_dir, interactive, two_candidates, monkeypatch
+):
+    first, second = two_candidates
+    _answers(monkeypatch, "2")
+
+    assert inst.main(["--client", "none"]) == 0
+
+    assert not list(first.iterdir())
+    assert (second / "fxhoudinimcp.json").is_file()
+
+
+def test_choosing_all_writes_into_every_candidate(
+    plugin_dir, interactive, two_candidates, monkeypatch
+):
+    first, second = two_candidates
+    _answers(monkeypatch, "a")
+
+    assert inst.main(["--client", "none"]) == 0
+
+    assert (first / "fxhoudinimcp.json").is_file()
+    assert (second / "fxhoudinimcp.json").is_file()
+
+
+def test_cancelling_writes_nothing_and_exits_nonzero(
+    plugin_dir, interactive, two_candidates, monkeypatch, capsys
+):
+    first, second = two_candidates
+    _answers(monkeypatch, "q")
+
+    assert inst.main(["--client", "none"]) == 1
+
+    assert not list(first.iterdir())
+    assert not list(second.iterdir())
+    assert "Cancelled" in capsys.readouterr().out
+
+
+def test_a_non_interactive_run_never_stops_to_ask(
+    plugin_dir, two_candidates, monkeypatch, capsys
+):
+    """The MCP menu and any script run this with no terminal attached.
+
+    input() there either raises immediately or blocks forever, and a Houdini
+    menu item that hangs on a prompt nobody can see is worse than one that
+    prints instructions. So the old list-and-refuse behaviour is kept, and
+    reaching input() at all is treated as the failure it would be.
+    """
+    monkeypatch.setattr(inst, "stdin_is_interactive", lambda: False)
+
+    def explode(prompt: str = "") -> str:
+        raise AssertionError("a non-interactive install must not call input()")
+
+    monkeypatch.setattr("builtins.input", explode)
+    first, second = two_candidates
+
+    assert inst.main(["--client", "none"]) == 1
+
+    assert not list(first.iterdir())
+    assert not list(second.iterdir())
+    assert "Cannot choose for you" in capsys.readouterr().out
+
+
+def test_an_explicit_dir_never_prompts(plugin_dir, interactive, tmp_path, monkeypatch):
+    """--houdini-dir already answered the question."""
+    packages = tmp_path / "packages"
+    packages.mkdir()
+    monkeypatch.setattr(inst, "existing_packages", lambda exclude=None: [])
+    monkeypatch.setattr(inst, "claude_code_available", lambda: False)
+    monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
+
+    def explode(prompt: str = "") -> str:
+        raise AssertionError("--houdini-dir must not be second-guessed")
+
+    monkeypatch.setattr("builtins.input", explode)
+
+    assert inst.main(["--houdini-dir", str(packages), "--client", "none"]) == 0
+    assert (packages / "fxhoudinimcp.json").is_file()
+
+
+###### A dry run has to be honest about what would fail
+
+
+def test_dry_run_rejects_a_directory_that_does_not_exist(
+    plugin_dir, isolated, tmp_path, capsys
+):
+    """A dry run that reports success for a write that would fail is worthless.
+
+    It was reporting "Would write ... into C:\\nowhere" and exiting 0, while the
+    real run refused. The whole point of --dry-run is to be believed.
+    """
+    missing = tmp_path / "not-created"
+
+    assert inst.main(["--houdini-dir", str(missing), "--dry-run"]) == 1
+    assert "Not a directory" in capsys.readouterr().err
+
+
+def test_nothing_is_written_when_one_destination_is_missing(
+    plugin_dir, interactive, monkeypatch, tmp_path
+):
+    """Every destination is checked before the first one is written."""
+    first, second = tmp_path / "a", tmp_path / "b"
+    first.mkdir()  # second is never created
+    monkeypatch.setattr(inst, "candidate_package_dirs", lambda: [first, second])
+    monkeypatch.setattr(inst, "existing_packages", lambda exclude=None: [])
+    monkeypatch.setattr(inst, "claude_code_available", lambda: False)
+    monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
+    _answers(monkeypatch, "a")
+
+    assert inst.main(["--client", "none"]) == 1
+    assert not list(first.iterdir())
+
+
+def test_the_files_just_written_are_not_reported_as_leftovers(
+    plugin_dir, interactive, two_candidates, monkeypatch, capsys
+):
+    """Writing both and then warning about both would be self-contradictory.
+
+    Runs the real detector rather than the stub, because the whole question is
+    whether it recognises the files this run has just created.
+    """
+    first, second = two_candidates
+    monkeypatch.setattr(inst, "existing_packages", hp.existing_packages)
+    monkeypatch.setattr(hp, "candidate_package_dirs", lambda: [first, second])
+    _answers(monkeypatch, "a")
+
+    assert inst.main(["--client", "none"]) == 0
+    assert "WARNING" not in capsys.readouterr().out
 
 
 ###### The README's flag table
