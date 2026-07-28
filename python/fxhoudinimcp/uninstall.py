@@ -39,18 +39,27 @@ import sys
 from pathlib import Path
 
 # Internal
-from fxhoudinimcp.houdini_package import PACKAGE_NAME, existing_packages
+from fxhoudinimcp.houdini_package import CLI, PACKAGE_NAME, existing_packages
 from fxhoudinimcp.install import (
     SERVER_NAME,
     claude_code_available,
+    claude_code_remove_argv,
     desktop_config_path,
-    stdin_is_interactive,
 )
 
 
-def claude_code_remove_argv(scope: str = "user") -> list[str]:
-    """The `claude mcp remove` invocation, for running or for printing."""
-    return ["claude", "mcp", "remove", SERVER_NAME, "-s", scope]
+def stdin_is_interactive() -> bool:
+    """Whether there is a person on the other end who can answer a question.
+
+    This lives here rather than in ``install`` because deleting files is now the
+    only question left worth asking. ``install`` used to ask which Houdini
+    packages directory to use and no longer does, having concluded the question
+    was avoidable; this one is not.
+    """
+    try:
+        return sys.stdin is not None and sys.stdin.isatty()
+    except ValueError:  # stdin closed underneath us
+        return False
 
 
 def find_package_files(houdini_dir: str | None) -> list[Path]:
@@ -173,7 +182,7 @@ def remove_claude_code(dry_run: bool) -> list[str]:
 def build_parser() -> argparse.ArgumentParser:
     """The argument parser, exposed so the README's flag table can be checked."""
     parser = argparse.ArgumentParser(
-        prog="fxhoudinimcp uninstall",
+        prog=f"{CLI} uninstall",
         description="Remove the Houdini package file and the MCP client "
         "registration written by `fxhoudinimcp install`.",
     )

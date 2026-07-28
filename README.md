@@ -168,29 +168,32 @@ client config, so if the command runs at all, the path it registers is correct.
 Add `--dry-run` first if you want to see every file it would touch and change
 nothing.
 
-It asks rather than guessing when it cannot know the answer. Several Houdini
-packages directories usually means several Houdini versions, so it lists them
-and lets you pick one, or all of them:
+It asks nothing and it finishes. If you have several Houdini versions, it writes
+into every packages directory it finds:
 
 ```
 Houdini plugin
-  Several Houdini packages directories exist.
-  Which does the Houdini you want to use read?
-      1) C:\Users\you\Documents\houdini21.0\packages
-      2) C:\Users\you\Documents\houdini22.0\packages
-      a) all of them
-      q) cancel
-  Choose [1-2/a/q]:
+  Wrote C:\Users\you\Documents\houdini21.0\packages\fxhoudinimcp.json
+  Wrote C:\Users\you\Documents\houdini22.0\packages\fxhoudinimcp.json
 ```
 
-Choosing wrongly produces an install that fails **silently**, which is why it
-will not choose for you. When there is no terminal to ask, running from the MCP
-menu or a setup script, it prints the same list and exits non-zero. Name the
-directory up front to skip the question entirely:
+That is safe rather than lazy. The files are identical and point at the same
+plugin, so whichever directory your Houdini reads, it finds a correct one. It
+also settles the Windows case where OneDrive's Documents redirection makes a
+desktop-launched Houdini and a shell-launched one disagree: both paths get a
+file, so both work. The cost is an **MCP** menu in a Houdini version you may not
+use, which `uninstall` clears in one go.
+
+Because it never stops to ask, the same command works unchanged from a terminal,
+from Houdini's MCP menu, or from a setup script. To target one directory only:
 
 ```shell
 python -m fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
 ```
+
+If your MCP client already has an `fxhoudini` entry pointing at a different
+interpreter, it is repointed at this one and the old value is printed. That is
+the common case after switching Python versions or recreating a virtualenv.
 
 | Flag | What it does |
 | --- | --- |
@@ -387,9 +390,11 @@ A working package prints both a `Loading:` and a `Processing:` line for
   every one it can see, and what each points at, and `fxhoudinimcp uninstall`
   removes the lot.
 - **No package file for the Houdini you launched.** Each Houdini version reads
-  its own preference directory, so installing into `houdini21.0/packages` does
-  nothing for a Houdini 22 you start afterwards. Answer `a` at the prompt, or
-  run `install` once per version.
+  its own preference directory, so a file in `houdini21.0/packages` does nothing
+  for a Houdini 22 you start afterwards. `install` writes to every candidate for
+  exactly this reason; you only see this if you narrowed it with
+  `--houdini-dir`, or if that Houdini's `packages` directory did not exist when
+  you ran it. Create it and re-run.
 
 On Windows, note that OneDrive's Documents redirection means a desktop-launched
 Houdini and a shell-launched one can resolve different preference directories.
