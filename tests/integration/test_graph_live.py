@@ -16,9 +16,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def geo(call) -> str:
-    return call(
-        "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-    )["node_path"]
+    return call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")["node_path"]
 
 
 class TestBuildNetworkValidation:
@@ -30,9 +28,12 @@ class TestBuildNetworkValidation:
             nodes=[
                 {"type": "box", "name": "b"},
                 {"type": "not_a_real_sop", "name": "x"},
-                {"type": "scatter", "name": "s",
-                 "parms": {"nptss": 50},
-                 "inputs": ["b", "ghost_node"]},
+                {
+                    "type": "scatter",
+                    "name": "s",
+                    "parms": {"nptss": 50},
+                    "inputs": ["b", "ghost_node"],
+                },
             ],
         )
         assert result["valid"] is False
@@ -59,9 +60,7 @@ class TestBuildNetworkValidation:
             nodes=[{"type": "copytopoints", "name": "c"}],
         )
         assert result["valid"] is True
-        assert any(
-            t.startswith("copytopoints") for t in result["validated_types"]
-        )
+        assert any(t.startswith("copytopoints") for t in result["validated_types"])
         assert len(hou.node(geo).children()) == 0
 
 
@@ -71,18 +70,27 @@ class TestBuildNetworkBuild:
             "graph.build_network",
             parent_path=geo,
             nodes=[
-                {"type": "grid", "name": "ground",
-                 "parms": {"rows": 30, "cols": 30, "size": [8.0, 8.0]}},
-                {"type": "mountain", "name": "shape", "inputs": ["ground"],
-                 "parms": {"height": 1.5}},
-                {"type": "scatter", "name": "pts", "inputs": ["shape"],
-                 "parms": {"npts": 64}},
+                {
+                    "type": "grid",
+                    "name": "ground",
+                    "parms": {"rows": 30, "cols": 30, "size": [8.0, 8.0]},
+                },
+                {
+                    "type": "mountain",
+                    "name": "shape",
+                    "inputs": ["ground"],
+                    "parms": {"height": 1.5},
+                },
+                {"type": "scatter", "name": "pts", "inputs": ["shape"], "parms": {"npts": 64}},
                 {"type": "box", "name": "pebble", "parms": {"scale": 0.1}},
-                {"type": "copytopoints", "name": "copies",
-                 "inputs": ["pebble", "pts"],
-                 "flags": {"display": True, "render": True},
-                 "color": [0.2, 0.6, 0.9],
-                 "comment": "built atomically"},
+                {
+                    "type": "copytopoints",
+                    "name": "copies",
+                    "inputs": ["pebble", "pts"],
+                    "flags": {"display": True, "render": True},
+                    "color": [0.2, 0.6, 0.9],
+                    "comment": "built atomically",
+                },
             ],
         )
         assert result["valid"] is True, result.get("errors")
@@ -108,9 +116,9 @@ class TestBuildNetworkBuild:
         assert "taken" in " ".join(result["errors"])
 
     def test_input_can_reference_existing_child(self, call, geo):
-        existing = call(
-            "nodes.create_node", parent_path=geo, node_type="box", name="base"
-        )["node_path"]
+        existing = call("nodes.create_node", parent_path=geo, node_type="box", name="base")[
+            "node_path"
+        ]
         result = call(
             "graph.build_network",
             parent_path=geo,
@@ -123,9 +131,7 @@ class TestBuildNetworkBuild:
 class TestVerifyNetwork:
     def test_reports_broken_nodes(self, call, geo):
         call("nodes.create_node", parent_path=geo, node_type="box", name="good")
-        bad = call(
-            "nodes.create_node", parent_path=geo, node_type="file", name="bad"
-        )["node_path"]
+        bad = call("nodes.create_node", parent_path=geo, node_type="file", name="bad")["node_path"]
         call(
             "parameters.set_parameter",
             node_path=bad,
@@ -159,9 +165,7 @@ class TestNodeCard:
         assert card["help"] and "cube" in card["help"].lower()
 
     def test_versioned_resolution_and_connector_labels(self, call):
-        card = call(
-            "graph.get_node_card", node_type="copytopoints", context="Sop"
-        )
+        card = call("graph.get_node_card", node_type="copytopoints", context="Sop")
         assert card["type"].startswith("copytopoints::")
         assert card["max_inputs"] >= 2
         pack = call(
@@ -188,11 +192,9 @@ class TestExpensiveNodes:
             "graph.build_network",
             parent_path=geo,
             nodes=[
-                {"type": "grid", "name": "g",
-                 "parms": {"rows": 400, "cols": 400}},
+                {"type": "grid", "name": "g", "parms": {"rows": 400, "cols": 400}},
                 {"type": "mountain", "name": "heavy", "inputs": ["g"]},
-                {"type": "scatter", "name": "pts", "inputs": ["heavy"],
-                 "flags": {"display": True}},
+                {"type": "scatter", "name": "pts", "inputs": ["heavy"], "flags": {"display": True}},
             ],
         )
         result = call("graph.find_expensive_nodes", root_path=geo, limit=10)

@@ -16,8 +16,8 @@ import hou
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Helpers
+
 
 def _get_node(node_path: str) -> hou.Node:
     """Resolve a node path and raise a clear error if it does not exist."""
@@ -45,6 +45,7 @@ def _focus_network_editor(node: hou.Node) -> None:
 
 
 ###### chops.get_chop_data
+
 
 def _get_chop_data(
     *,
@@ -85,15 +86,17 @@ def _get_chop_data(
         min_val = min(all_samples) if all_samples else 0.0
         max_val = max(all_samples) if all_samples else 0.0
 
-        channels.append({
-            "name": track_name,
-            "sample_count": num_samples,
-            "start": start_idx,
-            "end": end_idx,
-            "rate": sample_rate,
-            "min_val": min_val,
-            "max_val": max_val,
-        })
+        channels.append(
+            {
+                "name": track_name,
+                "sample_count": num_samples,
+                "start": start_idx,
+                "end": end_idx,
+                "rate": sample_rate,
+                "min_val": min_val,
+                "max_val": max_val,
+            }
+        )
 
     result: dict[str, Any] = {
         "node_path": node_path,
@@ -104,9 +107,7 @@ def _get_chop_data(
     if channel_name is not None:
         track = node.track(channel_name)
         if track is None:
-            raise ValueError(
-                f"Channel '{channel_name}' not found on CHOP node: {node_path}"
-            )
+            raise ValueError(f"Channel '{channel_name}' not found on CHOP node: {node_path}")
 
         all_samples = list(track.allSamples())
 
@@ -128,10 +129,12 @@ def _get_chop_data(
 
     return result
 
+
 register_handler("chops.get_chop_data", _get_chop_data)
 
 
 ###### chops.create_chop_node
+
 
 def _create_chop_node(
     *,
@@ -153,9 +156,8 @@ def _create_chop_node(
         node = parent.createNode(chop_type, node_name=name)
     except hou.OperationFailed as e:
         raise ValueError(
-            f"Failed to create CHOP node of type '{chop_type}' "
-            f"inside '{parent_path}': {e}"
-        )
+            f"Failed to create CHOP node of type '{chop_type}' inside '{parent_path}': {e}"
+        ) from e
 
     node.moveToGoodPosition()
     _focus_network_editor(node)
@@ -166,10 +168,12 @@ def _create_chop_node(
         "name": node.name(),
     }
 
+
 register_handler("chops.create_chop_node", _create_chop_node)
 
 
 ###### chops.list_chop_channels
+
 
 def _list_chop_channels(*, node_path: str, **_: Any) -> dict[str, Any]:
     """List all tracks/channels on a CHOP node.
@@ -194,13 +198,15 @@ def _list_chop_channels(*, node_path: str, **_: Any) -> dict[str, Any]:
         min_val = min(all_samples) if all_samples else 0.0
         max_val = max(all_samples) if all_samples else 0.0
 
-        channels.append({
-            "name": track.name(),
-            "length": num_samples,
-            "rate": sample_rate,
-            "min": min_val,
-            "max": max_val,
-        })
+        channels.append(
+            {
+                "name": track.name(),
+                "length": num_samples,
+                "rate": sample_rate,
+                "min": min_val,
+                "max": max_val,
+            }
+        )
 
     return {
         "node_path": node_path,
@@ -208,10 +214,12 @@ def _list_chop_channels(*, node_path: str, **_: Any) -> dict[str, Any]:
         "channels": channels,
     }
 
+
 register_handler("chops.list_chop_channels", _list_chop_channels)
 
 
 ###### chops.export_chop_to_parm
+
 
 def _export_chop_to_parm(
     *,
@@ -236,17 +244,13 @@ def _export_chop_to_parm(
     chop_node = _get_node(chop_path)
     track = chop_node.track(channel_name)
     if track is None:
-        raise ValueError(
-            f"Channel '{channel_name}' not found on CHOP node: {chop_path}"
-        )
+        raise ValueError(f"Channel '{channel_name}' not found on CHOP node: {chop_path}")
 
     # Validate the target parameter
     target_node = _get_node(target_node_path)
     parm = target_node.parm(target_parm_name)
     if parm is None:
-        raise ValueError(
-            f"Parameter '{target_parm_name}' not found on node: {target_node_path}"
-        )
+        raise ValueError(f"Parameter '{target_parm_name}' not found on node: {target_node_path}")
 
     # Build and set the chop() expression
     expression = f'chop("{chop_path}/{channel_name}")'
@@ -256,5 +260,6 @@ def _export_chop_to_parm(
         "expression": expression,
         "target_parm": f"{target_node_path}/{target_parm_name}",
     }
+
 
 register_handler("chops.export_chop_to_parm", _export_chop_to_parm)

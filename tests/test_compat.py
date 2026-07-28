@@ -58,8 +58,7 @@ class TestShippedManifest:
         commands, dynamic = collect()
         assert not dynamic, f"non-literal execute() call sites: {dynamic}"
         assert commands == set(compat.required_commands()), (
-            "required_commands.json is stale. Run: "
-            "python tools/gen_required_commands.py"
+            "required_commands.json is stale. Run: python tools/gen_required_commands.py"
         )
 
     def test_every_command_is_namespaced(self):
@@ -76,9 +75,7 @@ class TestMissingCommands:
         assert compat.missing_commands(available) == []
 
     def test_reports_what_the_plugin_lacks(self, manifest):
-        assert compat.missing_commands(["scene.get_scene_info"]) == [
-            "nodes.create_node"
-        ]
+        assert compat.missing_commands(["scene.get_scene_info"]) == ["nodes.create_node"]
 
     def test_result_is_sorted(self, monkeypatch, tmp_path):
         path = tmp_path / "m.json"
@@ -174,6 +171,4 @@ class TestUnusableReplies:
         assert compat.compatibility_warning(available) is None
 
     def test_a_real_list_still_works(self, manifest):
-        assert compat.missing_commands(["scene.get_scene_info"]) == [
-            "nodes.create_node"
-        ]
+        assert compat.missing_commands(["scene.get_scene_info"]) == ["nodes.create_node"]

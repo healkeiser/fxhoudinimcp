@@ -32,13 +32,12 @@ _CONTEXT = re.compile(r"^#context:\s*(\S+)", re.M)
 
 def _node_types() -> dict[str, list[str]]:
     return {
-        name: sorted(category.nodeTypes())
-        for name, category in hou.nodeTypeCategories().items()
+        name: sorted(category.nodeTypes()) for name, category in hou.nodeTypeCategories().items()
     }
 
 
 def _deprecated() -> list[str]:
-    """"Category/name" for every node type Houdini marks deprecated.
+    """ "Category/name" for every node type Houdini marks deprecated.
 
     Authoritative and machine-readable, unlike guessing from docs. Without this
     the generated hints advertise superseded nodes: Sop/group when groupcreate
@@ -80,9 +79,7 @@ def _aliases() -> dict[str, str]:
 def _since_from_help() -> dict[str, str]:
     """Map "Category/nodename" to the #since version SideFX documents."""
     # hou.text.expandString, not the deprecated hou.expandString.
-    help_zip = os.path.join(
-        hou.text.expandString("$HFS"), "houdini", "help", "nodes.zip"
-    )
+    help_zip = os.path.join(hou.text.expandString("$HFS"), "houdini", "help", "nodes.zip")
     if not os.path.isfile(help_zip):
         return {}
 
@@ -104,9 +101,7 @@ def _since_from_help() -> dict[str, str]:
                 continue
             # Help contexts are lowercase ("sop"); node type categories are
             # capitalised ("Sop").
-            since[f"{context.group(1).capitalize()}/{internal.group(1)}"] = (
-                version.group(1)
-            )
+            since[f"{context.group(1).capitalize()}/{internal.group(1)}"] = version.group(1)
     return since
 
 

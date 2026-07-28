@@ -10,11 +10,12 @@ from contextlib import asynccontextmanager
 # Third-party
 from mcp.server.fastmcp import FastMCP
 
+from fxhoudinimcp._loader import load_markdown
+from fxhoudinimcp._version import __version__
+
 # Internal
 from fxhoudinimcp.bridge import HoudiniBridge, find_servers
 from fxhoudinimcp.compat import compatibility_warning
-from fxhoudinimcp._loader import load_markdown
-from fxhoudinimcp._version import __version__
 from fxhoudinimcp.node_versions import staleness_warning
 
 logger = logging.getLogger(__name__)
@@ -41,9 +42,7 @@ async def lifespan(server: FastMCP):
         if servers:
             port = servers[0]["port"]
             if len(servers) > 1:
-                others = ", ".join(
-                    f"port {s['port']} (pid {s.get('pid')})" for s in servers[1:]
-                )
+                others = ", ".join(f"port {s['port']} (pid {s.get('pid')})" for s in servers[1:])
                 logger.warning(
                     "%d Houdini sessions are serving; using port %d (pid %s). "
                     "Others: %s. Set HOUDINI_PORT to pin a specific one.",
@@ -91,7 +90,7 @@ async def lifespan(server: FastMCP):
 
 mcp = FastMCP(
     name="FXHoudini",
-    instructions=load_markdown("server_instructions.md"),
+    instructions=load_markdown("instructions/server_instructions.md"),
     lifespan=lifespan,
 )
 mcp._mcp_server.version = __version__

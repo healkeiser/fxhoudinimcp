@@ -45,7 +45,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS = (
-    REPO_ROOT / "python" / "fxhoudinimcp" / "prompts" / "markdown"
+    REPO_ROOT
+    / "python"
+    / "fxhoudinimcp"
+    / "prompts"
+    / "markdown"
+    / "instructions"
     / "server_instructions.md"
 )
 _TABLE = Path(__file__).resolve().parent / "node_versions.json"
@@ -101,9 +106,7 @@ _VERIFIABLE = re.compile(r"[a-z][A-Za-z0-9_:.]*[A-Za-z0-9]$")
 
 
 def _verifiable(name: str) -> bool:
-    return bool(_VERIFIABLE.match(name)) and (
-        "_" in name or "::" in name or len(name) >= 4
-    )
+    return bool(_VERIFIABLE.match(name)) and ("_" in name or "::" in name or len(name) >= 4)
 
 
 def read_help(
@@ -137,7 +140,7 @@ def read_help(
 
 
 def existing_names(table: dict) -> set[str]:
-    """"Category/name" keys any sampled build reported.
+    """ "Category/name" keys any sampled build reported.
 
     Deliberately "any", not "every": a name that exists in only part of the range
     still belongs here, and tools/gen_node_versions.py marks it with a version
@@ -151,9 +154,7 @@ def existing_names(table: dict) -> set[str]:
 def _tag_lines(names: list[str], tagged: dict[str, set[str]]) -> list[str] | None:
     available = set(names)
     groups = {tag: sorted(members & available) for tag, members in tagged.items()}
-    groups = {
-        tag: found for tag, found in groups.items() if len(found) >= _MIN_TAG_MEMBERS
-    }
+    groups = {tag: found for tag, found in groups.items() if len(found) >= _MIN_TAG_MEMBERS}
     if len(groups) < _MIN_TAGS_TO_GROUP:
         return None
 
@@ -173,11 +174,7 @@ def _stem_line(names: list[str]) -> str | None:
             members[match.group(0)[:_STEM_LEN]].append(name)
 
     counted = Counter({stem: len(found) for stem, found in members.items()})
-    top = [
-        stem
-        for stem, count in counted.most_common(_MAX_STEMS)
-        if count >= _MIN_STEM_MEMBERS
-    ]
+    top = [stem for stem, count in counted.most_common(_MAX_STEMS) if count >= _MIN_STEM_MEMBERS]
     if not top:
         return None
     filters = "|".join(f"'{stem}'" for stem in top)
@@ -202,7 +199,7 @@ def _newest_build(table: dict) -> str | None:
 
 
 def deprecated_names(table: dict) -> set[str]:
-    """"Category/name" the newest sampled build marks deprecated.
+    """ "Category/name" the newest sampled build marks deprecated.
 
     Advertising these is a workflow regression, and it was happening: 29 of 605
     advertised names were superseded nodes, among them Sop/group (groupcreate
@@ -304,9 +301,7 @@ def build_block(
         lines.append("")
         lines.append("### Renamed nodes")
         lines.append("")
-        lines.append(
-            "The old name still works when creating a node, because Houdini keeps"
-        )
+        lines.append("The old name still works when creating a node, because Houdini keeps")
         lines.append("the alias so old scenes load, but prefer the current name:")
         for old_key, new_key in sorted(renamed.items()):
             category, _, old_name = old_key.partition("/")
@@ -314,6 +309,14 @@ def build_block(
             lines.append(f"*   {category}: {old_name} is now {new_name}")
 
     return "\n".join(lines)
+
+
+# " (21.0+)" and " (20.5-21.0)", as written by tools/gen_node_versions.py.
+_ANNOTATION = re.compile(r" \(\d+\.\d+(?:\+|-\d+\.\d+)\)")
+
+
+def _strip_annotations(text: str) -> str:
+    return _ANNOTATION.sub("", text)
 
 
 def _newest_help_zip() -> Path | None:
@@ -341,10 +344,7 @@ def main() -> int:
         print("No Houdini node help found; cannot tell stock nodes from plugins.")
         return 1
     if not _TABLE.is_file():
-        print(
-            f"{_TABLE.relative_to(REPO_ROOT)} is missing. Run "
-            "tools/gen_node_versions.py first."
-        )
+        print(f"{_TABLE.relative_to(REPO_ROOT)} is missing. Run tools/gen_node_versions.py first.")
         return 1
 
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
@@ -377,18 +377,30 @@ def main() -> int:
     print(f"block size  : {len(block)} bytes")
 
     if args.check:
-        if updated != text:
+        # Compare with version markers removed. This script writes bare names and
+        # tools/gen_node_versions.py annotates them afterwards, so a correctly
+        # annotated file NEVER matches this script's own output byte for byte.
+        # Comparing raw reported "STALE" permanently, which read as a real problem
+        # and was only the annotations. What --check can honestly verify is that
+        # the set of advertised names still matches the help.
+        if _strip_annotations(updated) != _strip_annotations(text):
             print(
                 f"\nSTALE: {_INSTRUCTIONS.relative_to(REPO_ROOT)}\n"
-                "Run: python tools/gen_node_domains.py"
+                "Run: python tools/gen_node_domains.py, then "
+                "python tools/gen_node_versions.py to restore version markers."
             )
             return 1
-        print("\nUp to date.")
+        print("\nUp to date (compared ignoring version markers).")
         return 0
 
-    if updated != text:
+    if _strip_annotations(updated) != _strip_annotations(text):
         _INSTRUCTIONS.write_text(updated, encoding="utf-8")
         print(f"\nrewrote {_INSTRUCTIONS.relative_to(REPO_ROOT)}")
+        print(
+            "NOTE: version markers were just removed, because this script emits "
+            "bare names.\n      Run python tools/gen_node_versions.py now to put "
+            "them back."
+        )
     else:
         print(f"\n{_INSTRUCTIONS.relative_to(REPO_ROOT)} already correct")
     return 0

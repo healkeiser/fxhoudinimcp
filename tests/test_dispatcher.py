@@ -12,6 +12,8 @@ sys.modules.setdefault("hou", MagicMock())
 sys.modules.setdefault("hdefereval", MagicMock())
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "houdini", "scripts", "python"))
 
+# Force hython fallback (no hdefereval threading)
+import fxhoudinimcp_server.dispatcher as _disp  # noqa: E402
 from fxhoudinimcp_server.dispatcher import (  # noqa: E402
     _handler_registry,
     dispatch,
@@ -19,8 +21,6 @@ from fxhoudinimcp_server.dispatcher import (  # noqa: E402
     register_handler,
 )
 
-# Force hython fallback (no hdefereval threading)
-import fxhoudinimcp_server.dispatcher as _disp  # noqa: E402
 _disp.HAS_HDEFEREVAL = False
 
 
@@ -36,8 +36,12 @@ class TestHandlerRegistry:
         assert list_commands() == ["a.cmd", "b.cmd", "c.cmd"]
 
     def test_register_overwrites(self):
-        fn1 = lambda: "first"
-        fn2 = lambda: "second"
+        def fn1():
+            return "first"
+
+        def fn2():
+            return "second"
+
         register_handler("test.cmd", fn1)
         register_handler("test.cmd", fn2)
         assert _handler_registry["test.cmd"] is fn2

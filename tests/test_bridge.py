@@ -33,6 +33,7 @@ class TestExecute:
     @pytest.fixture
     def mock_response(self):
         """A factory for mock httpx.Response objects."""
+
         def _make(json_data, status_code=200):
             resp = MagicMock(spec=httpx.Response)
             resp.json.return_value = json_data
@@ -44,6 +45,7 @@ class TestExecute:
                 )
                 resp.text = str(json_data)
             return resp
+
         return _make
 
     @pytest.mark.asyncio
@@ -60,10 +62,12 @@ class TestExecute:
 
     @pytest.mark.asyncio
     async def test_houdini_error_raises_command_error(self, bridge, mock_response):
-        resp = mock_response({
-            "status": "error",
-            "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: /bad"},
-        })
+        resp = mock_response(
+            {
+                "status": "error",
+                "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: /bad"},
+            }
+        )
         with patch.object(bridge, "_get_client") as mock_client:
             client = AsyncMock()
             client.post = AsyncMock(return_value=resp)
@@ -271,9 +275,7 @@ class TestListCommands:
         body = client.post.call_args.kwargs.get("data") or client.post.call_args[1]["data"]
         assert "mcp.list_commands" in body["json"]
 
-    @pytest.mark.parametrize(
-        "payload", [{}, {"commands": None}, {"commands": "nope"}, []]
-    )
+    @pytest.mark.parametrize("payload", [{}, {"commands": None}, {"commands": "nope"}, []])
     @pytest.mark.asyncio
     async def test_unexpected_payload_gives_an_empty_list(self, payload):
         bridge = HoudiniBridge()
@@ -307,6 +309,7 @@ class TestFindServers:
 
     def _client(self, answers: dict[int, object]):
         """A fake client whose reply depends on the port in the URL."""
+
         def post(url, **kwargs):
             port = int(url.rsplit(":", 1)[1].split("/")[0])
             if port not in answers:

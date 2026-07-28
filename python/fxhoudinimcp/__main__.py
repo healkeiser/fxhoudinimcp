@@ -75,8 +75,7 @@ def usage() -> str:
     """The usage text, built from the command table so it cannot drift."""
     width = max(len(name) for name in SUBCOMMANDS)
     commands = "\n".join(
-        f"    {name.ljust(width)}   {summary}"
-        for name, (_, summary) in SUBCOMMANDS.items()
+        f"    {name.ljust(width)}   {summary}" for name, (_, summary) in SUBCOMMANDS.items()
     )
     return (
         "usage: python -m fxhoudinimcp [<command>] [<args>]\n"

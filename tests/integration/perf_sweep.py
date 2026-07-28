@@ -20,9 +20,7 @@ import time
 
 sys.path.insert(
     0,
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "houdini", "scripts", "python"
-    ),
+    os.path.join(os.path.dirname(__file__), "..", "..", "houdini", "scripts", "python"),
 )
 
 import fxhoudinimcp_server.dispatcher as dispatcher  # noqa: E402
@@ -79,11 +77,22 @@ def main() -> None:
             node.setInput(0, prev)
         prev = node
     call("nodes.list_children", label="(300 nodes)", parent_path="/obj/big")
-    call("nodes.list_children", label="(300 nodes, recursive from /)", parent_path="/", recursive=True)
+    call(
+        "nodes.list_children",
+        label="(300 nodes, recursive from /)",
+        parent_path="/",
+        recursive=True,
+    )
     call("nodes.find_nodes", label="(over 300 nodes)", pattern="n1*")
     call("nodes.layout_children", label="(300 nodes)", parent_path="/obj/big", reps=1)
     call("nodes.list_node_types", label="(Sop, full)", context="Sop", limit=5000)
-    call("nodes.create_node", label="(null into 300-node net)", parent_path="/obj/big", node_type="null", reps=1)
+    call(
+        "nodes.create_node",
+        label="(null into 300-node net)",
+        parent_path="/obj/big",
+        node_type="null",
+        reps=1,
+    )
 
     ###### Parameter operations on a parameter-heavy node
 
@@ -98,8 +107,17 @@ def main() -> None:
             continue
     parm_count = len(solver.parms())
     call("nodes.get_node_info", label=f"(pyrosolver, {parm_count} parms)", node_path=solver.path())
-    call("parameters.get_parameter_schema", label=f"(pyrosolver, {parm_count} parms, full)", node_path=solver.path())
-    call("parameters.get_parameter_schema", label="(pyrosolver, filtered)", node_path=solver.path(), filter="temp")
+    call(
+        "parameters.get_parameter_schema",
+        label=f"(pyrosolver, {parm_count} parms, full)",
+        node_path=solver.path(),
+    )
+    call(
+        "parameters.get_parameter_schema",
+        label="(pyrosolver, filtered)",
+        node_path=solver.path(),
+        filter="temp",
+    )
     call("parameters.get_parameter", node_path=solver.path(), parm_name="timescale")
     call("parameters.set_parameter", node_path=solver.path(), parm_name="timescale", value=1.5)
     call("context.explain_node", label="(pyrosolver)", node_path=solver.path())
@@ -121,15 +139,33 @@ def main() -> None:
 
     call("geometry.get_geometry_info", label="(250k pts)", node_path=gpath)
     call("geometry.get_points", label="(250k pts, page 1000, P only)", node_path=gpath)
-    call("geometry.get_points", label="(250k pts, page 1000, +Cd)", node_path=gpath, attributes=["Cd"])
-    call("geometry.get_points", label="(250k pts, page 1000, offset 200k)", node_path=gpath, start=200_000)
+    call(
+        "geometry.get_points",
+        label="(250k pts, page 1000, +Cd)",
+        node_path=gpath,
+        attributes=["Cd"],
+    )
+    call(
+        "geometry.get_points",
+        label="(250k pts, page 1000, offset 200k)",
+        node_path=gpath,
+        start=200_000,
+    )
     call("geometry.get_points", label="(250k pts, page 10000)", node_path=gpath, count=10_000)
     call("geometry.get_prims", label="(249k prims, page 1000)", node_path=gpath)
     call("geometry.get_attrib_values", label="(P, page 200)", node_path=gpath, attrib_name="P")
-    call("geometry.get_attrib_values", label="(P, page 200, offset 200k)", node_path=gpath, attrib_name="P", start=200_000)
+    call(
+        "geometry.get_attrib_values",
+        label="(P, page 200, offset 200k)",
+        node_path=gpath,
+        attrib_name="P",
+        start=200_000,
+    )
     call("geometry.sample_geometry", label="(100 of 250k)", node_path=gpath, sample_count=100)
     call("geometry.get_bounding_box", label="(250k pts)", node_path=gpath)
-    call("geometry.find_nearest_point", label="(250k pts)", node_path=gpath, position=[1.0, 0.0, 1.0])
+    call(
+        "geometry.find_nearest_point", label="(250k pts)", node_path=gpath, position=[1.0, 0.0, 1.0]
+    )
     call("geometry.get_prim_intrinsics", label="(summary)", node_path=gpath)
 
     ###### Context / scene summaries
@@ -141,8 +177,20 @@ def main() -> None:
 
     ###### VEX
 
-    call("vex.create_wrangle", label="(first)", parent_path="/obj/dense", vex_code="@Cd = {1,0,0};", reps=1)
-    wrangle = call("vex.create_wrangle", label="(second)", parent_path="/obj/dense", vex_code="@Cd = {0,1,0};", reps=1)
+    call(
+        "vex.create_wrangle",
+        label="(first)",
+        parent_path="/obj/dense",
+        vex_code="@Cd = {1,0,0};",
+        reps=1,
+    )
+    wrangle = call(
+        "vex.create_wrangle",
+        label="(second)",
+        parent_path="/obj/dense",
+        vex_code="@Cd = {0,1,0};",
+        reps=1,
+    )
     if wrangle:
         call("vex.validate_vex", node_path=wrangle["node_path"])
 
@@ -155,7 +203,9 @@ def main() -> None:
     call("rendering.list_render_nodes", reps=1)
     call("takes.list_takes", reps=1)
     call("nodes.create_node", parent_path="/obj", node_type="geo", name="anim", reps=1)
-    call("animation.set_keyframe", node_path="/obj/anim", parm_name="tx", frame=10, value=5.0, reps=1)
+    call(
+        "animation.set_keyframe", node_path="/obj/anim", parm_name="tx", frame=10, value=5.0, reps=1
+    )
     call("animation.get_keyframes", node_path="/obj/anim", parm_name="tx", reps=1)
 
     ###### Workflows (create-heavy, 1 rep each in a fresh scene)
@@ -163,8 +213,13 @@ def main() -> None:
     fresh()
     call("workflow.create_material", label="(principled)", name="m1", reps=1)
     chain_geo = hou.node("/obj").createNode("geo", "chain")
-    call("workflow.build_sop_chain", label="(10 nodes)", parent_path=chain_geo.path(), reps=1,
-         steps=[{"type": "box"}] + [{"type": "null"} for _ in range(9)])
+    call(
+        "workflow.build_sop_chain",
+        label="(10 nodes)",
+        parent_path=chain_geo.path(),
+        reps=1,
+        steps=[{"type": "box"}] + [{"type": "null"} for _ in range(9)],
+    )
     fresh()
     sphere_geo = hou.node("/obj").createNode("geo", "src")
     sphere = sphere_geo.createNode("sphere")

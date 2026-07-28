@@ -45,9 +45,7 @@ def _make_install(root: Path, layout: str) -> Path:
 def isolated(monkeypatch, tmp_path):
     """Point discovery at tmp_path only, with no $HFS leaking in."""
     monkeypatch.delenv("HFS", raising=False)
-    monkeypatch.setattr(
-        "run_integration._search_patterns", lambda: [f"{tmp_path.as_posix()}/*"]
-    )
+    monkeypatch.setattr("run_integration._search_patterns", lambda: [f"{tmp_path.as_posix()}/*"])
     return tmp_path
 
 
@@ -107,9 +105,7 @@ def test_hfs_is_searched(monkeypatch, tmp_path):
 def test_hfs_does_not_duplicate_a_pattern_hit(monkeypatch, tmp_path):
     expected = _make_install(tmp_path, "linux")
     monkeypatch.setenv("HFS", str(expected.parent.parent))
-    monkeypatch.setattr(
-        "run_integration._search_patterns", lambda: [f"{tmp_path.as_posix()}/*"]
-    )
+    monkeypatch.setattr("run_integration._search_patterns", lambda: [f"{tmp_path.as_posix()}/*"])
 
     assert find_all_hython() == [expected]
 

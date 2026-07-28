@@ -15,8 +15,8 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Helpers
+
 
 def _get_node(node_path: str) -> hou.Node:
     """Return a node or raise if not found."""
@@ -31,8 +31,7 @@ def _get_definition(node: hou.Node) -> hou.HDADefinition:
     definition = node.type().definition()
     if definition is None:
         raise ValueError(
-            f"Node {node.path()} is not an HDA instance. "
-            f"Its type is '{node.type().name()}'."
+            f"Node {node.path()} is not an HDA instance. Its type is '{node.type().name()}'."
         )
     return definition
 
@@ -112,6 +111,7 @@ def _parm_template_to_dict(pt) -> dict:
 
 ###### hda.list_installed_hdas
 
+
 def list_installed_hdas(filter: str = None) -> dict:
     """List all installed HDA files and their definitions.
 
@@ -129,15 +129,21 @@ def list_installed_hdas(filter: str = None) -> dict:
 
         for defn in definitions:
             type_name = defn.nodeTypeName()
-            if filter and filter.lower() not in type_name.lower() and filter.lower() not in hda_file.lower():
+            if (
+                filter
+                and filter.lower() not in type_name.lower()
+                and filter.lower() not in hda_file.lower()
+            ):
                 continue
 
-            results.append({
-                "type_name": type_name,
-                "description": defn.description(),
-                "library_file": hda_file,
-                "version": defn.version() if hasattr(defn, "version") else None,
-            })
+            results.append(
+                {
+                    "type_name": type_name,
+                    "description": defn.description(),
+                    "library_file": hda_file,
+                    "version": defn.version() if hasattr(defn, "version") else None,
+                }
+            )
 
     # Sort by type name
     results.sort(key=lambda x: x["type_name"])
@@ -150,6 +156,7 @@ def list_installed_hdas(filter: str = None) -> dict:
 
 
 ###### hda.get_hda_info
+
 
 def get_hda_info(
     node_path: str = None,
@@ -214,9 +221,7 @@ def get_hda_info(
         if definition is None:
             raise ValueError(f"Type '{type_name}' is not an HDA.")
     else:
-        raise ValueError(
-            "At least one of node_path, hda_file, or type_name must be provided."
-        )
+        raise ValueError("At least one of node_path, hda_file, or type_name must be provided.")
 
     info = _definition_to_dict(definition)
 
@@ -257,6 +262,7 @@ def get_hda_info(
 
 ###### hda.install_hda
 
+
 def install_hda(file_path: str, force: bool = False) -> dict:
     """Install an HDA file into the current Houdini session.
 
@@ -269,9 +275,7 @@ def install_hda(file_path: str, force: bool = False) -> dict:
 
     # Check if already installed
     loaded_files = hou.hda.loadedFiles()
-    already_loaded = any(
-        os.path.normpath(f) == os.path.normpath(file_path) for f in loaded_files
-    )
+    already_loaded = any(os.path.normpath(f) == os.path.normpath(file_path) for f in loaded_files)
 
     if already_loaded and not force:
         return {
@@ -284,7 +288,7 @@ def install_hda(file_path: str, force: bool = False) -> dict:
     try:
         hou.hda.installFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to install HDA: {e}")
+        raise ValueError(f"Failed to install HDA: {e}") from e
 
     # List definitions that were installed
     definitions = hou.hda.definitionsInFile(file_path)
@@ -300,6 +304,7 @@ def install_hda(file_path: str, force: bool = False) -> dict:
 
 ###### hda.uninstall_hda
 
+
 def uninstall_hda(file_path: str) -> dict:
     """Uninstall an HDA file from the current Houdini session.
 
@@ -309,7 +314,7 @@ def uninstall_hda(file_path: str) -> dict:
     try:
         hou.hda.uninstallFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to uninstall HDA: {e}")
+        raise ValueError(f"Failed to uninstall HDA: {e}") from e
 
     return {
         "success": True,
@@ -319,6 +324,7 @@ def uninstall_hda(file_path: str) -> dict:
 
 
 ###### hda.reload_hda
+
 
 def reload_hda(file_path: str) -> dict:
     """Reload an HDA file from disk.
@@ -332,7 +338,7 @@ def reload_hda(file_path: str) -> dict:
     try:
         hou.hda.reloadFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to reload HDA: {e}")
+        raise ValueError(f"Failed to reload HDA: {e}") from e
 
     definitions = hou.hda.definitionsInFile(file_path)
     type_names = [d.nodeTypeName() for d in definitions]
@@ -346,6 +352,7 @@ def reload_hda(file_path: str) -> dict:
 
 
 ###### hda.create_hda
+
 
 def create_hda(
     node_path: str,
@@ -368,8 +375,7 @@ def create_hda(
     # Verify the node is a subnet
     if not node.isSubNetwork():
         raise ValueError(
-            f"Node {node_path} is not a subnet. "
-            "Only subnet nodes can be converted to HDAs."
+            f"Node {node_path} is not a subnet. Only subnet nodes can be converted to HDAs."
         )
 
     try:
@@ -380,7 +386,7 @@ def create_hda(
             version=version,
         )
     except Exception as e:
-        raise ValueError(f"Failed to create HDA: {e}")
+        raise ValueError(f"Failed to create HDA: {e}") from e
 
     return {
         "success": True,
@@ -394,6 +400,7 @@ def create_hda(
 
 ###### hda.update_hda
 
+
 def update_hda(node_path: str) -> dict:
     """Save the current node contents back to its HDA definition.
 
@@ -406,7 +413,7 @@ def update_hda(node_path: str) -> dict:
     try:
         node.type().definition().updateFromNode(node)
     except Exception as e:
-        raise ValueError(f"Failed to update HDA definition: {e}")
+        raise ValueError(f"Failed to update HDA definition: {e}") from e
 
     return {
         "success": True,
@@ -418,6 +425,7 @@ def update_hda(node_path: str) -> dict:
 
 
 ###### hda.get_hda_sections
+
 
 def get_hda_sections(node_path: str) -> dict:
     """List all sections in an HDA definition.
@@ -452,6 +460,7 @@ def get_hda_sections(node_path: str) -> dict:
 
 ###### hda.get_hda_section_content
 
+
 def get_hda_section_content(node_path: str, section_name: str) -> dict:
     """Read the content of a specific section in an HDA definition.
 
@@ -473,7 +482,7 @@ def get_hda_section_content(node_path: str, section_name: str) -> dict:
     try:
         content = sections[section_name].contents()
     except Exception as e:
-        raise ValueError(f"Failed to read section '{section_name}': {e}")
+        raise ValueError(f"Failed to read section '{section_name}': {e}") from e
 
     return {
         "node_path": node.path(),
@@ -485,6 +494,7 @@ def get_hda_section_content(node_path: str, section_name: str) -> dict:
 
 
 ###### hda.set_hda_section_content
+
 
 def set_hda_section_content(
     node_path: str,
@@ -506,7 +516,7 @@ def set_hda_section_content(
     try:
         definition.addSection(section_name, content)
     except Exception as e:
-        raise ValueError(f"Failed to write section '{section_name}': {e}")
+        raise ValueError(f"Failed to write section '{section_name}': {e}") from e
 
     return {
         "success": True,

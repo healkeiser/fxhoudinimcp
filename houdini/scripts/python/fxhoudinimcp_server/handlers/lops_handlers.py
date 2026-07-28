@@ -18,13 +18,16 @@ from fxhoudinimcp_server.dispatcher import register_handler
 
 # USD modules -- may not be available in all Houdini configurations
 try:
-    from pxr import Usd, UsdGeom, UsdShade, Sdf, Gf, Kind, Vt
+    # Kind is imported to prove the module set is complete, not to be called.
+    from pxr import Gf, Kind, Sdf, Usd, UsdGeom, UsdShade, Vt  # noqa: F401
+
     HAS_PXR = True
 except ImportError:
     HAS_PXR = False
 
 
 ###### Helpers
+
 
 def _focus_network_editor(node: hou.Node) -> None:
     """Best-effort: layout the parent network, then pan the editor to *node*."""
@@ -52,7 +55,7 @@ def _require_pxr() -> None:
         )
 
 
-def _get_lop_stage(node_path: str) -> "Usd.Stage":
+def _get_lop_stage(node_path: str) -> Usd.Stage:
     """Return the cooked USD stage from a LOP node.
 
     Raises:
@@ -63,8 +66,7 @@ def _get_lop_stage(node_path: str) -> "Usd.Stage":
     if node is None:
         raise hou.OperationFailed(f"Node not found: {node_path}")
     if not hasattr(node, "stage"):
-        raise hou.OperationFailed(
-            f"Node is not a LOP node (no stage()): {node_path}")
+        raise hou.OperationFailed(f"Node is not a LOP node (no stage()): {node_path}")
     stage = node.stage()
     if stage is None:
         raise hou.OperationFailed(f"Node has no USD stage: {node_path}")
@@ -128,7 +130,7 @@ def _usd_value_to_python(val: Any) -> Any:
     return str(val)
 
 
-def _prim_to_dict(prim: "Usd.Prim", include_attrs: bool = False) -> dict[str, Any]:
+def _prim_to_dict(prim: Usd.Prim, include_attrs: bool = False) -> dict[str, Any]:
     """Convert a USD prim to a JSON-safe dict."""
     info: dict[str, Any] = {
         "path": str(prim.GetPath()),
@@ -167,6 +169,7 @@ def _prim_to_dict(prim: "Usd.Prim", include_attrs: bool = False) -> dict[str, An
 
 ###### lops.get_stage_info
 
+
 def _get_stage_info(*, node_path: str) -> dict[str, Any]:
     """Stage summary: prim count, layers, default prim, up axis, meters per unit."""
     stage = _get_lop_stage(node_path)
@@ -177,7 +180,7 @@ def _get_stage_info(*, node_path: str) -> dict[str, Any]:
         prim_count += 1
 
     root_layer = stage.GetRootLayer()
-    layers = [l.identifier for l in stage.GetUsedLayers()]
+    layers = [layer.identifier for layer in stage.GetUsedLayers()]
 
     up_axis = UsdGeom.GetStageUpAxis(stage)
     meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
@@ -196,10 +199,12 @@ def _get_stage_info(*, node_path: str) -> dict[str, Any]:
         "layers": layers[:50],  # Cap to avoid huge responses
     }
 
+
 register_handler("lops.get_stage_info", _get_stage_info)
 
 
 ###### lops.get_usd_prim
+
 
 def _get_usd_prim(
     *,
@@ -211,18 +216,19 @@ def _get_usd_prim(
 
     prim = stage.GetPrimAtPath(prim_path)
     if not prim.IsValid():
-        raise hou.OperationFailed(
-            f"USD prim not found at '{prim_path}' on stage from {node_path}")
+        raise hou.OperationFailed(f"USD prim not found at '{prim_path}' on stage from {node_path}")
 
     return {
         "node_path": node_path,
         "prim": _prim_to_dict(prim, include_attrs=True),
     }
 
+
 register_handler("lops.get_usd_prim", _get_usd_prim)
 
 
 ###### lops.list_usd_prims
+
 
 def _list_usd_prims(
     *,
@@ -237,8 +243,7 @@ def _list_usd_prims(
 
     root = stage.GetPrimAtPath(root_path)
     if not root.IsValid():
-        raise hou.OperationFailed(
-            f"Root prim not found at '{root_path}' on stage from {node_path}")
+        raise hou.OperationFailed(f"Root prim not found at '{root_path}' on stage from {node_path}")
 
     results: list[dict[str, Any]] = []
     root_depth = len(root_path.rstrip("/").split("/")) - 1
@@ -257,9 +262,8 @@ def _list_usd_prims(
             continue
 
         # Type filter
-        if prim_type is not None:
-            if str(prim.GetTypeName()) != prim_type:
-                continue
+        if prim_type is not None and str(prim.GetTypeName()) != prim_type:
+            continue
 
         # Kind filter
         if kind is not None:
@@ -286,10 +290,12 @@ def _list_usd_prims(
         "prims": results,
     }
 
+
 register_handler("lops.list_usd_prims", _list_usd_prims)
 
 
 ###### lops.get_usd_attribute
+
 
 def _get_usd_attribute(
     *,
@@ -303,13 +309,11 @@ def _get_usd_attribute(
 
     prim = stage.GetPrimAtPath(prim_path)
     if not prim.IsValid():
-        raise hou.OperationFailed(
-            f"USD prim not found at '{prim_path}' on stage from {node_path}")
+        raise hou.OperationFailed(f"USD prim not found at '{prim_path}' on stage from {node_path}")
 
     attr = prim.GetAttribute(attr_name)
     if not attr.IsValid():
-        raise hou.OperationFailed(
-            f"Attribute '{attr_name}' not found on prim '{prim_path}'")
+        raise hou.OperationFailed(f"Attribute '{attr_name}' not found on prim '{prim_path}'")
 
     time_code = Usd.TimeCode(time) if time is not None else Usd.TimeCode.Default()
     value = attr.Get(time_code)
@@ -324,10 +328,12 @@ def _get_usd_attribute(
         "value": _usd_value_to_python(value),
     }
 
+
 register_handler("lops.get_usd_attribute", _get_usd_attribute)
 
 
 ###### lops.get_usd_layers
+
 
 def _get_usd_layers(*, node_path: str) -> dict[str, Any]:
     """List all layers used in the stage."""
@@ -351,10 +357,12 @@ def _get_usd_layers(*, node_path: str) -> dict[str, Any]:
         "layers": layers,
     }
 
+
 register_handler("lops.get_usd_layers", _get_usd_layers)
 
 
 ###### lops.get_usd_prim_stats
+
 
 def _get_usd_prim_stats(
     *,
@@ -385,10 +393,12 @@ def _get_usd_prim_stats(
         "type_counts": dict(sorted_types),
     }
 
+
 register_handler("lops.get_usd_prim_stats", _get_usd_prim_stats)
 
 
 ###### lops.get_last_modified_prims
+
 
 def _get_last_modified_prims(*, node_path: str) -> dict[str, Any]:
     """Prims modified by the last LOP cook.
@@ -419,17 +429,18 @@ def _get_last_modified_prims(*, node_path: str) -> dict[str, Any]:
     layer = edit_target.GetLayer()
 
     authored: list[str] = []
-    def _walk(path: "Sdf.Path") -> None:
+
+    def _walk(path: Sdf.Path) -> None:
         spec = layer.GetPrimAtPath(path)
         if spec:
             authored.append(str(path))
-            for child_name in spec.nameChildren.keys():
+            for child_name in spec.nameChildren:
                 _walk(path.AppendChild(child_name))
 
     root = Sdf.Path.absoluteRootPath
     root_spec = layer.GetPrimAtPath(root)
     if root_spec:
-        for child_name in root_spec.nameChildren.keys():
+        for child_name in root_spec.nameChildren:
             _walk(root.AppendChild(child_name))
 
     return {
@@ -439,10 +450,12 @@ def _get_last_modified_prims(*, node_path: str) -> dict[str, Any]:
         "note": "Fallback: showing all prims authored in the edit target layer",
     }
 
+
 register_handler("lops.get_last_modified_prims", _get_last_modified_prims)
 
 
 ###### lops.create_lop_node
+
 
 def _create_lop_node(
     *,
@@ -476,10 +489,12 @@ def _create_lop_node(
         "prim_path": prim_path,
     }
 
+
 register_handler("lops.create_lop_node", _create_lop_node)
 
 
 ###### lops.set_usd_attribute
+
 
 def _set_usd_attribute(
     *,
@@ -537,10 +552,12 @@ else:
         "success": True,
     }
 
+
 register_handler("lops.set_usd_attribute", _set_usd_attribute)
 
 
 ###### lops.get_usd_materials
+
 
 def _get_usd_materials(*, node_path: str) -> dict[str, Any]:
     """List all materials with their bindings."""
@@ -594,10 +611,12 @@ def _get_usd_materials(*, node_path: str) -> dict[str, Any]:
         "materials": materials,
     }
 
+
 register_handler("lops.get_usd_materials", _get_usd_materials)
 
 
 ###### lops.find_usd_prims
+
 
 def _find_usd_prims(
     *,
@@ -624,10 +643,12 @@ def _find_usd_prims(
         "prims": results,
     }
 
+
 register_handler("lops.find_usd_prims", _find_usd_prims)
 
 
 ###### lops.get_usd_composition
+
 
 def _get_usd_composition(
     *,
@@ -639,8 +660,7 @@ def _get_usd_composition(
 
     prim = stage.GetPrimAtPath(prim_path)
     if not prim.IsValid():
-        raise hou.OperationFailed(
-            f"USD prim not found at '{prim_path}' on stage from {node_path}")
+        raise hou.OperationFailed(f"USD prim not found at '{prim_path}' on stage from {node_path}")
 
     prim_index = prim.GetPrimIndex()
 
@@ -656,8 +676,7 @@ def _get_usd_composition(
         for node in _walk_nodes(prim_index.rootNode):
             arc_info: dict[str, Any] = {
                 "arc_type": str(node.arcType),
-                "layer": str(node.layerStack.identifier.rootLayer)
-                         if node.layerStack else None,
+                "layer": str(node.layerStack.identifier.rootLayer) if node.layerStack else None,
                 "path": str(getattr(node, "path", "")),
                 "has_specs": node.hasSpecs,
             }
@@ -673,16 +692,20 @@ def _get_usd_composition(
     for spec in metadata:
         if hasattr(spec, "referenceList"):
             for ref in spec.referenceList.prependedItems:
-                references.append({
-                    "asset": str(ref.assetPath) if ref.assetPath else None,
-                    "prim_path": str(ref.primPath) if ref.primPath else None,
-                })
+                references.append(
+                    {
+                        "asset": str(ref.assetPath) if ref.assetPath else None,
+                        "prim_path": str(ref.primPath) if ref.primPath else None,
+                    }
+                )
         if hasattr(spec, "payloadList"):
             for pl in spec.payloadList.prependedItems:
-                payloads.append({
-                    "asset": str(pl.assetPath) if pl.assetPath else None,
-                    "prim_path": str(pl.primPath) if pl.primPath else None,
-                })
+                payloads.append(
+                    {
+                        "asset": str(pl.assetPath) if pl.assetPath else None,
+                        "prim_path": str(pl.primPath) if pl.primPath else None,
+                    }
+                )
         if hasattr(spec, "inheritPathList"):
             for inh in spec.inheritPathList.prependedItems:
                 inherits.append(str(inh))
@@ -701,10 +724,12 @@ def _get_usd_composition(
         "specializes": specializes,
     }
 
+
 register_handler("lops.get_usd_composition", _get_usd_composition)
 
 
 ###### lops.get_usd_variants
+
 
 def _get_usd_variants(
     *,
@@ -716,18 +741,19 @@ def _get_usd_variants(
 
     prim = stage.GetPrimAtPath(prim_path)
     if not prim.IsValid():
-        raise hou.OperationFailed(
-            f"USD prim not found at '{prim_path}' on stage from {node_path}")
+        raise hou.OperationFailed(f"USD prim not found at '{prim_path}' on stage from {node_path}")
 
     variant_sets: list[dict[str, Any]] = []
     vsets = prim.GetVariantSets()
     for name in vsets.GetNames():
         vset = vsets.GetVariantSet(name)
-        variant_sets.append({
-            "name": name,
-            "variants": vset.GetVariantNames(),
-            "selection": vset.GetVariantSelection(),
-        })
+        variant_sets.append(
+            {
+                "name": name,
+                "variants": vset.GetVariantNames(),
+                "selection": vset.GetVariantSelection(),
+            }
+        )
 
     return {
         "node_path": node_path,
@@ -736,10 +762,12 @@ def _get_usd_variants(
         "variant_sets": variant_sets,
     }
 
+
 register_handler("lops.get_usd_variants", _get_usd_variants)
 
 
 ###### lops.inspect_usd_layer
+
 
 def _inspect_usd_layer(
     *,
@@ -753,24 +781,26 @@ def _inspect_usd_layer(
     if layer_index < 0 or layer_index >= len(layers):
         raise hou.OperationFailed(
             f"Layer index {layer_index} out of range "
-            f"(0..{len(layers) - 1}) for stage from {node_path}")
+            f"(0..{len(layers) - 1}) for stage from {node_path}"
+        )
 
     layer = layers[layer_index]
 
     # Gather authored prims in this layer
     authored_prims: list[str] = []
-    def _walk_layer(path: "Sdf.Path") -> None:
+
+    def _walk_layer(path: Sdf.Path) -> None:
         spec = layer.GetPrimAtPath(path)
         if spec:
             authored_prims.append(str(path))
             if hasattr(spec, "nameChildren"):
-                for child_name in spec.nameChildren.keys():
+                for child_name in spec.nameChildren:
                     _walk_layer(path.AppendChild(child_name))
 
     root = Sdf.Path.absoluteRootPath
     root_spec = layer.GetPrimAtPath(root)
     if root_spec and hasattr(root_spec, "nameChildren"):
-        for child_name in root_spec.nameChildren.keys():
+        for child_name in root_spec.nameChildren:
             _walk_layer(root.AppendChild(child_name))
 
     # Sublayers
@@ -790,10 +820,12 @@ def _inspect_usd_layer(
         "documentation": layer.documentation if hasattr(layer, "documentation") else None,
     }
 
+
 register_handler("lops.inspect_usd_layer", _inspect_usd_layer)
 
 
 ###### lops.create_light
+
 
 def _create_light(
     *,
@@ -837,8 +869,7 @@ def _create_light(
     if lop_type is None:
         available = sorted(light_type_map.keys())
         raise hou.OperationFailed(
-            f"Unknown light type: '{light_type}'. "
-            f"Available types: {available}"
+            f"Unknown light type: '{light_type}'. Available types: {available}"
         )
 
     node = parent.createNode(lop_type, node_name=name)
@@ -879,10 +910,12 @@ def _create_light(
         "prim_path": prim_path,
     }
 
+
 register_handler("lops.create_light", _create_light)
 
 
 ###### lops.list_lights
+
 
 def _list_lights(*, node_path: str, **_: Any) -> dict[str, Any]:
     """List all USD lights on a LOP stage.
@@ -940,10 +973,12 @@ def _list_lights(*, node_path: str, **_: Any) -> dict[str, Any]:
         "lights": lights,
     }
 
+
 register_handler("lops.list_lights", _list_lights)
 
 
 ###### lops.set_light_properties
+
 
 def _set_light_properties(
     *,
@@ -990,8 +1025,8 @@ def _set_light_properties(
         val_repr = repr(prop_value)
         set_lines.append(
             f'    attr = prim.GetAttribute("{usd_attr}")\n'
-            f'    if attr and attr.IsValid():\n'
-            f'        attr.Set({val_repr})'
+            f"    if attr and attr.IsValid():\n"
+            f"        attr.Set({val_repr})"
         )
         updated_properties.append(prop_name)
 
@@ -1003,12 +1038,11 @@ def _set_light_properties(
         }
 
     snippet = (
-        'import hou\n'
-        'node = hou.pwd()\n'
-        'stage = node.editableStage()\n'
+        "import hou\n"
+        "node = hou.pwd()\n"
+        "stage = node.editableStage()\n"
         f'prim = stage.GetPrimAtPath("{prim_path}")\n'
-        'if prim.IsValid():\n'
-        + "\n".join(set_lines)
+        "if prim.IsValid():\n" + "\n".join(set_lines)
     )
 
     # "pythonscript" is the LOP type name; "python" does not exist here.
@@ -1025,10 +1059,12 @@ def _set_light_properties(
         "updated_properties": updated_properties,
     }
 
+
 register_handler("lops.set_light_properties", _set_light_properties)
 
 
 ###### lops.create_light_rig
+
 
 def _create_light_rig(
     *,
@@ -1056,37 +1092,79 @@ def _create_light_rig(
 
     presets = {
         "three_point": [
-            {"type": "distantlight", "name": "key_light",
-             "intensity": 1.0, "color": [1.0, 0.95, 0.9],
-             "rx": -45, "ry": -30},
-            {"type": "distantlight", "name": "fill_light",
-             "intensity": 0.4, "color": [0.85, 0.9, 1.0],
-             "rx": -30, "ry": 45},
-            {"type": "distantlight", "name": "rim_light",
-             "intensity": 0.6, "color": [1.0, 1.0, 1.0],
-             "rx": -15, "ry": 160},
+            {
+                "type": "distantlight",
+                "name": "key_light",
+                "intensity": 1.0,
+                "color": [1.0, 0.95, 0.9],
+                "rx": -45,
+                "ry": -30,
+            },
+            {
+                "type": "distantlight",
+                "name": "fill_light",
+                "intensity": 0.4,
+                "color": [0.85, 0.9, 1.0],
+                "rx": -30,
+                "ry": 45,
+            },
+            {
+                "type": "distantlight",
+                "name": "rim_light",
+                "intensity": 0.6,
+                "color": [1.0, 1.0, 1.0],
+                "rx": -15,
+                "ry": 160,
+            },
         ],
         "studio": [
-            {"type": "rectlight", "name": "softbox_key",
-             "intensity": 2.0, "color": [1.0, 0.98, 0.95],
-             "tx": -2, "ty": 3, "tz": 2, "rx": -40, "ry": -30},
-            {"type": "rectlight", "name": "softbox_fill",
-             "intensity": 1.0, "color": [0.9, 0.95, 1.0],
-             "tx": 2, "ty": 2.5, "tz": 2, "rx": -35, "ry": 30},
-            {"type": "rectlight", "name": "softbox_back",
-             "intensity": 1.5, "color": [1.0, 1.0, 1.0],
-             "tx": 0, "ty": 3, "tz": -3, "rx": -20, "ry": 180},
+            {
+                "type": "rectlight",
+                "name": "softbox_key",
+                "intensity": 2.0,
+                "color": [1.0, 0.98, 0.95],
+                "tx": -2,
+                "ty": 3,
+                "tz": 2,
+                "rx": -40,
+                "ry": -30,
+            },
+            {
+                "type": "rectlight",
+                "name": "softbox_fill",
+                "intensity": 1.0,
+                "color": [0.9, 0.95, 1.0],
+                "tx": 2,
+                "ty": 2.5,
+                "tz": 2,
+                "rx": -35,
+                "ry": 30,
+            },
+            {
+                "type": "rectlight",
+                "name": "softbox_back",
+                "intensity": 1.5,
+                "color": [1.0, 1.0, 1.0],
+                "tx": 0,
+                "ty": 3,
+                "tz": -3,
+                "rx": -20,
+                "ry": 180,
+            },
         ],
         "outdoor": [
-            {"type": "domelight", "name": "sky_dome",
-             "intensity": 0.3, "color": [0.7, 0.85, 1.0]},
-            {"type": "distantlight", "name": "sun",
-             "intensity": 1.5, "color": [1.0, 0.95, 0.85],
-             "rx": -50, "ry": -30},
+            {"type": "domelight", "name": "sky_dome", "intensity": 0.3, "color": [0.7, 0.85, 1.0]},
+            {
+                "type": "distantlight",
+                "name": "sun",
+                "intensity": 1.5,
+                "color": [1.0, 0.95, 0.85],
+                "rx": -50,
+                "ry": -30,
+            },
         ],
         "hdri": [
-            {"type": "domelight", "name": "hdri_dome",
-             "intensity": 1.0, "color": [1.0, 1.0, 1.0]},
+            {"type": "domelight", "name": "hdri_dome", "intensity": 1.0, "color": [1.0, 1.0, 1.0]},
         ],
     }
 
@@ -1094,8 +1172,7 @@ def _create_light_rig(
     if preset_config is None:
         available = sorted(presets.keys())
         raise hou.OperationFailed(
-            f"Unknown lighting preset: '{preset}'. "
-            f"Available presets: {available}"
+            f"Unknown lighting preset: '{preset}'. Available presets: {available}"
         )
 
     created_nodes: list[str] = []
@@ -1154,5 +1231,6 @@ def _create_light_rig(
         "preset": preset,
         "lights_created": len(created_nodes),
     }
+
 
 register_handler("lops.create_light_rig", _create_light_rig)

@@ -10,7 +10,7 @@ from mcp.server.fastmcp import Context
 
 # Internal
 from fxhoudinimcp._types import Value
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()

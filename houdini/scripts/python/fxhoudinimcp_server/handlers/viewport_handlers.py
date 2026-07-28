@@ -41,17 +41,19 @@ def _downscale_and_encode(file_path: str) -> tuple[str | None, str]:
     mime_type = "image/jpeg"
 
     try:
+        from PySide2.QtCore import QBuffer, QIODevice, Qt
         from PySide2.QtGui import QImage
-        from PySide2.QtCore import Qt, QBuffer, QIODevice
     except ImportError:
         try:
+            from PySide6.QtCore import QBuffer, QIODevice, Qt
             from PySide6.QtGui import QImage
-            from PySide6.QtCore import Qt, QBuffer, QIODevice
         except ImportError:
             # Qt not available — try Pillow before giving up.
             try:
-                from PIL import Image as PilImage
                 import io as _io
+
+                from PIL import Image as PilImage
+
                 with PilImage.open(file_path) as img:
                     img = img.convert("RGB")
                     w, h = img.size
@@ -69,9 +71,7 @@ def _downscale_and_encode(file_path: str) -> tuple[str | None, str]:
             except Exception:
                 pass
             # Cannot compress — skip the image rather than returning raw PNG.
-            logger.warning(
-                "Neither Qt nor Pillow available; skipping image for %s", file_path
-            )
+            logger.warning("Neither Qt nor Pillow available; skipping image for %s", file_path)
             return None, mime_type
 
     try:
@@ -83,8 +83,10 @@ def _downscale_and_encode(file_path: str) -> tuple[str | None, str]:
         w, h = img.width(), img.height()
         if w > _MAX_IMAGE_DIM or h > _MAX_IMAGE_DIM:
             img = img.scaled(
-                _MAX_IMAGE_DIM, _MAX_IMAGE_DIM,
-                Qt.KeepAspectRatio, Qt.SmoothTransformation,
+                _MAX_IMAGE_DIM,
+                _MAX_IMAGE_DIM,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
             )
 
         # Encode to JPEG in-memory; if still too large, reduce quality.
@@ -158,6 +160,7 @@ def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
 
 ###### viewport.list_panes
 
+
 def list_panes() -> dict:
     """List all visible pane tabs, their types, and associated information."""
     pane_tabs = hou.ui.paneTabs()
@@ -191,6 +194,7 @@ def list_panes() -> dict:
 
 
 ###### viewport.get_viewport_info
+
 
 def get_viewport_info(pane_name: str = None) -> dict:
     """Get current viewport settings including camera, display mode, and view transform.
@@ -243,6 +247,7 @@ def get_viewport_info(pane_name: str = None) -> dict:
 
 ###### viewport.set_viewport_camera
 
+
 def set_viewport_camera(
     camera_path: str,
     pane_name: str = None,
@@ -271,6 +276,7 @@ def set_viewport_camera(
 
 ###### viewport.set_viewport_display
 
+
 def set_viewport_display(
     display_mode: str,
     pane_name: str = None,
@@ -298,8 +304,7 @@ def set_viewport_display(
     gl_mode = mode_map.get(display_mode.lower())
     if gl_mode is None:
         raise ValueError(
-            f"Unknown display mode: '{display_mode}'. "
-            f"Supported modes: {list(mode_map.keys())}"
+            f"Unknown display mode: '{display_mode}'. Supported modes: {list(mode_map.keys())}"
         )
 
     scene_viewer = _find_scene_viewer(pane_name)
@@ -317,6 +322,7 @@ def set_viewport_display(
 
 
 ###### viewport.set_viewport_direction
+
 
 def set_viewport_direction(
     direction: str,
@@ -342,8 +348,7 @@ def set_viewport_direction(
     view_type = direction_map.get(direction.lower())
     if view_type is None:
         raise ValueError(
-            f"Unknown direction '{direction}'. "
-            f"Supported: {list(direction_map.keys())}"
+            f"Unknown direction '{direction}'. Supported: {list(direction_map.keys())}"
         )
 
     scene_viewer = _find_scene_viewer(pane_name)
@@ -360,6 +365,7 @@ def set_viewport_direction(
 
 
 ###### viewport.set_viewport_renderer
+
 
 def set_viewport_renderer(
     renderer: str,
@@ -399,6 +405,7 @@ def set_viewport_renderer(
     if not available:
         try:
             import hou.lop as lop_module
+
             if hasattr(lop_module, "availableRenderers"):
                 available = list(lop_module.availableRenderers())
         except Exception:
@@ -430,10 +437,7 @@ def set_viewport_renderer(
         matched_name = renderer
 
     if matched_name is None:
-        raise ValueError(
-            f"Renderer '{renderer}' not found. "
-            f"Available renderers: {available}"
-        )
+        raise ValueError(f"Renderer '{renderer}' not found. Available renderers: {available}")
 
     # Apply the renderer
     applied = False
@@ -462,9 +466,7 @@ def set_viewport_renderer(
     # Last resort: execute hscript or hou.hscript
     if not applied:
         try:
-            hou.hscript(
-                f'viewdisplay -R "{matched_name}" {viewport.name()}'
-            )
+            hou.hscript(f'viewdisplay -R "{matched_name}" {viewport.name()}')
             applied = True
         except Exception:
             pass
@@ -487,6 +489,7 @@ def set_viewport_renderer(
 
 ###### viewport.frame_selection
 
+
 def frame_selection(pane_name: str = None) -> dict:
     """Frame the current selection in the viewport.
 
@@ -506,6 +509,7 @@ def frame_selection(pane_name: str = None) -> dict:
 
 
 ###### viewport.frame_all
+
 
 def frame_all(pane_name: str = None) -> dict:
     """Frame all geometry in the viewport (home all).
@@ -527,6 +531,7 @@ def frame_all(pane_name: str = None) -> dict:
 
 ###### viewport.capture_screenshot
 
+
 def capture_screenshot(
     output_path: str,
     pane_name: str = None,
@@ -542,11 +547,8 @@ def capture_screenshot(
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    if pane_name is not None:
-        pane_tab = _find_pane_by_name(pane_name)
-    else:
-        # Default to first Scene Viewer
-        pane_tab = _find_scene_viewer()
+    # Named pane if asked for, otherwise the first Scene Viewer.
+    pane_tab = _find_pane_by_name(pane_name) if pane_name is not None else _find_scene_viewer()
 
     cur_frame = hou.frame()
 
@@ -560,6 +562,7 @@ def capture_screenshot(
 
         # Handle frame number that flipbook may insert
         from fxhoudinimcp_server.handlers.rendering_handlers import _find_flipbook_output
+
         actual_path = _find_flipbook_output(output_path, cur_frame)
     else:
         actual_path = output_path
@@ -583,6 +586,7 @@ def capture_screenshot(
 
 
 ###### viewport.capture_network_editor
+
 
 def capture_network_editor(
     output_path: str,
@@ -637,6 +641,7 @@ def capture_network_editor(
 
 ###### viewport.set_current_network
 
+
 def set_current_network(network_path: str) -> dict:
     """Navigate the network editor to a specific network path.
 
@@ -667,6 +672,7 @@ def set_current_network(network_path: str) -> dict:
 
 ###### viewport.find_error_nodes
 
+
 def find_error_nodes(root_path: str = "/") -> dict:
     """Find all nodes with errors or warnings, recursively from a root path.
 
@@ -685,24 +691,28 @@ def find_error_nodes(root_path: str = "/") -> dict:
         try:
             errors = node.errors()
             if errors:
-                error_nodes.append({
-                    "path": node.path(),
-                    "name": node.name(),
-                    "type": node.type().name(),
-                    "errors": list(errors),
-                })
+                error_nodes.append(
+                    {
+                        "path": node.path(),
+                        "name": node.name(),
+                        "type": node.type().name(),
+                        "errors": list(errors),
+                    }
+                )
         except (hou.OperationFailed, hou.ObjectWasDeleted, AttributeError) as e:
             logger.debug("Could not read errors for node '%s': %s", node.path(), e)
 
         try:
             warnings = node.warnings()
             if warnings:
-                warning_nodes.append({
-                    "path": node.path(),
-                    "name": node.name(),
-                    "type": node.type().name(),
-                    "warnings": list(warnings),
-                })
+                warning_nodes.append(
+                    {
+                        "path": node.path(),
+                        "name": node.name(),
+                        "type": node.type().name(),
+                        "warnings": list(warnings),
+                    }
+                )
         except (hou.OperationFailed, hou.ObjectWasDeleted, AttributeError) as e:
             logger.debug("Could not read warnings for node '%s': %s", node.path(), e)
 
@@ -726,6 +736,7 @@ def find_error_nodes(root_path: str = "/") -> dict:
 
 ###### Helpers
 
+
 def _find_scene_viewer(pane_name: str = None):
     """Find a Scene Viewer pane tab by name, or the first one available.
 
@@ -743,8 +754,7 @@ def _find_scene_viewer(pane_name: str = None):
         pane_tab = _find_pane_by_name(pane_name)
         if pane_tab.type() != hou.paneTabType.SceneViewer:
             raise ValueError(
-                f"Pane '{pane_name}' is a {pane_tab.type().name()}, "
-                f"not a Scene Viewer."
+                f"Pane '{pane_name}' is a {pane_tab.type().name()}, not a Scene Viewer."
             )
         return pane_tab
 
@@ -772,13 +782,11 @@ def _find_pane_by_name(pane_name: str):
             return pane_tab
 
     available = [pt.name() for pt in hou.ui.paneTabs()]
-    raise ValueError(
-        f"Pane tab not found: '{pane_name}'. "
-        f"Available panes: {available}"
-    )
+    raise ValueError(f"Pane tab not found: '{pane_name}'. Available panes: {available}")
 
 
 ###### viewport.log_status
+
 
 def log_status(message: str, severity: str = "message") -> dict:
     """Display a status message in Houdini's status bar.

@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 # Built-in
-from typing import Any
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -20,9 +18,7 @@ async def get_simulation_info(ctx: Context, node_path: str) -> dict:
         node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "dops.get_simulation_info", {"node_path": node_path}
-    )
+    return await bridge.execute("dops.get_simulation_info", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -33,15 +29,11 @@ async def list_dop_objects(ctx: Context, node_path: str) -> dict:
         node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "dops.list_dop_objects", {"node_path": node_path}
-    )
+    return await bridge.execute("dops.list_dop_objects", {"node_path": node_path})
 
 
 @mcp.tool()
-async def get_dop_object(
-    ctx: Context, node_path: str, object_name: str
-) -> dict:
+async def get_dop_object(ctx: Context, node_path: str, object_name: str) -> dict:
     """Get detailed data for a specific DOP object.
 
     Args:
@@ -91,9 +83,7 @@ async def get_dop_relationships(ctx: Context, node_path: str) -> dict:
         node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "dops.get_dop_relationships", {"node_path": node_path}
-    )
+    return await bridge.execute("dops.get_dop_relationships", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -119,9 +109,7 @@ async def reset_simulation(ctx: Context, node_path: str) -> dict:
         node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "dops.reset_simulation", {"node_path": node_path}
-    )
+    return await bridge.execute("dops.reset_simulation", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -132,6 +120,4 @@ async def get_sim_memory_usage(ctx: Context, node_path: str) -> dict:
         node_path: DOP network node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "dops.get_sim_memory_usage", {"node_path": node_path}
-    )
+    return await bridge.execute("dops.get_sim_memory_usage", {"node_path": node_path})

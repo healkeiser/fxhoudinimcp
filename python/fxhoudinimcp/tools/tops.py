@@ -7,13 +7,11 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -25,9 +23,7 @@ async def get_top_network_info(ctx: Context, node_path: str) -> dict:
         node_path: TOPnet or TOP node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "tops.get_top_network_info", {"node_path": node_path}
-    )
+    return await bridge.execute("tops.get_top_network_info", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -65,9 +61,7 @@ async def cancel_top_cook(ctx: Context, node_path: str) -> dict:
         node_path: TOP node or TOPnet path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "tops.cancel_top_cook", {"node_path": node_path}
-    )
+    return await bridge.execute("tops.cancel_top_cook", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -114,9 +108,7 @@ async def get_work_item_states(ctx: Context, node_path: str) -> dict:
         node_path: TOP node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "tops.get_work_item_states", {"node_path": node_path}
-    )
+    return await bridge.execute("tops.get_work_item_states", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -163,9 +155,7 @@ async def generate_static_items(ctx: Context, node_path: str) -> dict:
         node_path: TOP node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "tops.generate_static_items", {"node_path": node_path}
-    )
+    return await bridge.execute("tops.generate_static_items", {"node_path": node_path})
 
 
 @mcp.tool()
@@ -177,6 +167,4 @@ async def get_top_scheduler_info(ctx: Context, node_path: str) -> dict:
         node_path: TOP scheduler or TOPnet path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "tops.get_top_scheduler_info", {"node_path": node_path}
-    )
+    return await bridge.execute("tops.get_top_scheduler_info", {"node_path": node_path})

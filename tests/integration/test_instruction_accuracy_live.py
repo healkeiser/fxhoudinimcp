@@ -28,9 +28,7 @@ import pytest
 pytestmark = pytest.mark.integration
 
 # "21.0+" or "20.5-21.0" immediately after a node name.
-_VERSION_SPEC = re.compile(
-    r"([a-z][a-z0-9_:.]*[a-z0-9])\s*\((\d+\.\d+)(\+|-(\d+\.\d+))\)"
-)
+_VERSION_SPEC = re.compile(r"([a-z][a-z0-9_:.]*[a-z0-9])\s*\((\d+\.\d+)(\+|-(\d+\.\d+))\)")
 
 _MD = (
     Path(__file__).resolve().parents[2]
@@ -38,6 +36,7 @@ _MD = (
     / "fxhoudinimcp"
     / "prompts"
     / "markdown"
+    / "instructions"
     / "server_instructions.md"
 )
 
@@ -175,10 +174,7 @@ def test_every_advertised_node_type_exists():
     if optional_missing:
         print(f"[info] optional packs not installed: {len(optional_missing)} names")
     if out_of_range:
-        print(
-            f"[info] present despite a narrower annotation, consider widening: "
-            f"{out_of_range}"
-        )
+        print(f"[info] present despite a narrower annotation, consider widening: {out_of_range}")
     assert not missing, (
         f"server_instructions.md advertises {len(missing)} node types that "
         f"do not exist in {hou.applicationVersionString()}: {missing}"
@@ -223,11 +219,7 @@ def test_version_annotations_are_actually_used():
 
 
 _PLUGIN_SOURCE = (
-    Path(__file__).resolve().parents[2]
-    / "houdini"
-    / "scripts"
-    / "python"
-    / "fxhoudinimcp_server"
+    Path(__file__).resolve().parents[2] / "houdini" / "scripts" / "python" / "fxhoudinimcp_server"
 )
 
 # createNode("sometype") with a literal type name. Handlers that build a type

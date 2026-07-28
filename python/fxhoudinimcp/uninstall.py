@@ -138,9 +138,7 @@ def remove_desktop_entry(config: Path, dry_run: bool) -> list[str]:
     del remaining[SERVER_NAME]
     updated = dict(existing)
     updated["mcpServers"] = remaining
-    config.write_text(
-        json.dumps(updated, indent=2) + "\n", encoding="utf-8", newline="\n"
-    )
+    config.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8", newline="\n")
     return [
         f"  Backed up {backup.name}",
         f"  Removed '{SERVER_NAME}' from {config}",
@@ -324,6 +322,5 @@ def _confirmed(package_files: list[Path], targets: list[str]) -> bool:
 
 def _report_python_package() -> None:
     print(
-        "\nThe Python package is still installed. Remove it with:\n"
-        "    pip uninstall fxhoudinimcp"
+        "\nThe Python package is still installed. Remove it with:\n    pip uninstall fxhoudinimcp"
     )

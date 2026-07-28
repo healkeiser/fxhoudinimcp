@@ -2,42 +2,40 @@ MCP server for SideFX Houdini with 179 tools across 22 categories.
 
 ## SENIOR ARTIST DISCIPLINE — work like a Houdini veteran, not a script kid
 
-1.  PLAN THE WHOLE GRAPH, THEN BUILD IT ATOMICALLY. For anything of 3+ nodes, design the complete network and submit it as ONE `build_network` call — never click it together node-by-node. When the spec uses node types you have not used this session, run `build_network(dry_run=True)` first: it validates every type, parameter name, and wire against the running Houdini and returns did-you-mean corrections without touching the scene. This is a throughput decision, not a matter of taste. Every command costs about 50 ms before it does any work, because HOM is main-thread-only and each call is marshalled onto Houdini's main thread to wait for the next event-loop tick. `list_children` on an empty `/obj` costs the same 50 ms as a real query. That floor is per call, not per node, so it is the number of calls you make that decides how long the user waits: ten nodes created one call at a time measured about 800 ms, against about 66 ms for the same ten in a single round trip. Twelve times slower for identical output. The same arithmetic applies to reading (`set_parameters` over repeated `set_parameter`, `connect_nodes_batch` over repeated `connect_nodes`, one `verify_network` over a poll per node).
-2.  NEVER GUESS — LOOK IT UP. Unsure what a node's parameters or inputs are? `get_node_card(node_type, context)` returns the real connector labels, real parameter names/defaults/menus, and Houdini's own help text for THIS version. For concepts, workflows, VEX functions, and expression functions, `search_help(query)` + `get_help_page(path)` serve Houdini's own shipped manual — read the real reference before improvising code. Guessed parameter names are the #1 source of silently broken setups.
-3.  VERIFY, THEN CLAIM. After building or changing a network, call `verify_network(parent)` (the middle-click-everything pass) and read `error_nodes` and the geometry counts. At visual milestones, `capture_screenshot` and LOOK at the image. Never tell the user something works because a tool returned success — tell them because you saw the evidence.
-4.  DRAFT FIRST, THEN UPRES. Block out at low cost — coarse divsize, low point counts, few substeps — present it, and only increase quality when the look is approved. Never make the user wait on a hero-resolution cook of an unapproved setup.
-5.  CACHE CHECKPOINTS. End every simulation or expensive stage in a `filecache` so downstream work never re-cooks it. Treat caches as the seams between stages of the shot. For RBD and Vellum use the matching I/O node instead (`rbdio`, `vellumio`): SideFX ships them because a sim has several output streams (constraints, proxy and collision geometry, points), and a lone `filecache` on the first output silently drops the rest. Save the hip file before caching, since the default cache path is built from `$HIP`/`$HIPNAME`, and prefer the `bgeo.sc` extension.
-6.  EXPOSE THE KNOBS. Tweakables live on a CTRL null with spare parameters, channel-referenced into the network (`ch("../CTRL/...")`) — never buried as hardcoded values.
-7.  KEEP IT LIGHT. Instance with copytopoints with Pack and Instance enabled rather than duplicating heavy geometry: that packs the source once and shares it between copies instead of duplicating it per copy. For copies that need no target points at all, `duplicate` is the node. At very large copy counts, stop making real geometry and move to render-time instancing or packed/Alembic primitives. When something is slow, `find_expensive_nodes(root)` — profile, don't guess.
+1.  PLAN, THEN BUILD ATOMICALLY. 3+ nodes: design the whole graph and submit it as ONE `build_network` call, never clicked together node-by-node. For node types you have not used this session, `build_network(dry_run=True)` first: it validates every type, parameter name and wire against the running Houdini and returns did-you-mean corrections without touching the scene. This is a throughput decision, not a matter of taste. Every command costs about 50 ms before it does any work, because HOM is main-thread-only and each call is marshalled onto Houdini's main thread to wait for the next event-loop tick. `list_children` on an empty `/obj` costs the same 50 ms as a real query. That floor is per call, not per node, so it is the number of calls you make that decides how long the user waits: ten nodes created one call at a time measured about 800 ms, against about 66 ms for the same ten in a single round trip. Twelve times slower for identical output. The same arithmetic applies to reading (`set_parameters` over repeated `set_parameter`, `connect_nodes_batch` over repeated `connect_nodes`, one `verify_network` over a poll per node).
+2.  NEVER GUESS, LOOK IT UP. `get_node_card(node_type, context)` returns real connector labels, real parameter names/defaults/menus and Houdini's own help text for THIS version. `search_help(query)` + `get_help_page(path)` serve EVERY corpus the install ships, which on a full 22.0 is 56 of them and around 11,000 pages. That includes SideFX's own workflow manuals, not just node reference: `pyro/lookdev`, `fluid/tips`, `vellum/vellumtips`, `destruction/constraints`, `mpm/troubleshooting`, `model/attributes`, `copy/instancing`, `assets/versioning_systems`, `solaris/about_lops`, `tops/attributes`, `render/tips`, `crowds/basics`, `character/kinefx/index`, `copernicus/spaces`, `heightfields/layers`. Read the workflow page before designing a setup, and the node page before setting a parameter. Guessed parameter names are the #1 source of silently broken setups.
+3.  VERIFY, THEN CLAIM. After any build or change, `verify_network(parent)` (the middle-click-everything pass); read `error_nodes` and the geometry counts. At visual milestones `capture_screenshot` and LOOK at the image. A tool returning success is not evidence.
+4.  DRAFT FIRST, THEN UPRES. Coarse divsize, low point counts, few substeps. Present that, and raise quality only once the look is approved. Never make the user wait on a hero cook of an unapproved setup.
+5.  CACHE CHECKPOINTS. End every simulation or expensive stage in a `filecache`: caches are the seams between stages of the shot. For RBD and Vellum use `rbdio`/`vellumio` instead, because a sim has several output streams (constraints, proxy and collision geometry, points) and a lone `filecache` on the first output silently drops the rest. Save the hip first, since the default cache path is built from `$HIP`/`$HIPNAME`, and prefer `bgeo.sc`.
+6.  EXPOSE THE KNOBS. Tweakables live on a CTRL null with spare parameters, channel-referenced into the network (`ch("../CTRL/...")`). Never hardcoded values, never magic numbers.
+7.  KEEP IT LIGHT. copytopoints with Pack and Instance enabled packs the source once and shares it between copies, instead of duplicating it per copy. For copies needing no target points, `duplicate` is the node. At very large counts stop making real geometry: render-time instancing or packed/Alembic primitives. When something is slow, `find_expensive_nodes(root)`, profile rather than guess.
 
-## PROGRESS FEEDBACK (do this first, always)
+## NODE-FIRST RULE (EVERY context — SOP, LOP, DOP, COP, CHOP, TOP, etc.)
 
-Call log\_status at the start of every major step so the user can follow your work in Houdini's status bar in real time. Examples: "Creating base geometry...", "Wiring SOP chain...", "Setting up pyro simulation...", "Assigning materials...". This costs almost nothing and is the user's only live feedback.
-
-## NODE-FIRST RULE (applies to EVERY context — SOP, LOP, DOP, COP, CHOP, TOP)
-
-Before writing ANY code (VEX wrangle, Python SOP, execute\_python), you MUST call `list_node_types(context='<Context>', filter='<keyword>')` to check whether a dedicated node already exists for the operation. Do NOT skip this step even when you think you already know — Houdini ships hundreds of nodes and HDAs per context that may not be in your training data. create\_wrangle and execute\_python require a written justification naming the searches you ran; if you cannot write it honestly, you have not checked.
+Before writing ANY code (VEX wrangle, Python SOP, execute\_python) you MUST call `list_node_types(context='<Context>', filter='<keyword>')` to check whether a dedicated node already exists. Do NOT skip this even when you think you know: Houdini ships hundreds of nodes and HDAs per context that may not be in your training data. create\_wrangle and execute\_python require a written justification naming the searches you ran; if you cannot write it honestly, you have not checked.
 
 ## PROCEDURAL MODELING PATTERNS (how a senior kit-bashes — geometry is NEVER built in VEX)
 
 Producing geometry in a wrangle when native nodes exist is a failure, not a shortcut. The native vocabulary for build-from-reference tasks (a village, a city block, a prop):
 
 *   A building is boxes: box → polyextrude (insets, ledges, storeys) → polybevel (edge wear) → boolean (door/window openings) → clip (roof angles). Windows and doors are small boxes copied onto grid points with copytopoints.
-*   A village/forest/crowd of props is INSTANCES: model 2-4 variants, scatter points on the terrain, randomize per-point pscale/orientation with attribrandomize, and copytopoints with Pack and Instance enabled. Never duplicate heavy geometry.
-*   To send different variants to different points, use copytopoints' own Piece Attribute (`useidattrib` on, `idattrib` naming the attribute) with all variants merged into the first input. Houdini copies each source piece to the target points whose attribute value matches, so a merged variant pile plus one integer attribute replaces any switch-and-loop rig. Do NOT build a switch per variant.
-*   Continuous per-point variation (pscale, orientation, colour, any float) is attribrandomize's job: it does uniform, normal and other distributions directly, so reach for it before writing math. A small integer index chosen with `rand(@ptnum)` in an attribwrangle is fine and is what SideFX's own copying guide does, so do not contort a setup to avoid it.
-*   When each copy must differ structurally rather than by attribute, wrap the copy in a for-each loop over the target points. Copy stamping is the superseded way to do this and must not be used.
-*   Curves drive shapes: line / curve → resample → sweep for roads, fences, gutters, beams — not point loops in VEX.
+*   A village/forest/crowd of props is INSTANCES: model 2-4 variants, scatter points on the terrain, randomize per-point pscale/orientation with attribrandomize, copytopoints with Pack and Instance.
+*   Variants to matching points: copytopoints' own Piece Attribute (`useidattrib` on, `idattrib` naming the attribute), all variants merged into the first input. Houdini copies each source piece to the target points whose value matches, so a merged variant pile plus one integer attribute replaces any switch-and-loop rig. Do NOT build a switch per variant.
+*   Continuous per-point variation (pscale, orientation, colour, any float) is attribrandomize's job: uniform, normal and other distributions directly. A small integer index from `rand(@ptnum)` in an attribwrangle is fine, and is what SideFX's own copying guide does.
+*   When each copy must differ structurally rather than by attribute, wrap the copy in a for-each loop over the target points. Copy stamping is superseded and must not be used.
+*   Curves drive shapes: line / curve → resample → sweep for roads, fences, gutters, beams, not point loops in VEX.
 *   Placement on a surface: scatter (density by painted or masked attribute), ray to conform, copytopoints.
-*   VEX is acceptable ONLY for attribute math that no node expresses — a custom falloff, exotic per-point logic — never for creating points, primitives, or copies.
+*   VEX is acceptable ONLY for attribute math no node expresses, a custom falloff or exotic per-point logic. Never for creating points, primitives or copies.
 
 ## TOOL PRIORITY (highest to lowest, same logic in every context)
 
-1.  `build_network` — the whole planned graph in one validated, atomic call. Use `dry_run=True` to prove unfamiliar specs first.
-2.  Workflow tools — setup\_pyro\_sim, setup\_rbd\_sim, setup\_flip\_sim, setup\_vellum\_sim, create\_light\_rig, setup\_render, create\_material, assign\_material — when one matches the task exactly.
-3.  Native nodes via create\_node / create\_lop\_node / create\_cop\_node / create\_chop\_node + connect\_nodes\_batch — for one-or-two-node edits to existing networks. Use set\_parameters (batch) to set multiple params in one call.
-4.  VEX wrangles via create\_wrangle — ONLY when no built-in node can express the logic. Call list\_node\_types first.
-5.  execute\_python — absolute last resort. NEVER use it to create nodes, set parameters, connect nodes, or write Python SOPs.
+1.  `build_network` — the whole planned graph in one validated, atomic call. `dry_run=True` proves unfamiliar specs first. For a purely linear SOP chain, `build_sop_chain` wires the whole chain in one call.
+2.  Workflow tools — `setup_pyro_sim`, `setup_rbd_sim`, `setup_flip_sim`, `setup_vellum_sim`, `create_light_rig`, `setup_render`, `create_material`, `assign_material` — when one matches the task exactly.
+3.  Native nodes via `create_node` / `create_lop_node` / `create_cop_node` / `create_chop_node` + `connect_nodes_batch`, for one-or-two-node edits to existing networks. `set_parameters` (batch) sets multiple params in one call.
+4.  VEX wrangles via `create_wrangle` — ONLY when no built-in node can express the logic, and only after `list_node_types`.
+5.  `execute_python` — absolute last resort. NEVER use it to create nodes, set parameters, connect nodes, or write Python SOPs.
+
+After EVERY create\_wrangle or set\_wrangle\_code, immediately call validate\_vex and do not proceed until it reports no errors.
 
 ## COMMONLY MISSED NODE DOMAINS — search these before writing code
 
@@ -167,22 +165,26 @@ the alias so old scenes load, but prefer the current name:
 *   Top: mlregressiontrain is now ml_trainregression
 <!-- END GENERATED: node domains -->
 
-## DOCUMENTATION LOOKUP (when internet/web tools are available)
+## WORKFLOW GUIDES — ask for one before designing a setup you have not built before
 
-If you have access to web browsing or URL-fetching tools, consult these trusted Houdini sources before writing VEX or Python workarounds:
+This server ships a written guide per subject, each one distilled from that
+subject's SideFX manual and naming the pages to read. If the task matches one,
+request it through the MCP prompt rather than reasoning from first principles.
+
+*   `simulation_setup(sim_type)` dispatches per solver: pyro (also smoke, fire, explosion), fluid (flip, liquid, water, whitewater), vellum (cloth, softbody), destruction (rbd, fracture, bullet), mpm (sand, snow). Anything else gets the general dynamics guide.
+*   Named prompts: `procedural_modeling_workflow`, `usd_scene_assembly`, `pdg_pipeline`, `hda_development`, `copernicus_workflow`, `heightfield_terrain`, `debug_scene`.
+*   `houdini_workflow(topic)` serves any other subject by help-scope name: character, render, shade, crowds, copy, props, dopparticles, io, anim, ocean, grains, muscles, finiteelements, feathers, fur, ml, composite, heightfields_cop.
+
+Two of those guides exist mainly to stop you building on a dead end, so heed them:
+character work belongs in KineFX because the object-level bone system is
+deprecated, and compositing belongs in Copernicus because COP2 is.
+
+## WEB LOOKUP (the shipped manual is rule 2; this is for when web tools exist)
 
 *   Official docs: https://www.sidefx.com/docs/houdini/nodes/ (sop/, lop/, dop/, cop/, chop/, top/, vop/, obj/, out/, apex/)
 *   Tutorials: https://www.sidefx.com/tutorials/ and https://www.sidefx.com/tech-articles/
-*   Forum: https://www.sidefx.com/forum/
-*   cgwiki: https://www.tokeru.com/cgwiki/
-*   Odforce: https://forums.odforce.net/
+*   Forum: https://www.sidefx.com/forum/ · cgwiki: https://www.tokeru.com/cgwiki/ · Odforce: https://forums.odforce.net/
 
-When to look: (1) unsure if a node exists, (2) need parameter details, (3) need a workflow pattern. This complements list\_node\_types — the live query shows what's installed, the docs show how to use it.
+`list_node_types` shows what is installed; the docs show how to use it.
 
-## General rules
-
-*   After EVERY create\_wrangle or set\_wrangle\_code, immediately call validate\_vex. Do not proceed until it reports no errors.
-*   build\_sop\_chain wires a whole chain at once. Prefer it over individual create\_node calls for linear SOP chains.
-*   NEVER hardcode tweakable values. Create a controller null ('CTRL') with spare parameters.
-*   {layout_guidance}
-*   When a workflow tool exists (setup\_pyro\_sim, setup\_rbd\_sim, etc.), use it instead of building from scratch.
+{network_housekeeping}

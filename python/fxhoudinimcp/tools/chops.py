@@ -7,22 +7,22 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Any, Optional
+from typing import Any
 
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
 async def get_chop_data(
     ctx: Context,
     node_path: str,
-    channel_name: Optional[str] = None,
-    start: Optional[int] = None,
-    end: Optional[int] = None,
+    channel_name: str | None = None,
+    start: int | None = None,
+    end: int | None = None,
 ) -> dict:
     """Get CHOP node track data.
 
@@ -48,7 +48,7 @@ async def create_chop_node(
     ctx: Context,
     parent_path: str,
     chop_type: str,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> dict:
     """Create a new CHOP node.
 

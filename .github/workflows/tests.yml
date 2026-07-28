@@ -1,0 +1,85 @@
+name: Tests
+
+# The unit suite needs no Houdini: node names are verified against the committed
+# evidence in tools/node_versions.json, and the prompt generator validates against
+# the same file. Only tests marked `integration` require a live install, and those
+# are excluded here rather than skipped silently.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install "ruff>=0.8.0"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Formatting
+        run: ruff format --check .
+
+  test:
+    name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is in the matrix because the help loader builds page keys from
+        # filesystem paths, and a separator bug there would not show up on Linux.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.13"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.10"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # hatch-vcs reads tags for the version
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Unit tests
+        run: pytest tests -m "not integration" -q
+
+  generated:
+    name: Generated content up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # Catches a hand-edit inside the BEGIN/END markers, an invented node name,
+      # and a name that exists in only part of the supported range but carries no
+      # version annotation.
+      - name: Prompt vocabulary
+        run: python tools/gen_prompt_vocab.py --check

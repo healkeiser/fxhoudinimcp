@@ -24,17 +24,23 @@ from fxhoudinimcp_server.dispatcher import register_handler
 
 ###### Corpus access
 
-_SCOPES = {
-    "nodes": "nodes.zip",
-    "vex": "vex.zip",
-    "expressions": "expressions.zip",
-    "hom": "hom.zip",
-    "solaris": "solaris.zip",
-    "tops": "tops.zip",
-    "character": "character.zip",
-    "ref": "ref.zip",
-    "shelf": "shelf.zip",
-}
+# Scopes are discovered from the install, not listed here. Houdini 22.0 ships 47
+# help archives and a hardcoded nine served only 27.6 of 34.3 MB of text. What it
+# left out was exactly the workflow documentation this server tells the assistant
+# to read before improvising: pyro/, fluid/, vellum/, destruction/, model/,
+# assets/, copy/ and the rest. Reading the directory also means a corpus SideFX
+# adds in a later release is served without a code change.
+#
+# One entry per archive, so scope names are the archive stems: "pyro", "vellum".
+#
+# Not every corpus is zipped. Copernicus, MPM, heightfields and the machine
+# learning docs ship as plain directories, so a zip-only loader could not reach
+# COPs or MPM documentation at all, at any scope. Both layouts are read here.
+
+# Directories under the help root that are not documentation. Serving them is
+# not harmful but it is noise: the licence texts alone are 250 pages that match
+# ordinary English words and would outrank real pages for common queries.
+_NON_DOC_DIRS = frozenset({"files", "images", "videos", "licenses", "licensing"})
 
 # scope -> {entry_path_without_ext: (original_text, lowercase_text)}
 _CACHE: dict[str, dict[str, tuple[str, str]]] = {}
@@ -48,14 +54,24 @@ def _help_dir() -> str:
 
 
 def _available_scopes() -> list[str]:
+    """Every documentation corpus the install ships, zipped or loose."""
     root = _help_dir()
     if not os.path.isdir(root):
         return []
-    return [
-        scope
-        for scope, zip_name in _SCOPES.items()
-        if os.path.isfile(os.path.join(root, zip_name))
-    ]
+    scopes = set()
+    for name in os.listdir(root):
+        path = os.path.join(root, name)
+        if name.endswith(".zip") and os.path.isfile(path):
+            scopes.add(name[:-4])
+        # Only count a directory if it actually holds pages; several hold images
+        # only, and an empty scope in the error message is just noise.
+        elif (
+            os.path.isdir(path)
+            and name not in _NON_DOC_DIRS
+            and any(file.endswith(".txt") for _, _, files in os.walk(path) for file in files)
+        ):
+            scopes.add(name)
+    return sorted(scopes)
 
 
 def _require_help() -> list[str]:
@@ -63,24 +79,57 @@ def _require_help() -> list[str]:
     if not scopes:
         raise hou.OperationFailed(
             "This Houdini build ships no local help "
-            f"({_help_dir()} has none of {sorted(_SCOPES)}). Use "
+            f"({_help_dir()} contains no help archives). Use "
             "get_node_card for live node introspection, or consult "
             "https://www.sidefx.com/docs/houdini/ directly."
         )
     return scopes
 
 
+def _read_zip(zip_path: str) -> dict[str, tuple[str, str]]:
+    pages: dict[str, tuple[str, str]] = {}
+    with zipfile.ZipFile(zip_path) as archive:
+        for name in archive.namelist():
+            if not name.endswith(".txt"):
+                continue
+            text = archive.read(name).decode("utf-8", "replace")
+            pages[name[:-4]] = (text, text.lower())
+    return pages
+
+
+def _read_dir(root: str) -> dict[str, tuple[str, str]]:
+    """Same shape as _read_zip, for corpora that ship unzipped."""
+    pages: dict[str, tuple[str, str]] = {}
+    for dirpath, _, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".txt"):
+                continue
+            full = os.path.join(dirpath, name)
+            # Keys must match the zip convention: forward slashes, relative to
+            # the corpus root, no extension. Otherwise a path from search_help
+            # would not round-trip through get_help_page on Windows.
+            entry = os.path.relpath(full, root).replace(os.sep, "/")[:-4]
+            try:
+                with open(full, "rb") as handle:
+                    text = handle.read().decode("utf-8", "replace")
+            except OSError:
+                continue
+            pages[entry] = (text, text.lower())
+    return pages
+
+
 def _load_scope(scope: str) -> dict[str, tuple[str, str]]:
     if scope in _CACHE:
         return _CACHE[scope]
-    zip_path = os.path.join(_help_dir(), _SCOPES[scope])
-    pages: dict[str, tuple[str, str]] = {}
-    with zipfile.ZipFile(zip_path) as zf:
-        for name in zf.namelist():
-            if not name.endswith(".txt"):
-                continue
-            text = zf.read(name).decode("utf-8", "replace")
-            pages[name[:-4]] = (text, text.lower())
+    root = _help_dir()
+    zip_path = os.path.join(root, f"{scope}.zip")
+    dir_path = os.path.join(root, scope)
+    if os.path.isfile(zip_path):
+        pages = _read_zip(zip_path)
+    elif os.path.isdir(dir_path):
+        pages = _read_dir(dir_path)
+    else:
+        pages = {}
     _CACHE[scope] = pages
     return pages
 
@@ -104,6 +153,7 @@ def _excerpt(text: str, lower: str, token: str, width: int = 220) -> str:
 
 ###### help.search_help
 
+
 def search_help(
     query: str,
     scope: str = None,
@@ -125,10 +175,8 @@ def search_help(
     tokens = [t for t in query.lower().split() if t]
     if not tokens:
         raise ValueError("query must contain at least one word")
-    if scope is not None and scope not in _SCOPES:
-        raise ValueError(
-            f"Unknown scope '{scope}'. Available: {sorted(_SCOPES)}"
-        )
+    if scope is not None and scope not in available:
+        raise ValueError(f"Unknown scope '{scope}'. Available: {available}")
     scopes = [scope] if scope else available
 
     hits: list[tuple[float, dict]] = []
@@ -145,15 +193,17 @@ def search_help(
             score = float(sum(counts))
             score += 50.0 * sum(token in entry_lower for token in tokens)
             score += 20.0 * sum(token in title_lower for token in tokens)
-            hits.append((
-                score,
-                {
-                    "path": f"{scope_name}/{entry}",
-                    "title": title,
-                    "score": round(score, 1),
-                    "excerpt": _excerpt(text, lower, tokens[0]),
-                },
-            ))
+            hits.append(
+                (
+                    score,
+                    {
+                        "path": f"{scope_name}/{entry}",
+                        "title": title,
+                        "score": round(score, 1),
+                        "excerpt": _excerpt(text, lower, tokens[0]),
+                    },
+                )
+            )
 
     hits.sort(key=lambda item: -item[0])
     return {
@@ -169,6 +219,7 @@ register_handler("help.search_help", search_help)
 
 ###### help.get_help_page
 
+
 def get_help_page(path: str, **_: Any) -> dict:
     """Fetch one documentation page by path (as returned by search_help).
 
@@ -181,14 +232,11 @@ def get_help_page(path: str, **_: Any) -> dict:
     if normalized.endswith(".txt"):
         normalized = normalized[:-4]
     scope, _, entry = normalized.partition("/")
-    if scope not in _SCOPES:
-        raise ValueError(
-            f"Unknown scope '{scope}'. Paths look like 'nodes/sop/scatter' "
-            f"or 'vex/functions/noise'. Available scopes: {sorted(_SCOPES)}"
-        )
     if scope not in _available_scopes():
-        raise hou.OperationFailed(
-            f"This Houdini build does not ship the '{scope}' help archive."
+        raise ValueError(
+            f"Unknown scope '{scope}'. Paths look like 'nodes/sop/scatter', "
+            f"'vex/functions/noise' or 'pyro/lookdev'. Available scopes: "
+            f"{_available_scopes()}"
         )
     pages = _load_scope(scope)
     if entry not in pages:
@@ -196,9 +244,7 @@ def get_help_page(path: str, **_: Any) -> dict:
         actual = lowered.get(entry.lower())
         if actual is None:
             close = get_close_matches(entry, sorted(pages), n=5, cutoff=0.4)
-            raise ValueError(
-                f"No page '{entry}' in {scope}. Close matches: {close}"
-            )
+            raise ValueError(f"No page '{entry}' in {scope}. Close matches: {close}")
         entry = actual
 
     text = pages[entry][0]

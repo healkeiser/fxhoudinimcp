@@ -83,13 +83,17 @@ async def main() -> int:
 
     try:
         ###### Status bar (visible to you right now)
-        await call("viewport.log_status", message="FXHoudini MCP GUI checks running...", severity="important")
+        await call(
+            "viewport.log_status",
+            message="FXHoudini MCP GUI checks running...",
+            severity="important",
+        )
         record("PASS", "log_status in real status bar")
 
         ###### Build a small network inside the sandbox container
-        container = (await call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name=CONTAINER
-        ))["node_path"]
+        container = (
+            await call("nodes.create_node", parent_path="/obj", node_type="geo", name=CONTAINER)
+        )["node_path"]
         chain = await call(
             "workflow.build_sop_chain",
             parent_path=container,
@@ -186,8 +190,10 @@ async def main() -> int:
     print()
     failed = [r for r in RESULTS if r[0] == "FAIL"]
     soft = [r for r in RESULTS if r[0] == "SOFT"]
-    print(f"GUI checks: {len(RESULTS) - len(failed) - len(soft)} passed, "
-          f"{len(soft)} soft-failed, {len(failed)} failed")
+    print(
+        f"GUI checks: {len(RESULTS) - len(failed) - len(soft)} passed, "
+        f"{len(soft)} soft-failed, {len(failed)} failed"
+    )
     print(f"captures in: {out_dir}")
     return 1 if failed else 0
 

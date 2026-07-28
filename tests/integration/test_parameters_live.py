@@ -22,12 +22,8 @@ class TestSetGet:
         assert hou.node(box).parm("scale").eval() == 2.5
 
     def test_set_parameter_string_is_applied(self, call, box):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo2"
-        )
-        file_sop = call(
-            "nodes.create_node", parent_path=geo["node_path"], node_type="file"
-        )
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo2")
+        file_sop = call("nodes.create_node", parent_path=geo["node_path"], node_type="file")
         call(
             "parameters.set_parameter",
             node_path=file_sop["node_path"],
@@ -101,12 +97,10 @@ class TestExpressionsAndLinks:
         assert hou.node(box).parm("tx").eval() == 10.0
 
     def test_link_parameters_creates_live_reference(self, call, box):
-        geo2 = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo2"
-        )
-        box2 = call(
-            "nodes.create_node", parent_path=geo2["node_path"], node_type="box"
-        )["node_path"]
+        geo2 = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo2")
+        box2 = call("nodes.create_node", parent_path=geo2["node_path"], node_type="box")[
+            "node_path"
+        ]
         call("parameters.set_parameter", node_path=box, parm_name="sizex", value=7.0)
         call(
             "parameters.link_parameters",

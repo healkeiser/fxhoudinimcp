@@ -21,9 +21,7 @@ import pytest
 
 sys.path.insert(
     0,
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "houdini", "scripts", "python"
-    ),
+    os.path.join(os.path.dirname(__file__), "..", "..", "houdini", "scripts", "python"),
 )
 
 try:
@@ -85,9 +83,7 @@ def call():
                 assert str(error.get("message", "")).strip(), (
                     f"{_command} failed with an empty error message: {error}"
                 )
-                _SMOKE_ERRORS.setdefault(
-                    _command, str(error.get("message", ""))[:70]
-                )
+                _SMOKE_ERRORS.setdefault(_command, str(error.get("message", ""))[:70])
             return result
         if expect_error:
             assert result["status"] == "error", (
@@ -114,13 +110,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         reverse=True,
     )
     terminalreporter.write_sep("=", "handler timings (ms)")
-    terminalreporter.write_line(
-        f"{'command':<42} {'calls':>5} {'mean':>9} {'max':>9}"
-    )
+    terminalreporter.write_line(f"{'command':<42} {'calls':>5} {'mean':>9} {'max':>9}")
     for mx, mean, count, command in rows:
-        terminalreporter.write_line(
-            f"{command:<42} {count:>5} {mean:>9.1f} {mx:>9.1f}"
-        )
+        terminalreporter.write_line(f"{command:<42} {count:>5} {mean:>9.1f} {mx:>9.1f}")
 
     registered = set(dispatcher.list_commands())
     called = set(stats)
@@ -133,8 +125,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         for command in untested:
             terminalreporter.write_line(f"  {command}")
     if _SMOKE_ERRORS:
-        terminalreporter.write_line(
-            "smoke-mode calls that errored (success path unverified):"
-        )
+        terminalreporter.write_line("smoke-mode calls that errored (success path unverified):")
         for command, message in sorted(_SMOKE_ERRORS.items()):
             terminalreporter.write_line(f"  {command}: {message}")

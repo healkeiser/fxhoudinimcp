@@ -74,9 +74,7 @@ class HoudiniBridge:
     Calls are dispatched by function name inside the JSON-encoded body.
     """
 
-    def __init__(
-        self, host: str = "localhost", port: int = 8100, timeout: float = 60.0
-    ):
+    def __init__(self, host: str = "localhost", port: int = 8100, timeout: float = 60.0):
         self.base_url = f"http://{host}:{port}"
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
@@ -246,8 +244,7 @@ class HoudiniBridge:
             payload = response.json()
         except httpx.TransportError as e:
             raise ConnectionError(
-                f"Could not list plugin commands at {self.base_url} "
-                f"({type(e).__name__})",
+                f"Could not list plugin commands at {self.base_url} ({type(e).__name__})",
                 details={"original_error": str(e)},
             ) from e
 

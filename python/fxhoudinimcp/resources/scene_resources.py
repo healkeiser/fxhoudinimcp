@@ -6,7 +6,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.resource("houdini://scene/info")
@@ -20,9 +20,7 @@ async def scene_info(ctx: Context) -> dict:
 async def node_info(path: str, ctx: Context) -> dict:
     """Information about a specific node at the given path."""
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "nodes.get_node_info", {"node_path": f"/{path}"}
-    )
+    return await bridge.execute("nodes.get_node_info", {"node_path": f"/{path}"})
 
 
 @mcp.resource("houdini://scene/tree")

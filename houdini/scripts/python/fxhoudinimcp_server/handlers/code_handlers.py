@@ -18,7 +18,6 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Constants
 
 _MAX_CAPTURE_BYTES = 100 * 1024  # 100 KB
@@ -53,9 +52,7 @@ def _serialize_result(value: Any) -> Any:
 ###### Handler: code.execute_python
 
 
-def _execute_python(
-    code: str, return_expression: str | None = None, **_: Any
-) -> dict[str, Any]:
+def _execute_python(code: str, return_expression: str | None = None, **_: Any) -> dict[str, Any]:
     """Execute arbitrary Python code inside Houdini's interpreter.
 
     The code is executed via `exec()` in a namespace that has `hou`
@@ -148,9 +145,7 @@ register_handler("code.execute_hscript", _execute_hscript)
 ###### Handler: code.evaluate_expression
 
 
-def _evaluate_expression(
-    expression: str, language: str = "hscript", **_: Any
-) -> dict[str, Any]:
+def _evaluate_expression(expression: str, language: str = "hscript", **_: Any) -> dict[str, Any]:
     """Evaluate an expression and return its result.
 
     Supports both HScript expressions (via `hou.hscriptExpression()`)

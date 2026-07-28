@@ -39,7 +39,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS = (
-    REPO_ROOT / "python" / "fxhoudinimcp" / "prompts" / "markdown"
+    REPO_ROOT
+    / "python"
+    / "fxhoudinimcp"
+    / "prompts"
+    / "markdown"
+    / "instructions"
     / "server_instructions.md"
 )
 # The full evidence: every sampled build and the node types it had. Big,
@@ -50,9 +55,7 @@ _TABLE = Path(__file__).resolve().parent / "node_versions.json"
 # that a Houdini nobody has checked may have stale version markers. Derived from
 # _TABLE and kept separate because the evidence is ~1 MB against a few hundred
 # bytes here, and there is no reason to put the former in every install.
-_SAMPLED = (
-    REPO_ROOT / "python" / "fxhoudinimcp" / "data" / "sampled_versions.json"
-)
+_SAMPLED = REPO_ROOT / "python" / "fxhoudinimcp" / "data" / "sampled_versions.json"
 _DUMPER = Path(__file__).resolve().parent / "dump_node_types.py"
 
 # Categories the instructions have sections for. Names outside these are in the
@@ -82,9 +85,7 @@ _ANNOTATION = re.compile(r"\s*\((\d+\.\d+)(?:\+|-\d+\.\d+)\)")
 # The same, but capturing the name it belongs to. Used so a name that only
 # appears inside prose still counts as a claim and keeps its marker across a
 # regeneration, instead of being silently stripped.
-_ANNOTATED_NAME = re.compile(
-    r"([a-z][a-z0-9_:.]*[a-z0-9])\s*\((\d+\.\d+)(?:\+|-\d+\.\d+)\)"
-)
+_ANNOTATED_NAME = re.compile(r"([a-z][a-z0-9_:.]*[a-z0-9])\s*\((\d+\.\d+)(?:\+|-\d+\.\d+)\)")
 
 # Red Giant's OpenFX plug-in crashes hou initialisation on 20.5.487 and later,
 # so hython cannot even import hou while it is scanned. Nothing to do with this
@@ -182,9 +183,7 @@ def merge(table: dict, dumps: list[dict]) -> dict:
     adding to it, so a corrected dump supersedes a stale one.
     """
     builds = dict(table["builds"])
-    present: dict[str, set[str]] = {
-        key: set(values) for key, values in table["present"].items()
-    }
+    present: dict[str, set[str]] = {key: set(values) for key, values in table["present"].items()}
     since = dict(table["since"])
     deprecated = dict(table.get("deprecated") or {})
     aliases = dict(table.get("aliases") or {})
@@ -241,8 +240,7 @@ def availability(table: dict) -> tuple[list[str], dict[str, dict[str, bool]]]:
     for key, builds in table["present"].items():
         seen = set(builds)
         result[key] = {
-            name: all(build in seen for build in builds_by_series[name])
-            for name in series
+            name: all(build in seen for build in builds_by_series[name]) for name in series
         }
     return series, result
 
@@ -275,9 +273,7 @@ def annotation_for(per_series: dict[str, bool], series: list[str]) -> str | None
 
 def _write_table(merged: dict) -> None:
     """Persist the evidence, and the small summary that ships with the package."""
-    _TABLE.write_text(
-        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    _TABLE.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _SAMPLED.parent.mkdir(parents=True, exist_ok=True)
     _SAMPLED.write_text(
         json.dumps(
@@ -419,8 +415,7 @@ def _report_since(table: dict, applied: list[str]) -> None:
         else:
             disagreed.append(f"{key}: derived {derived}, #since {documented}")
     print(
-        f"\n#since check    : {agreed} corroborated, {len(disagreed)} differ, "
-        f"{absent} undocumented"
+        f"\n#since check    : {agreed} corroborated, {len(disagreed)} differ, {absent} undocumented"
     )
     for item in disagreed:
         print(f"    {item}  (expected when the node predates the oldest build sampled)")
@@ -436,9 +431,7 @@ def check(dumps: list[dict], table: dict, text: str) -> int:
     """
     annotated = {
         match.group(1): (match.group(2), match.group(0))
-        for match in _ANNOTATED_NAME.finditer(
-            text.replace("\\_", "_")
-        )
+        for match in _ANNOTATED_NAME.finditer(text.replace("\\_", "_"))
     }
     series, avail = availability(table)
 
@@ -450,9 +443,7 @@ def check(dumps: list[dict], table: dict, text: str) -> int:
         if build not in table["builds"]:
             unsampled.append(build)
         here = {
-            f"{category}/{name}"
-            for category, names in dump["node_types"].items()
-            for name in names
+            f"{category}/{name}" for category, names in dump["node_types"].items() for name in names
         }
         for key, per_series in avail.items():
             name = key.split("/", 1)[1]
@@ -471,10 +462,7 @@ def check(dumps: list[dict], table: dict, text: str) -> int:
     print(f"\nannotated names checked : {len(annotated)}")
     print(f"builds available here   : {[d['version'] for d in dumps]}")
     if unsampled:
-        print(
-            f"not yet in the table    : {unsampled}\n"
-            "    Run without --check to contribute them."
-        )
+        print(f"not yet in the table    : {unsampled}\n    Run without --check to contribute them.")
     if contradictions:
         print(f"\nCONTRADICTIONS ({len(contradictions)}):")
         for item in contradictions:

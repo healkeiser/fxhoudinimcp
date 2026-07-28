@@ -7,13 +7,11 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -76,7 +74,7 @@ async def create_cop_node(
     ctx: Context,
     parent_path: str,
     cop_type: str,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> dict:
     """Create a COP node in the specified network.
 
@@ -108,9 +106,9 @@ async def create_cop_node(
 async def set_cop_flags(
     ctx: Context,
     node_path: str,
-    display: Optional[bool] = None,
-    export_flag: Optional[bool] = None,
-    compress: Optional[bool] = None,
+    display: bool | None = None,
+    export_flag: bool | None = None,
+    compress: bool | None = None,
 ) -> dict:
     """Set flags on a COP node.
 
@@ -134,7 +132,7 @@ async def set_cop_flags(
 @mcp.tool()
 async def list_cop_node_types(
     ctx: Context,
-    filter: Optional[str] = None,
+    filter: str | None = None,
 ) -> dict:
     """List available COP node types.
 

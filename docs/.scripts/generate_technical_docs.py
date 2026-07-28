@@ -36,9 +36,7 @@ for path in sorted(src.rglob("*.py")):
         skipped_count += 1
         continue
 
-    nav_parts = tuple(
-        part.lstrip("_") if part.startswith("_") else part for part in parts
-    )
+    nav_parts = tuple(part.lstrip("_") if part.startswith("_") else part for part in parts)
 
     nav[nav_parts] = doc_path.as_posix()
 
@@ -55,6 +53,4 @@ with mkdocs_gen_files.open("technical/SUMMARY.md", "w") as nav_file:
 
 log.info(f"gen-files: Generated {file_count} documentation pages")
 if skipped_count:
-    log.debug(
-        f"gen-files: Skipped {skipped_count} files (non-package directories)"
-    )
+    log.debug(f"gen-files: Skipped {skipped_count} files (non-package directories)")

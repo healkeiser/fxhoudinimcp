@@ -67,7 +67,7 @@ class TestPackageJson:
         assert "/a/b" in text.replace("\\", "/")
 
     def test_no_method_key(self):
-        """"method": "default" is unsupported and warns in Houdini."""
+        """ "method": "default" is unsupported and warns in Houdini."""
         assert "method" not in hp.package_json()
 
     def test_uses_the_resolved_plugin_path_by_default(self):
@@ -138,9 +138,7 @@ class TestExistingPackages:
             lambda: [tmp_path / "a", tmp_path / "b", tmp_path / "c"],
         )
 
-        assert hp.existing_packages(exclude=[mine, also_mine]) == [
-            (theirs, "/plugins/theirs")
-        ]
+        assert hp.existing_packages(exclude=[mine, also_mine]) == [(theirs, "/plugins/theirs")]
 
     def test_excludes_a_path_spelled_differently(self, monkeypatch, tmp_path):
         """--houdini-dir is taken as typed, so it need not match character for
@@ -193,9 +191,7 @@ class TestMain:
         assert hp.main(["--write", str(tmp_path / "nope")]) == 1
         assert "Not a directory" in capsys.readouterr().err
 
-    def test_write_warns_about_a_conflicting_package(
-        self, monkeypatch, tmp_path, capsys
-    ):
+    def test_write_warns_about_a_conflicting_package(self, monkeypatch, tmp_path, capsys):
         """Houdini lets the last packages directory win, silently."""
         other = tmp_path / "other"
         other.mkdir()

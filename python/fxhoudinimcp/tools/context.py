@@ -7,13 +7,11 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -83,7 +81,7 @@ async def get_selection(ctx: Context) -> dict:
 @mcp.tool()
 async def set_selection(
     ctx: Context,
-    node_paths: Optional[list[str]] = None,
+    node_paths: list[str] | None = None,
 ) -> dict:
     """Set the node selection.
 
@@ -129,7 +127,7 @@ async def compare_snapshots(
 @mcp.tool()
 async def get_node_errors_detailed(
     ctx: Context,
-    node_path: Optional[str] = None,
+    node_path: str | None = None,
     root_path: str = "/",
 ) -> dict:
     """Get detailed error analysis for nodes.

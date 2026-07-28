@@ -7,13 +7,11 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -50,7 +48,7 @@ async def set_current_take(ctx: Context, name: str) -> dict:
 async def create_take(
     ctx: Context,
     name: str,
-    parent_name: Optional[str] = None,
+    parent_name: str | None = None,
 ) -> dict:
     """Create a new take, optionally under a parent take.
 

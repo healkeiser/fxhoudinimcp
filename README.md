@@ -53,7 +53,7 @@
 
 A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server for [SideFX Houdini](https://www.sidefx.com/). Connects AI assistants like Claude directly to Houdini's Python API, enabling natural language control over scene building, simulation setup, rendering, and more.
 
-**179 tools**, **8 resources**, and **6 workflow prompts** out of the box.
+**179 tools**, **8 resources**, and **9 prompts** serving **31 written workflow guides** out of the box.
 
 <!-- FEATURES -->
 ## Features
@@ -99,7 +99,7 @@ flowchart LR
         direction TB
         B1("🔧 179 tools")
         B2("📦 8 Resources")
-        B3("💬 6 Prompts")
+        B3("💬 9 Prompts")
     end
 
     subgraph Houdini[" 🔶 SideFX Houdini "]
@@ -483,9 +483,42 @@ python tools/gen_node_versions.py
 # (run gen_node_domains after gen_node_versions, it reads that table):
 python tools/gen_node_domains.py
 python tools/gen_required_commands.py
+# Regenerate the node vocabulary tables in the workflow prompts. Edit the
+# groupings in tools/prompt_vocab.json, never the tables in the markdown:
+python tools/gen_prompt_vocab.py
 python tools/gen_node_versions.py --check   # verify the table against this machine
+python tools/gen_prompt_vocab.py --check    # needs no Houdini; runs in tests too
 HYTHON=/path/to/hython python tools/gen_node_versions.py   # one specific build
 ```
+
+No node name in `prompts/markdown/` is hand-written any more. The tables come
+from `tools/prompt_vocab.json` through `gen_prompt_vocab.py`, which rejects a
+name no sampled build has and dates the ones that exist in only part of the
+20.5-22.0 range. `tests/test_prompt_vocab.py` enforces both, and also checks the
+hand-written prose around the tables, since that names nodes too, plus that every
+shipped help page the prompts cite still resolves.
+
+### Prompt file layout
+
+`prompts/markdown/` has three subdirectories, so what a file is for is visible at
+every call site (`load_markdown("workflows/pyro.md")`):
+
+- `instructions/` — what the server tells every client at connect time.
+- `workflows/` — one guide per subject, **named after the SideFX help scope it draws on**, so `pyro.md` pairs with the `pyro/` manual and `solaris.md` with `solaris/`. 31 of them.
+- `shared/` — fragments injected into the above (`housekeeping.md`, `layout_on.md`, `layout_off.md`), never served alone.
+
+Most subjects are reached through `houdini_workflow(topic)`, where `topic` is the
+scope name, so adding a subject means adding a markdown file and nothing else. `simulation_setup` dispatches on its `sim_type` argument
+through an alias map, because SideFX files FLIP under `fluid/` and RBD under
+`destruction/` while users ask for "flip" and "rbd"; anything with no specific
+guide falls back to `dyno.md`, the general dynamics one.
+
+The server searches **every** help corpus the install ships, zipped or loose. On
+a full 22.0 that is 56 scopes and 11,451 pages, including the workflow manuals
+(`pyro/`, `fluid/`, `vellum/`, `destruction/`, `model/`, `assets/`, `copy/`) and
+the unzipped ones (`copernicus/`, `mpm/`, `heightfields/`, `ml/`). It costs about
+half a second of lazy load and ~69 MB inside Houdini, and nothing in the
+assistant's context until a lookup happens.
 
 `tools/node_versions.json` accumulates. It records which builds have been
 sampled and what node types each had, so **one installed Houdini is enough**:
@@ -523,7 +556,7 @@ server's own bridge).
 
 1. **Houdini Plugin** (`houdini/`): Runs inside Houdini's Python environment. Registers `@hwebserver.apiFunction` endpoints that receive JSON commands. Uses `hdefereval.executeInMainThreadWithResult()` to safely execute `hou.*` calls on the main thread.
 
-2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 179 tools, 8 resources, and 6 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
+2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 179 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
 
 3. **Bridge** (`python/fxhoudinimcp/bridge.py`): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.
 

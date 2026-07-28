@@ -225,9 +225,7 @@ def install_desktop(config: Path, command: list[str], dry_run: bool) -> list[str
         lines.append(f"  Would update {config}")
         if already is not None:
             old = already.get("command")
-            lines.append(
-                f"          repointing command from {old!r} to {command[0]!r}"
-            )
+            lines.append(f"          repointing command from {old!r} to {command[0]!r}")
             lines.append("          keeping every other key in the entry")
         lines += pinned_port_warning(already)
         return lines
@@ -239,9 +237,7 @@ def install_desktop(config: Path, command: list[str], dry_run: bool) -> list[str
         backup = config.with_suffix(config.suffix + ".bak")
         shutil.copy2(config, backup)
         lines.append(f"  Backed up {backup.name}")
-    config.write_text(
-        json.dumps(merged, indent=2) + "\n", encoding="utf-8", newline="\n"
-    )
+    config.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8", newline="\n")
     lines.append(f"  Registered '{SERVER_NAME}' in {config}")
     lines += pinned_port_warning(already)
     lines.append("  Fully quit Claude Desktop (tray > Quit) and relaunch.")
@@ -327,8 +323,7 @@ def repoint_claude_code() -> list[str]:
     result = subprocess.run(removal, capture_output=True, text=True)
     if result.returncode != 0:
         return [
-            f"  Claude Code has '{SERVER_NAME}' pointing at "
-            f"{current or '<could not read it>'},",
+            f"  Claude Code has '{SERVER_NAME}' pointing at {current or '<could not read it>'},",
             f"  and it could not be replaced: {_first_line(result)}",
             f"  Remove it by hand, then re-run: {printable_argv(removal)}",
         ]
@@ -392,8 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog=f"{CLI} install",
-        description="Install the Houdini plugin and register this server "
-        "with your MCP client.",
+        description="Install the Houdini plugin and register this server with your MCP client.",
     )
     parser.add_argument(
         "--houdini-dir",
@@ -510,9 +504,7 @@ def _install_plugin_half(args, plugin: Path) -> int:
             return 1
         print(f"  Wrote {written} ({reason})")
 
-    others = existing_packages(
-        exclude=[destination / PACKAGE_NAME for destination in destinations]
-    )
+    others = existing_packages(exclude=[destination / PACKAGE_NAME for destination in destinations])
     if others:
         print(
             f"\n  WARNING: {len(others)} other {PACKAGE_NAME} exists. Houdini "

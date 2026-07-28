@@ -33,15 +33,14 @@ class TestProceduralModelingScenario:
             data = call("nodes.list_node_types", context="Sop", filter=keyword)
             names = [t["name"] for t in data["types"]]
             assert any(n.startswith(expected_prefix) for n in names), (
-                f"filter={keyword!r} did not surface {expected_prefix!r}: "
-                f"{names[:10]}"
+                f"filter={keyword!r} did not surface {expected_prefix!r}: {names[:10]}"
             )
 
     def test_full_terrain_build(self, call):
         call("viewport.log_status", message="Creating terrain...")
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="terrain"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="terrain")[
+            "node_path"
+        ]
 
         chain = call(
             "workflow.build_sop_chain",
@@ -54,12 +53,8 @@ class TestProceduralModelingScenario:
         )
         scatter_path = chain["nodes"][-1]["path"]
 
-        rock = call(
-            "nodes.create_node", parent_path=geo, node_type="box", name="rock"
-        )["node_path"]
-        call(
-            "parameters.set_parameter", node_path=rock, parm_name="scale", value=0.1
-        )
+        rock = call("nodes.create_node", parent_path=geo, node_type="box", name="rock")["node_path"]
+        call("parameters.set_parameter", node_path=rock, parm_name="scale", value=0.1)
         copy = call(
             "nodes.create_node",
             parent_path=geo,
@@ -90,12 +85,12 @@ class TestSimulationScenario:
     """User: 'Make a smoke simulation that looks like a campfire plume.'"""
 
     def test_pyro_sim_produces_actual_smoke(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="fire"
-        )["node_path"]
-        source = call(
-            "nodes.create_node", parent_path=geo, node_type="sphere", name="emitter"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="fire")[
+            "node_path"
+        ]
+        source = call("nodes.create_node", parent_path=geo, node_type="sphere", name="emitter")[
+            "node_path"
+        ]
         call("parameters.set_parameter", node_path=source, parm_name="scale", value=0.3)
 
         sim = call("workflow.setup_pyro_sim", source_geo=source, name="campfire")
@@ -120,10 +115,9 @@ class TestSimulationScenario:
         print(f"[scenario] pyro cook to frame 5: {cook_seconds:.1f}s")
 
         breakdown = info["prim_type_breakdown"]
-        assert any(
-            "Volume" in type_name or "VDB" in type_name
-            for type_name in breakdown
-        ), f"no smoke volumes at frame 5: {breakdown}"
+        assert any("Volume" in type_name or "VDB" in type_name for type_name in breakdown), (
+            f"no smoke volumes at frame 5: {breakdown}"
+        )
         assert cook_seconds < 60, f"pyro cook too slow: {cook_seconds:.1f}s"
 
 
@@ -131,9 +125,9 @@ class TestAnimationScenario:
     """User: 'Animate a bouncing ball.'"""
 
     def test_keyframed_ball_evaluates_midair(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="ball"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="ball")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=geo, node_type="sphere")
         for frame, value in [(1, 0.0), (12, 5.0), (24, 0.0)]:
             call(
@@ -156,9 +150,9 @@ class TestLookdevScenario:
     """User: 'Shade the terrain red and set up a render.'"""
 
     def test_material_render_pipeline(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="asset"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="asset")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=geo, node_type="testgeometry_pighead")
         mat = call(
             "workflow.create_material",
@@ -183,9 +177,9 @@ class TestLookdevScenario:
 
     def test_actual_image_render(self, call, tmp_path):
         """User: 'Render me a frame.' — a real 64x64 mantra render to disk."""
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="subject"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="subject")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=geo, node_type="sphere")
         render = call(
             "workflow.setup_render",
@@ -209,9 +203,7 @@ class TestLookdevScenario:
         )
         data = result.get("data", {})
         if result["status"] != "success" or not data.get("success", True):
-            reason = str(
-                result.get("error", {}).get("message") or data.get("error")
-            )[:80]
+            reason = str(result.get("error", {}).get("message") or data.get("error"))[:80]
             pytest.skip(f"mantra render unavailable here: {reason}")
         assert (tmp_path / "frame.exr").is_file(), (
             "start_render claimed success but no image was written"
@@ -229,21 +221,17 @@ class TestScreenshotScenario:
         message = error["message"].lower()
         assert message.strip(), "empty error message"
         assert any(
-            hint in message
-            for hint in ("ui", "graphical", "viewport", "headless", "gui")
+            hint in message for hint in ("ui", "graphical", "viewport", "headless", "gui")
         ), f"unhelpful headless error: {error['message']}"
 
     def test_network_editor_capture_fails_gracefully_headless(self, call):
         if hou.isUIAvailable():
             pytest.skip("graphical session: captures are exercised by GUI use")
         call("nodes.create_node", parent_path="/obj", node_type="geo", name="g")
-        error = call(
-            "viewport.capture_network_editor", expect_error=True
-        )
+        error = call("viewport.capture_network_editor", expect_error=True)
         message = error["message"].lower()
         assert any(
-            hint in message
-            for hint in ("ui", "graphical", "network editor", "headless", "gui")
+            hint in message for hint in ("ui", "graphical", "network editor", "headless", "gui")
         ), f"unhelpful headless error: {error['message']}"
 
     def test_log_status_is_harmless_headless(self, call):

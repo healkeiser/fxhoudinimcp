@@ -42,19 +42,19 @@ class TestAutoLayoutFlag:
 class TestLayoutGuidance:
     def test_instructions_promote_layout_when_enabled(self, monkeypatch):
         monkeypatch.delenv("FXHOUDINIMCP_AUTO_LAYOUT", raising=False)
-        text = load_markdown("server_instructions.md")
+        text = load_markdown("instructions/server_instructions.md")
         assert "Call layout_children frequently" in text
 
     def test_instructions_forbid_layout_when_disabled(self, monkeypatch):
         monkeypatch.setenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
-        text = load_markdown("server_instructions.md")
+        text = load_markdown("instructions/server_instructions.md")
         assert "NEVER call layout_children" in text
         assert "Call layout_children frequently" not in text
 
     def test_housekeeping_block_follows_toggle(self, monkeypatch):
         monkeypatch.setenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
         text = load_markdown(
-            "procedural_modeling.md",
+            "workflows/model.md",
             description="a rock",
             output_context="/obj",
         )
