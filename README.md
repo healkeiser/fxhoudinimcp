@@ -527,6 +527,31 @@ server's own bridge).
 
 3. **Bridge** (`python/fxhoudinimcp/bridge.py`): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.
 
+#### What a call costs
+
+That main-thread hop in step 1 is not free, and it is the single biggest thing
+to know when driving this. `hou.*` can only run on Houdini's main thread, so
+every command is queued with `hdefereval` and waits for the next event-loop
+tick. Measured on Houdini 22.0.368 with an idle scene:
+
+| | |
+| --- | --- |
+| `health_check` (answers on the web server thread, no main-thread hop) | 0.5 ms |
+| any real command, including `list_children` on an **empty** `/obj` | ~50 ms |
+| 10 nodes created one call at a time | ~800 ms |
+| the same 10 nodes in a single round trip | ~66 ms |
+
+The floor is flat: a trivial query costs the same as a real one, because you are
+paying for the tick, not the work. So the cost of a session is set by how many
+calls it makes, not how much they each do, and batching is worth roughly an
+order of magnitude rather than being a matter of neatness. That is why the
+server instructions tell an assistant to design a whole graph and submit it as
+one `build_network`, and why `set_parameters`, `connect_nodes_batch` and
+`verify_network` exist alongside their single-item equivalents.
+
+Numbers are from one Windows machine and will move with hardware and with how
+busy Houdini is; the ratio is the durable part.
+
 <!-- CONTACT -->
 ## Contact
 
