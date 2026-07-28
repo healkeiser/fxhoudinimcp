@@ -277,6 +277,34 @@ def _first_line(result: subprocess.CompletedProcess) -> str:
     return detail[0] if detail else f"exit code {result.returncode}"
 
 
+def config_file_note(result: subprocess.CompletedProcess) -> list[str]:
+    """Name the config file the Claude Code CLI actually wrote.
+
+    It already prints ``File modified: <path>`` and we were swallowing it, in
+    favour of "registered with Claude Code (user scope)". That reads as complete
+    and is not, because "user scope" is not one place: CLAUDE_CONFIG_DIR decides
+    which profile is user scope, and a machine can have several. On one with a
+    second profile, a correct, connected registration was invisible to every
+    `claude mcp get` run from the other one, and looked like a failed install
+    for an afternoon.
+
+    Naming the file costs one line and removes the ambiguity, so a report of
+    success can be checked rather than believed.
+    """
+    output = (result.stdout or "") + (result.stderr or "")
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("file modified:"):
+            return [f"      in {stripped.split(':', 1)[1].strip()}"]
+
+    # Older CLIs may not print it. Naming the profile is still better than
+    # silence, and it is read from the environment rather than guessed.
+    profile = os.environ.get("CLAUDE_CONFIG_DIR")
+    if profile:
+        return [f"      in the Claude Code profile at {profile}"]
+    return []
+
+
 def repoint_claude_code() -> list[str]:
     """Replace a Claude Code entry that points at a different interpreter.
 
@@ -318,6 +346,7 @@ def repoint_claude_code() -> list[str]:
         f"  Repointed '{SERVER_NAME}' in Claude Code (user scope):",
         f"      was: {current or '<could not read it>'}",
         f"      now: {wanted}",
+        *config_file_note(result),
     ]
 
 
@@ -339,7 +368,10 @@ def install_claude_code(dry_run: bool) -> list[str]:
     # ~/.claude.json directly and risking a shape this version does not expect.
     result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode == 0:
-        return [f"  Registered '{SERVER_NAME}' with Claude Code (user scope)."]
+        return [
+            f"  Registered '{SERVER_NAME}' with Claude Code (user scope).",
+            *config_file_note(result),
+        ]
 
     output = (result.stderr or "") + (result.stdout or "")
     if "already exists" in output.lower():

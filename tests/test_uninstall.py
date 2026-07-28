@@ -356,6 +356,22 @@ def test_a_genuine_failure_is_reported(monkeypatch):
     assert any("failed" in line.lower() for line in lines)
 
 
+def test_removal_names_the_config_file(monkeypatch):
+    """Same reason as install: which profile was touched is not obvious."""
+    monkeypatch.setattr(uninst, "claude_code_available", lambda: True)
+    monkeypatch.setattr(
+        uninst.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(
+            argv, 0, stdout="Removed\nFile modified: C:\\Users\\me\\.claude.json\n"
+        ),
+    )
+
+    lines = uninst.remove_claude_code(dry_run=False)
+
+    assert any("C:\\Users\\me\\.claude.json" in line for line in lines)
+
+
 def test_removal_argv_targets_the_user_scope(monkeypatch):
     """install registers at user scope, so uninstall has to look there."""
     assert uninst.claude_code_remove_argv() == [
