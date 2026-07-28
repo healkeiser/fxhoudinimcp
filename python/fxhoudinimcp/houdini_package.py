@@ -25,9 +25,10 @@ import argparse
 import json
 import platform
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
-_PACKAGE_NAME = "fxhoudinimcp.json"
+PACKAGE_NAME = "fxhoudinimcp.json"
 
 
 def plugin_path() -> Path:
@@ -87,7 +88,24 @@ def candidate_package_dirs() -> list[Path]:
     return found
 
 
-def existing_packages(exclude: Path | None = None) -> list[tuple[Path, str]]:
+def _comparable(path: Path) -> Path:
+    """A path that compares equal to one built from ``Path.home()``.
+
+    ``--houdini-dir`` is used exactly as typed, so a relative path, or one
+    containing ``..``, does not match the absolute candidates this module
+    builds, and the file the installer has just written comes back as somebody
+    else's leftover with advice to delete it. Case is already handled: Windows
+    paths compare case-insensitively.
+    """
+    try:
+        return path.resolve()
+    except OSError:  # pragma: no cover - unreadable mount, nothing better to do
+        return path
+
+
+def existing_packages(
+    exclude: Path | Iterable[Path] | None = None,
+) -> list[tuple[Path, str]]:
     """Find already-installed package files and the plugin path each points at.
 
     Two of these is a real hazard rather than a tidiness issue. Houdini processes
@@ -98,13 +116,24 @@ def existing_packages(exclude: Path | None = None) -> list[tuple[Path, str]]:
         WARNING: var FXHOUDINIMCP overwritten with ...
 
     Reported so the operator can delete the stale one.
+
+    *exclude* takes one path or many, because a single install can now write
+    into every Houdini version on the machine, and warning about the files it
+    just wrote would contradict itself.
     """
+    if exclude is None:
+        excluded: set[Path] = set()
+    elif isinstance(exclude, Path):
+        excluded = {_comparable(exclude)}
+    else:
+        excluded = {_comparable(path) for path in exclude}
+
     found: list[tuple[Path, str]] = []
     for directory in candidate_package_dirs():
-        candidate = directory / _PACKAGE_NAME
+        candidate = directory / PACKAGE_NAME
         if not candidate.is_file():
             continue
-        if exclude is not None and candidate == exclude:
+        if _comparable(candidate) in excluded:
             continue
         target = "<unreadable>"
         try:
@@ -134,7 +163,7 @@ def write_package(destination: Path, path: Path | None = None) -> Path:
     """
     if not destination.is_dir():
         raise NotADirectoryError(destination)
-    target = destination / _PACKAGE_NAME
+    target = destination / PACKAGE_NAME
     target.write_text(package_json(path), encoding="utf-8", newline="\n")
     return target
 
@@ -190,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         others = existing_packages(exclude=target)
         if others:
             print(
-                f"\nWARNING: {len(others)} other {_PACKAGE_NAME} also exists. "
+                f"\nWARNING: {len(others)} other {PACKAGE_NAME} also exists. "
                 "Houdini processes every packages directory and the last one "
                 "wins, so a leftover file can silently override this install:"
             )
@@ -202,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print(f"Plugin directory:\n    {plugin.as_posix()}\n")
-    print(f"Put this in a Houdini packages directory as {_PACKAGE_NAME}:\n")
+    print(f"Put this in a Houdini packages directory as {PACKAGE_NAME}:\n")
     print(contents)
 
     candidates = candidate_package_dirs()
@@ -222,6 +251,6 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "\nTo verify Houdini picked it up, start Houdini with "
         "HOUDINI_PACKAGE_VERBOSE=1\nand look for a 'Processing:' line for "
-        f"{_PACKAGE_NAME}."
+        f"{PACKAGE_NAME}."
     )
     return 0

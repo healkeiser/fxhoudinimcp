@@ -127,6 +127,36 @@ class TestExistingPackages:
 
         assert hp.existing_packages(exclude=mine) == []
 
+    def test_excludes_several_files_at_once(self, monkeypatch, tmp_path):
+        """Installing into two Houdini versions writes two files, not one."""
+        mine = self._write(tmp_path / "a", "/plugins/mine")
+        also_mine = self._write(tmp_path / "b", "/plugins/mine")
+        theirs = self._write(tmp_path / "c", "/plugins/theirs")
+        monkeypatch.setattr(
+            hp,
+            "candidate_package_dirs",
+            lambda: [tmp_path / "a", tmp_path / "b", tmp_path / "c"],
+        )
+
+        assert hp.existing_packages(exclude=[mine, also_mine]) == [
+            (theirs, "/plugins/theirs")
+        ]
+
+    def test_excludes_a_path_spelled_differently(self, monkeypatch, tmp_path):
+        """--houdini-dir is taken as typed, so it need not match character for
+        character the absolute paths this module builds from Path.home().
+
+        Without normalising, a relative or dot-containing --houdini-dir made the
+        installer warn that the file it had just written was a leftover from
+        some other install, and tell you to delete it.
+        """
+        mine = self._write(tmp_path / "a", "/plugins/mine")
+        monkeypatch.setattr(hp, "candidate_package_dirs", lambda: [tmp_path / "a"])
+        roundabout = tmp_path / "a" / ".." / "a" / "fxhoudinimcp.json"
+
+        assert roundabout != mine  # the comparison that used to be made
+        assert hp.existing_packages(exclude=roundabout) == []
+
     def test_a_corrupt_file_is_reported_not_fatal(self, monkeypatch, tmp_path):
         (tmp_path / "a").mkdir()
         (tmp_path / "a" / "fxhoudinimcp.json").write_text("{broken", encoding="utf-8")

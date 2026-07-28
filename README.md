@@ -168,9 +168,25 @@ client config, so if the command runs at all, the path it registers is correct.
 Add `--dry-run` first if you want to see every file it would touch and change
 nothing.
 
-It stops rather than guessing when it cannot know the answer. If several Houdini
-packages directories exist it lists them and asks, because choosing wrongly
-produces an install that fails **silently**:
+It asks rather than guessing when it cannot know the answer. Several Houdini
+packages directories usually means several Houdini versions, so it lists them
+and lets you pick one, or all of them:
+
+```
+Houdini plugin
+  Several Houdini packages directories exist.
+  Which does the Houdini you want to use read?
+      1) C:\Users\you\Documents\houdini21.0\packages
+      2) C:\Users\you\Documents\houdini22.0\packages
+      a) all of them
+      q) cancel
+  Choose [1-2/a/q]:
+```
+
+Choosing wrongly produces an install that fails **silently**, which is why it
+will not choose for you. When there is no terminal to ask, running from the MCP
+menu or a setup script, it prints the same list and exits non-zero. Name the
+directory up front to skip the question entirely:
 
 ```shell
 python -m fxhoudinimcp install --houdini-dir "~/Documents/houdini22.0/packages"
@@ -195,6 +211,33 @@ clone** instead of the installed package (see [by hand](#installing-by-hand)),
 `pip install --upgrade` will not move that half. Those two halves are then
 independent, and the server warns at startup when it finds a plugin older than
 itself.
+
+### Uninstalling
+
+`pip uninstall` moves neither half. The Houdini package file and the client
+registration both outlive it, and both fail quietly once the package is gone: a
+package file pointing at a plugin directory that no longer exists is skipped by
+Houdini without a word, and a stale client entry shows up only as
+"disconnected". So take the two halves out first, then the package:
+
+```shell
+python -m fxhoudinimcp uninstall
+pip uninstall fxhoudinimcp
+```
+
+`uninstall` lists everything it found and asks before removing any of it. Unlike
+`install` it does not need to know which Houdini you meant: every
+`fxhoudinimcp.json` it finds is a leftover, and the one you forget is exactly
+what silently overrides your next install. Narrow it with `--houdini-dir` when
+you only want one Houdini cleaned.
+
+| Flag | What it removes |
+| --- | --- |
+| `--dry-run` | Nothing. Lists what it would remove |
+| `--houdini-dir DIR` | Only this packages directory, instead of every one found |
+| `--client-only` | Only the client registration, leaving the package files |
+| `--client auto\|claude-code\|claude-desktop\|both\|none` | Which client to unregister from |
+| `--yes` | Skip the confirmation. Required when stdin is not a terminal |
 
 ### Configuring the plugin
 
@@ -341,11 +384,32 @@ A working package prints both a `Loading:` and a `Processing:` line for
 - **A second `fxhoudinimcp.json`.** Houdini processes every packages directory
   and the last one wins, so a leftover file can override a fresh install. Both
   commands warn when they find another one. `fxhoudinimcp houdini-package` lists
-  every one it can see, and what each points at.
+  every one it can see, and what each points at, and `fxhoudinimcp uninstall`
+  removes the lot.
+- **No package file for the Houdini you launched.** Each Houdini version reads
+  its own preference directory, so installing into `houdini21.0/packages` does
+  nothing for a Houdini 22 you start afterwards. Answer `a` at the prompt, or
+  run `install` once per version.
 
 On Windows, note that OneDrive's Documents redirection means a desktop-launched
 Houdini and a shell-launched one can resolve different preference directories.
 The package log is what settles which one your Houdini actually reads.
+
+### Checking what you are actually running
+
+An editable install reports the version it was created at, not whatever the
+working tree has become since, so an old checkout can be running while the
+metadata claims otherwise:
+
+```shell
+python -m fxhoudinimcp --version
+```
+
+Worth checking first whenever a documented subcommand behaves as though it does
+not exist. Before 2.5.0, an unrecognised argument was ignored and the MCP server
+started instead, so `python -m fxhoudinimcp install` on an older install printed
+a warning about not reaching Houdini and then sat there, looking like a hung
+installer. It now exits with `unknown command` and the list of real ones.
 <!-- --8<-- [end:installation] -->
 
 <!-- USAGE -->
