@@ -83,6 +83,7 @@ def compatibility_warning(available: list[str] | None) -> str | None:
         f"need those commands will fail. The packaged plugin travels with this "
         f"install, so the likely cause is a Houdini package file pointing "
         f"somewhere else, for example an older clone. Run "
-        f"'fxhoudinimcp houdini-package' to see the path this install expects "
+        f"'python -m fxhoudinimcp houdini-package' to see the path this install "
+        f"expects "
         f"and to be warned about competing package files."
     )

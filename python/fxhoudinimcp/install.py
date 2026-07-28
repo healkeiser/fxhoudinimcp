@@ -7,15 +7,25 @@ Every one of those steps fails quietly. Houdini skips a package file it cannot
 resolve without saying so, and Claude Desktop does not inherit your PATH, so a
 bare ``python`` in its config reads as "disconnected" with no explanation.
 
-    fxhoudinimcp install                      # do both halves
-    fxhoudinimcp install --dry-run            # say what it would do, change nothing
-    fxhoudinimcp install --houdini-dir DIR    # when the packages directory is ambiguous
-    fxhoudinimcp install --client none        # plugin only, wire the client yourself
+    python -m fxhoudinimcp install                    # do both halves
+    python -m fxhoudinimcp install --dry-run          # say what it would do
+    python -m fxhoudinimcp install --houdini-dir DIR  # just this one directory
+    python -m fxhoudinimcp install --client none      # wire the client yourself
 
-The Houdini destination is still not guessed when it is genuinely ambiguous. One
-candidate means there is nothing to choose and it is used; several means the
-operator picks, because choosing wrongly on Windows with OneDrive's Documents
-redirection recreates the silent no-op this command exists to prevent.
+It asks nothing and it finishes. Two earlier versions did neither, in ways worth
+recording because both looked reasonable:
+
+- It refused to choose between candidate packages directories, and exited. The
+  reasoning was sound, that a wrong choice is silent, and the conclusion was
+  wrong, because writing the same file into all of them is never a wrong choice.
+- It reported a Claude Code entry pointing somewhere else, printed the two
+  commands to repair it, and stopped. It knew both values and had already been
+  told to install. Printing homework is not finishing.
+
+What remains genuinely undecidable is still refused, not guessed: if no Houdini
+packages directory exists at all, this says so rather than inventing one, since
+a package file in a directory Houdini never reads is the silent no-op the whole
+command exists to prevent.
 """
 
 from __future__ import annotations
@@ -32,6 +42,7 @@ from pathlib import Path
 
 # Internal
 from fxhoudinimcp.houdini_package import (
+    CLI,
     PACKAGE_NAME,
     candidate_package_dirs,
     existing_packages,
@@ -92,78 +103,53 @@ def claude_code_add_argv(scope: str = "user") -> list[str]:
     ]
 
 
-def resolve_houdini_dir(explicit: str | None) -> tuple[Path | None, list[Path], str]:
-    """Decide where the package file goes.
+def claude_code_remove_argv(scope: str = "user") -> list[str]:
+    """The `claude mcp remove` invocation, for running or for printing.
 
-    Returns (chosen, candidates, reason). *chosen* is None when the operator has
-    to decide, with *reason* explaining why rather than making it up.
+    Lives next to its counterpart because `install` needs it too: `claude mcp
+    add` cannot update an entry in place, so repointing one means removing it
+    first. `uninstall` imports it from here.
+    """
+    return ["claude", "mcp", "remove", SERVER_NAME, "-s", scope]
+
+
+def printable_argv(argv: list[str]) -> str:
+    """An argv a person can paste back into a shell."""
+    return " ".join(f'"{part}"' if " " in part else part for part in argv)
+
+
+def resolve_houdini_dirs(explicit: str | None) -> tuple[list[Path], str]:
+    """Where the package file goes. An empty list means there is nowhere yet.
+
+    Every candidate, not one of them. This went through two wrong answers before
+    landing here, and the reasoning matters because it looks like carelessness.
+
+    The original code refused to choose, on the grounds that choosing wrongly is
+    invisible: Houdini skips a package file it cannot resolve without a word, so
+    the wrong directory produces silence rather than an error. True, and it made
+    the command exit rather than finish. The second answer was to ask, which
+    only moved the decision without removing it, and made the whole thing depend
+    on there being a terminal.
+
+    Both missed that the premise does not apply to "all of them". The files are
+    byte-identical and point at the same plugin, so whichever directory Houdini
+    reads, it finds a correct one. There is no last-one-wins hazard between
+    copies of the same file, which is the only reason ambiguity was dangerous.
+    OneDrive's Documents redirection stops being a question to answer and
+    becomes two paths that both work.
+
+    The cost is an MCP menu in a Houdini version you may not use, removable in
+    one `uninstall`. That is a much smaller price than a command that stops.
     """
     if explicit:
-        return Path(explicit).expanduser(), [], "given on the command line"
+        return [Path(explicit).expanduser()], "given on the command line"
 
     candidates = candidate_package_dirs()
     if not candidates:
-        return None, [], "no Houdini packages directory exists yet"
+        return [], "no Houdini packages directory exists yet"
     if len(candidates) == 1:
-        return candidates[0], candidates, "the only candidate on this machine"
-    return None, candidates, f"{len(candidates)} candidates, so the choice is yours"
-
-
-def stdin_is_interactive() -> bool:
-    """Whether there is a person on the other end who can answer a question.
-
-    Not cosmetic. This command is also run from Houdini's MCP menu and from
-    setup scripts, where stdin is not a terminal and ``input()`` either raises
-    immediately or blocks forever with a prompt nobody can see. Those callers
-    keep the printed list and the non-zero exit.
-    """
-    try:
-        return sys.stdin is not None and sys.stdin.isatty()
-    except ValueError:  # stdin closed underneath us
-        return False
-
-
-def prompt_for_package_dirs(candidates: list[Path]) -> list[Path]:
-    """Ask which packages directories to write into. Empty means cancelled.
-
-    Refusing to guess was right, but it is only half an answer: the command knew
-    the candidates, printed them, and then made the operator retype one. Asking
-    costs nothing and removes the transcription error.
-
-    "All of them" is offered because several candidates usually means several
-    Houdini versions rather than one ambiguous location. Someone running 21.0
-    and 22.0 wants the menu in both, and two runs is an invitation to do one.
-    """
-    print("  Several Houdini packages directories exist.")
-    print("  Which does the Houdini you want to use read?")
-    for index, candidate in enumerate(candidates, start=1):
-        print(f"      {index}) {candidate}")
-    print("      a) all of them")
-    print("      q) cancel")
-    print(
-        "\n  On Windows with OneDrive redirecting Documents, a desktop-launched\n"
-        "  Houdini and a shell-launched one can disagree. Start Houdini with\n"
-        "  HOUDINI_PACKAGE_VERBOSE=1 to see which it reads."
-    )
-
-    choices = f"1-{len(candidates)}" if len(candidates) > 1 else "1"
-    while True:
-        try:
-            answer = input(f"  Choose [{choices}/a/q]: ").strip().lower()
-        except EOFError:
-            # A piped stdin that runs dry. Looping would hang.
-            print()
-            return []
-        if answer == "q":
-            return []
-        if answer == "a":
-            return list(candidates)
-        if answer.isdigit() and 1 <= int(answer) <= len(candidates):
-            return [candidates[int(answer) - 1]]
-        if answer:
-            print(f"  Not one of the choices: {answer!r}")
-        else:
-            print("  Not one of the choices: nothing was entered")
+        return candidates, "the only candidate on this machine"
+    return candidates, f"every candidate on this machine ({len(candidates)})"
 
 
 def _merge_desktop_config(existing: dict, command: list[str]) -> dict:
@@ -284,10 +270,61 @@ def claude_code_current_command() -> str | None:
     return None
 
 
+def _first_line(result: subprocess.CompletedProcess) -> str:
+    """The most useful single line out of a failed subprocess."""
+    output = (result.stderr or "") + (result.stdout or "")
+    detail = output.strip().splitlines()
+    return detail[0] if detail else f"exit code {result.returncode}"
+
+
+def repoint_claude_code() -> list[str]:
+    """Replace a Claude Code entry that points at a different interpreter.
+
+    `claude mcp add` has no --force, so an existing entry is an error rather
+    than an update. This used to be reported back with the two commands needed
+    to fix it, which was the installer declining to finish its own job: it knows
+    the value that is there, it knows the one that should be, and the operator
+    consented by running `install`. Printing homework instead is the same "four
+    steps across two worlds" this command exists to remove.
+
+    Removing first is safe in a way a blind overwrite would not be, because the
+    old value is read and reported before anything changes.
+    """
+    current = claude_code_current_command()
+    wanted = client_command()[0]
+    if current == wanted:
+        return ["  Claude Code already points at this Python. Nothing to do."]
+
+    removal = claude_code_remove_argv()
+    result = subprocess.run(removal, capture_output=True, text=True)
+    if result.returncode != 0:
+        return [
+            f"  Claude Code has '{SERVER_NAME}' pointing at "
+            f"{current or '<could not read it>'},",
+            f"  and it could not be replaced: {_first_line(result)}",
+            f"  Remove it by hand, then re-run: {printable_argv(removal)}",
+        ]
+
+    argv = claude_code_add_argv()
+    result = subprocess.run(argv, capture_output=True, text=True)
+    if result.returncode != 0:
+        return [
+            f"  Removed the old '{SERVER_NAME}' entry, but re-registering "
+            f"failed: {_first_line(result)}",
+            f"  Finish it with: {printable_argv(argv)}",
+        ]
+
+    return [
+        f"  Repointed '{SERVER_NAME}' in Claude Code (user scope):",
+        f"      was: {current or '<could not read it>'}",
+        f"      now: {wanted}",
+    ]
+
+
 def install_claude_code(dry_run: bool) -> list[str]:
     """Register with Claude Code via its own CLI. Returns report lines."""
     argv = claude_code_add_argv()
-    printable = " ".join(f'"{part}"' if " " in part else part for part in argv)
+    printable = printable_argv(argv)
 
     if not claude_code_available():
         return [
@@ -305,30 +342,11 @@ def install_claude_code(dry_run: bool) -> list[str]:
         return [f"  Registered '{SERVER_NAME}' with Claude Code (user scope)."]
 
     output = (result.stderr or "") + (result.stdout or "")
-    detail = output.strip().splitlines()
-    first = detail[0] if detail else f"exit code {result.returncode}"
-
-    # `claude mcp add` has no --force, so re-running over an existing entry is
-    # an error rather than an update. That is not a problem when the entry is
-    # already correct, and reporting "failed" there sends people chasing a
-    # non-issue, so check what is actually registered before saying anything.
     if "already exists" in output.lower():
-        current = claude_code_current_command()
-        wanted = client_command()[0]
-        if current == wanted:
-            return ["  Claude Code already points at this Python. Nothing to do."]
-        return [
-            f"  Claude Code already has '{SERVER_NAME}', pointing at:",
-            f"      {current or '<could not read it>'}",
-            "  This install is:",
-            f"      {wanted}",
-            "  It cannot be updated in place, so repoint it with:",
-            f"      claude mcp remove {SERVER_NAME} -s user",
-            "      fxhoudinimcp install --client-only",
-        ]
+        return repoint_claude_code()
 
     return [
-        f"  Claude Code registration failed: {first}",
+        f"  Claude Code registration failed: {_first_line(result)}",
         f"  Run it yourself to see the whole error: {printable}",
     ]
 
@@ -341,7 +359,7 @@ def build_parser() -> argparse.ArgumentParser:
     compares the two.
     """
     parser = argparse.ArgumentParser(
-        prog="fxhoudinimcp install",
+        prog=f"{CLI} install",
         description="Install the Houdini plugin and register this server "
         "with your MCP client.",
     )
@@ -426,51 +444,19 @@ def _report_missing_directory(destination: Path) -> None:
     print("  Create it first, or pass a different --houdini-dir.", file=sys.stderr)
 
 
-def _choose_destinations(args) -> tuple[list[Path], str] | None:
-    """Work out where the package file goes. None means stop, non-zero exit."""
-    chosen, candidates, reason = resolve_houdini_dir(args.houdini_dir)
+def _install_plugin_half(args, plugin: Path) -> int:
+    """Write the Houdini package file. Returns an exit code."""
+    print("Houdini plugin")
 
-    if chosen is not None:
-        return [chosen], reason
-
-    if not candidates:
+    destinations, reason = resolve_houdini_dirs(args.houdini_dir)
+    if not destinations:
         print(f"  {reason.capitalize()}.")
         print(
             "  Create one inside your Houdini preferences directory, for "
             "example\n      Documents/houdini22.0/packages\n"
             "  then re-run this command."
         )
-        return None
-
-    if not stdin_is_interactive():
-        print(f"  Cannot choose for you: {reason}.")
-        for candidate in candidates:
-            print(f"      {candidate}")
-        print("\n  Re-run with the one your Houdini actually reads:")
-        print(f'      fxhoudinimcp install --houdini-dir "{candidates[0]}"')
-        print(
-            "\n  On Windows with OneDrive redirecting Documents, a "
-            "desktop-launched\n  Houdini and a shell-launched one can "
-            "disagree. Start Houdini with\n  HOUDINI_PACKAGE_VERBOSE=1 to "
-            "see which it reads."
-        )
-        return None
-
-    destinations = prompt_for_package_dirs(candidates)
-    if not destinations:
-        print("  Cancelled. Nothing was written.")
-        return None
-    return destinations, "chosen at the prompt"
-
-
-def _install_plugin_half(args, plugin: Path) -> int:
-    """Write the Houdini package file. Returns an exit code."""
-    print("Houdini plugin")
-
-    resolved = _choose_destinations(args)
-    if resolved is None:
         return 1
-    destinations, reason = resolved
 
     # Every destination is checked before any is written, so a typo in the
     # second one cannot leave the first half-installed. It also keeps --dry-run

@@ -30,6 +30,13 @@ from pathlib import Path
 
 PACKAGE_NAME = "fxhoudinimcp.json"
 
+# How to spell this tool in anything somebody might copy. The bare console
+# script resolves against PATH, which is the wrong interpreter as soon as there
+# is more than one Python. The README says to use the module form for exactly
+# that reason, so printing the bare form in our own messages contradicted our
+# own advice, in the place people are most likely to follow it: an error.
+CLI = "python -m fxhoudinimcp"
+
 
 def plugin_path() -> Path:
     """Absolute path to the Houdini plugin directory.
@@ -62,10 +69,17 @@ def package_json(path: Path | None = None) -> str:
 def candidate_package_dirs() -> list[Path]:
     """Plausible Houdini packages directories that already exist.
 
-    Only reports directories present on disk, and never picks one: on Windows
-    with OneDrive's Documents redirection, a desktop-launched Houdini and a
-    shell-launched one resolve different preference directories, and choosing
-    wrongly reproduces the silent no-op this command exists to prevent.
+    Only reports directories present on disk, and reports all of them rather
+    than picking. Picking was never the right shape: on Windows with OneDrive's
+    Documents redirection, a desktop-launched Houdini and a shell-launched one
+    resolve different preference directories, and there is no way to tell from
+    here which one will be read. ``install`` writes to every entry returned,
+    which makes the question moot rather than answered.
+
+    A directory only appears once it exists. A Houdini that has never been run,
+    or one whose ``packages`` directory has not been created, is invisible here,
+    and that is deliberate: creating it would mean guessing at a preference
+    directory Houdini may never read.
     """
     home = Path.home()
     roots: list[Path] = []
@@ -170,7 +184,7 @@ def write_package(destination: Path, path: Path | None = None) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="fxhoudinimcp houdini-package",
+        prog=f"{CLI} houdini-package",
         description="Print or write the Houdini package file for this install.",
     )
     parser.add_argument(
@@ -241,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    {candidate}")
         print(
             f"\nWrite it with:\n"
-            f"    fxhoudinimcp houdini-package --write \"{candidates[0]}\""
+            f"    {CLI} houdini-package --write \"{candidates[0]}\""
         )
     else:
         print(
