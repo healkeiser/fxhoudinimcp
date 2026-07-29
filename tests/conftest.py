@@ -29,3 +29,17 @@ def mock_ctx(mock_bridge):
     ctx = MagicMock()
     ctx.request_context.lifespan_context = {"bridge": mock_bridge}
     return ctx
+
+
+@pytest.fixture
+def process_bridge(mock_bridge, monkeypatch):
+    """Publish mock_bridge as the process bridge that resources read.
+
+    Resources stopped taking Context when mcp 2.0 refused to inject it into a
+    static resource, so they read fxhoudinimcp.server._bridge instead. Patching
+    the module attribute is what a running lifespan does.
+    """
+    import fxhoudinimcp.server as server
+
+    monkeypatch.setattr(server, "_bridge", mock_bridge)
+    return mock_bridge

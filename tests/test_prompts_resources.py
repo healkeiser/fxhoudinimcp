@@ -116,34 +116,34 @@ class TestSimulationDispatch:
 
 class TestResources:
     @pytest.mark.asyncio
-    async def test_scene_resources_delegate(self, mock_ctx, mock_bridge):
-        await scene_info(mock_ctx)
+    async def test_scene_resources_delegate(self, process_bridge, mock_bridge):
+        await scene_info()
         mock_bridge.execute.assert_called_with("scene.get_scene_info", {})
 
-        await node_info("obj/geo1", mock_ctx)
+        await node_info("obj/geo1")
         mock_bridge.execute.assert_called_with("nodes.get_node_info", {"node_path": "/obj/geo1"})
 
-        await scene_tree(mock_ctx)
+        await scene_tree()
         # "/" is a real node path; the old "all" value crashed the handler.
         mock_bridge.execute.assert_called_with("scene.get_context_info", {"context": "/"})
 
-        await scene_errors(mock_ctx)
+        await scene_errors()
         mock_bridge.execute.assert_called_with("viewport.find_error_nodes", {"root_path": "/"})
 
-        await node_types("Sop", mock_ctx)
+        await node_types("Sop")
         mock_bridge.execute.assert_called_with("nodes.list_node_types", {"context": "Sop"})
 
-        await installed_hdas(mock_ctx)
+        await installed_hdas()
         mock_bridge.execute.assert_called_with("hda.list_installed_hdas", {})
 
     @pytest.mark.asyncio
-    async def test_geo_and_usd_resources_delegate(self, mock_ctx, mock_bridge):
-        await geo_summary("obj/geo1/box1", mock_ctx)
+    async def test_geo_and_usd_resources_delegate(self, process_bridge, mock_bridge):
+        await geo_summary("obj/geo1/box1")
         command, params = mock_bridge.execute.call_args.args
         assert command == "geometry.get_geometry_info"
         assert params["node_path"].startswith("/")
 
-        await usd_stage("obj/lopnet1/sphere1", mock_ctx)
+        await usd_stage("obj/lopnet1/sphere1")
         command, params = mock_bridge.execute.call_args.args
         assert command == "lops.get_stage_info"
         assert params["node_path"].startswith("/")

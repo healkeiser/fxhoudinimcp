@@ -4,6 +4,7 @@ from __future__ import annotations
 
 # Third-party
 import pytest
+from support import tool_input_schema
 
 # Internal
 from fxhoudinimcp.errors import ConnectionError as HoudiniConnectionError
@@ -164,7 +165,7 @@ class TestCodeTools:
 
         tools = {t.name: t for t in await mcp.list_tools()}
         for tool_name in ("execute_python", "create_wrangle"):
-            schema = tools[tool_name].inputSchema
+            schema = tool_input_schema(tools[tool_name])
             assert "justification" in schema["required"], (
                 f"{tool_name} must require a justification"
             )

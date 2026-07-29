@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # Built-in
 # Third-party
-from mcp.server.fastmcp import Context
+from fxhoudinimcp._sdk import Context
 
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp

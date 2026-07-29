@@ -9,6 +9,7 @@ from __future__ import annotations
 
 # Third-party
 import pytest
+from support import tool_input_schema
 
 # Internal
 import fxhoudinimcp.tools  # noqa: F401  (registers all tools on import)
@@ -42,4 +43,4 @@ async def test_all_tool_schemas_are_typed():
     tools = await mcp.list_tools()
     assert tools, "no tools registered"
     for tool in tools:
-        _assert_typed(tool.inputSchema, tool.name)
+        _assert_typed(tool_input_schema(tool), tool.name)
