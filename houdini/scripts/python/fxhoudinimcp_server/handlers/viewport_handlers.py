@@ -159,6 +159,57 @@ def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
         )
 
 
+def _viewer_stage(scene_viewer):
+    """The USD stage a Solaris viewer is displaying, or None.
+
+    Tried in order because which of these is a LOP depends on what the user last
+    clicked: the current node, the network the viewer is in, and that network's
+    display node.
+    """
+    candidates = []
+    with contextlib.suppress(Exception):
+        candidates.append(scene_viewer.currentNode())
+    with contextlib.suppress(Exception):
+        candidates.append(scene_viewer.pwd())
+    with contextlib.suppress(Exception):
+        candidates.append(scene_viewer.pwd().displayNode())
+    for node in candidates:
+        if node is None or not hasattr(node, "stage"):
+            continue
+        with contextlib.suppress(Exception):
+            stage = node.stage()
+            if stage is not None:
+                return stage
+    return None
+
+
+def _camera_prims(stage, limit: int = 12) -> list[str]:
+    """Camera prim paths on a stage, for error messages worth reading."""
+    found: list[str] = []
+    with contextlib.suppress(Exception):
+        for prim in stage.Traverse():
+            if str(prim.GetTypeName()) == "Camera":
+                found.append(str(prim.GetPath()))
+                if len(found) >= limit:
+                    break
+    return found
+
+
+def _is_scene_graph_view(scene_viewer) -> bool:
+    """Whether Hydra delegates apply at all.
+
+    hydraRenderers() raises "Specified view is not a scene graph view" in an
+    object-level viewport, which is a different situation from a build that has
+    no such API, and reporting them the same way sent a caller looking for a
+    Houdini upgrade instead of a Solaris viewport.
+    """
+    try:
+        scene_viewer.hydraRenderers()
+    except Exception:
+        return False
+    return True
+
+
 ###### viewport.list_panes
 
 
@@ -226,6 +277,20 @@ def get_viewport_info(pane_name: str = None) -> dict:
     with contextlib.suppress(Exception):
         info["camera_path"] = viewport.cameraPath() or None
 
+    # cameraPath() is an echo of whatever was last set, and Houdini will happily
+    # echo a path that does not exist. Repeating it unchecked would make this tool
+    # a second source of the same false confidence, so resolve it: as a node, or
+    # as a prim on the viewer's stage.
+    if info["camera_path"]:
+        resolved = hou.node(info["camera_path"]) is not None
+        if not resolved:
+            stage = _viewer_stage(scene_viewer)
+            if stage is not None:
+                with contextlib.suppress(Exception):
+                    prim = stage.GetPrimAtPath(info["camera_path"])
+                    resolved = bool(prim and prim.IsValid())
+        info["camera_path_resolves"] = resolved
+
     # The active Hydra delegate. Nothing reported this before, so a viewport that
     # had silently reverted to GL looked identical to one rendering in Karma
     # until someone eyeballed a screenshot.
@@ -283,49 +348,67 @@ def set_viewport_camera(
     # found" for a path that is perfectly valid on the stage. A recorded session
     # lost nine execute_python calls to this and still shipped the wrong framing.
     cam_node = hou.node(camera_path)
-    attempts: list[str] = []
-    for label, apply in (
-        ("node", (lambda: viewport.setCamera(cam_node)) if cam_node else None),
-        # In a Solaris viewport setCamera also takes the prim path as a string.
-        ("prim path", lambda: viewport.setCamera(camera_path)),
-    ):
-        if apply is None:
-            continue
-        try:
-            apply()
-        except Exception as exc:  # noqa: BLE001 - both routes are best-effort
-            attempts.append(f"{label}: {type(exc).__name__}")
-            continue
-        attempts.append(f"{label}: no error")
-        break
+    if cam_node is not None:
+        viewport.setCamera(cam_node)
+        # camera() returns the node, so comparing it is real verification.
+        bound = None
+        with contextlib.suppress(Exception):
+            bound = viewport.camera()
+        if bound is None or bound.path() != cam_node.path():
+            raise RuntimeError(
+                f"Asked to look through '{camera_path}' but the viewport reports "
+                f"'{bound.path() if bound else None}'."
+            )
+        return {
+            "success": True,
+            "verified": True,
+            "camera_path": cam_node.path(),
+            "is_usd_prim": False,
+            "pane_name": scene_viewer.name(),
+            "viewport_name": viewport.name(),
+        }
 
-    # cameraPath() is the viewport's own answer, and the only thing worth
-    # reporting. setCamera can return without error and leave the viewport on
-    # free perspective, which is what made the old success flag meaningless.
-    active = None
-    with contextlib.suppress(Exception):
-        active = viewport.cameraPath() or None
-
-    wanted = camera_path.rstrip("/")
-    if active is None:
-        raise RuntimeError(
-            f"Could not confirm the viewport camera. Tried: {'; '.join(attempts) or 'nothing'}. "
-            f"This Houdini exposes no cameraPath() readback."
+    # A USD camera prim is not a hou.node, so resolving through hou.node() alone
+    # made every Solaris shot unframeable. But cameraPath() cannot verify the
+    # result either: it is a pure echo, and setCamera("/cameras/does_not_exist")
+    # returns without error and leaves cameraPath() reporting that exact
+    # nonexistent path. Verification has to be a stage lookup.
+    stage = _viewer_stage(scene_viewer)
+    if stage is None:
+        raise ValueError(
+            f"'{camera_path}' is not a node, and this viewport has no USD stage "
+            f"to look it up on. A Solaris camera prim requires the viewer to be "
+            f"in a LOP network."
         )
-    if active.rstrip("/") != wanted:
+    prim = stage.GetPrimAtPath(camera_path)
+    if prim is None or not prim.IsValid():
+        cameras = _camera_prims(stage)
+        raise ValueError(
+            f"No prim at '{camera_path}' on this stage."
+            + (f" Camera prims present: {cameras}" if cameras else " The stage has no cameras.")
+        )
+    type_name = str(prim.GetTypeName())
+    if type_name != "Camera":
+        raise ValueError(
+            f"'{camera_path}' is a {type_name or 'typeless'} prim, not a Camera. "
+            f"Camera prims present: {_camera_prims(stage)}"
+        )
+
+    viewport.setCamera(camera_path)
+    echoed = None
+    with contextlib.suppress(Exception):
+        echoed = viewport.cameraPath() or None
+    if echoed is not None and echoed.rstrip("/") != camera_path.rstrip("/"):
         raise RuntimeError(
-            f"Asked to look through '{camera_path}' but the viewport is on "
-            f"'{active}'. Tried: {'; '.join(attempts)}. In Solaris the camera "
-            f"must be a prim on the current stage, and the viewer must be in the "
-            f"Solaris context."
+            f"Asked to look through '{camera_path}' but the viewport is on '{echoed}'."
         )
 
     return {
         "success": True,
         "verified": True,
-        "camera_path": active,
-        "is_usd_prim": cam_node is None,
-        "attempts": attempts,
+        "camera_path": camera_path,
+        "is_usd_prim": True,
+        "prim_type": type_name,
         "pane_name": scene_viewer.name(),
         "viewport_name": viewport.name(),
     }
@@ -498,7 +581,16 @@ def set_viewport_renderer(
     # whether a setter worked.
     applied = active is not None and active.lower() == matched_name.lower()
     if not applied and active is None:
-        # No readback on this build, so honesty means saying the state is unknown
+        if not _is_scene_graph_view(scene_viewer):
+            # Not a missing API: Hydra delegates only exist for a scene graph
+            # view, so this request is meaningless in an object-level viewport
+            # and saying "unverifiable" would hide a real mistake.
+            raise ValueError(
+                "This viewport is not a scene graph view, so it has no Hydra "
+                "delegate to set. Hydra renderers (Karma, Storm) apply to a "
+                "Solaris viewport: put the viewer in a LOP network first."
+            )
+        # A scene graph view with no readback: state genuinely unknown, so say so
         # rather than claiming the requested renderer is live.
         return {
             "success": True,
