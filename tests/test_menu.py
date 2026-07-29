@@ -129,8 +129,7 @@ def test_connect_dialog_recommends_the_self_correcting_command():
     assert dialog["clipboard"] == "python -m fxhoudinimcp install --client-only"
     assert "claude mcp add" not in dialog["clipboard"]
     assert "claude mcp add" in dialog["details"], (
-        "the manual route should still be documented, just not handed over "
-        "ready to paste"
+        "the manual route should still be documented, just not handed over ready to paste"
     )
 
 
@@ -208,13 +207,7 @@ def test_startup_calls_exist_on_the_real_module():
     Houdini side of the repo and is not importable here without hou. So the
     module is parsed rather than imported, and the calls are compared by name.
     """
-    startup = (
-        _MENU.parent
-        / "scripts"
-        / "python"
-        / "fxhoudinimcp_server"
-        / "startup.py"
-    )
+    startup = _MENU.parent / "scripts" / "python" / "fxhoudinimcp_server" / "startup.py"
     defined = {
         node.name
         for node in ast.parse(startup.read_text(encoding="utf-8")).body

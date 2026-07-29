@@ -102,5 +102,6 @@ class TestSerializeResult:
         class Foo:
             def __str__(self):
                 return "I am Foo"
+
         result = _serialize_result(Foo())
         assert result == "I am Foo"

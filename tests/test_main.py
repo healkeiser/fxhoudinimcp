@@ -48,9 +48,7 @@ def test_no_arguments_runs_the_server_on_stdio(monkeypatch):
     from fxhoudinimcp import server
 
     started: dict[str, str] = {}
-    monkeypatch.setattr(
-        server.mcp, "run", lambda transport: started.update(transport=transport)
-    )
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.update(transport=transport))
     monkeypatch.setattr(sys, "argv", ["fxhoudinimcp"])
 
     entry.main()
@@ -63,9 +61,7 @@ def test_transport_is_still_overridable(monkeypatch):
     from fxhoudinimcp import server
 
     started: dict[str, str] = {}
-    monkeypatch.setattr(
-        server.mcp, "run", lambda transport: started.update(transport=transport)
-    )
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.update(transport=transport))
     monkeypatch.setattr(sys, "argv", ["fxhoudinimcp"])
     monkeypatch.setenv("MCP_TRANSPORT", "sse")
 
@@ -155,9 +151,7 @@ def test_version_is_not_the_placeholder():
 
 
 @pytest.mark.parametrize("command", sorted(entry.SUBCOMMANDS))
-def test_subcommand_is_dispatched_with_its_own_arguments(
-    monkeypatch, command: str
-) -> None:
+def test_subcommand_is_dispatched_with_its_own_arguments(monkeypatch, command: str) -> None:
     """Everything after the subcommand belongs to the subcommand, untouched."""
     seen: dict[str, list[str]] = {}
     _, summary = entry.SUBCOMMANDS[command]

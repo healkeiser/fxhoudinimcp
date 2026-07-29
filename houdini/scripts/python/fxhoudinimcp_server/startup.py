@@ -38,9 +38,7 @@ def _health_url(port: int) -> str:
 
 
 def _health_body() -> bytes:
-    return urllib.parse.urlencode(
-        {"json": json.dumps(["mcp.health", [], {}])}
-    ).encode("utf-8")
+    return urllib.parse.urlencode({"json": json.dumps(["mcp.health", [], {}])}).encode("utf-8")
 
 
 def _query_health(port: int, timeout: float = 0.5) -> dict | None:
@@ -186,17 +184,18 @@ def start(
         )
 
     # Import handlers to trigger registration via register_handler() calls
-    from fxhoudinimcp_server import handlers  # noqa: F401
-
-    # Import hwebserver_app to register the API functions
-    from fxhoudinimcp_server import hwebserver_app  # noqa: F401
-
     # Start hwebserver if not already running. In Houdini 20.5+ it may already
     # be running for built-in features; in that case registering the functions
     # above is enough. Either way, prove the HTTP endpoint is reachable before
     # advertising readiness.
     import hou
     import hwebserver
+
+    # Import hwebserver_app to register the API functions
+    from fxhoudinimcp_server import (
+        handlers,  # noqa: F401
+        hwebserver_app,  # noqa: F401
+    )
 
     if background is None:
         # hwebserver.run() already defaults in_background to isUIAvailable(),
@@ -219,9 +218,7 @@ def start(
         # reaching this point means it either finished or never started.
         _server_started = False
         if run_error is not None:
-            raise RuntimeError(
-                f"hwebserver failed to start on port {_port}: {run_error}"
-            )
+            raise RuntimeError(f"hwebserver failed to start on port {_port}: {run_error}")
         return
 
     if wait:
@@ -233,9 +230,7 @@ def start(
     # os.getpid(), never hou.*, which is safe off the main thread and is exactly
     # why mcp.health had to become HOM-free.
     _starting = True
-    worker = threading.Thread(
-        target=_confirm_ready_async, args=(run_error,), daemon=True
-    )
+    worker = threading.Thread(target=_confirm_ready_async, args=(run_error,), daemon=True)
     try:
         worker.start()
     except Exception:
@@ -255,22 +250,19 @@ def _confirm_ready(run_error: Exception | None) -> None:
     if health is None:
         _server_started = False
         detail = f": {run_error}" if run_error is not None else ""
-        raise RuntimeError(
-            f"hwebserver did not answer mcp.health on port {_port}{detail}"
-        )
+        raise RuntimeError(f"hwebserver did not answer mcp.health on port {_port}{detail}")
 
     health_pid = health.get("pid")
     if health_pid != os.getpid():
         _server_started = False
         raise RuntimeError(
-            "hwebserver port {} is owned by another Houdini process "
-            "(pid {}), current pid {}".format(_port, health_pid, os.getpid())
+            f"hwebserver port {_port} is owned by another Houdini process "
+            f"(pid {health_pid}), current pid {os.getpid()}"
         )
 
     _server_started = True
     print(
-        "[fxhoudinimcp] Server ready on port {} "
-        "(Houdini {}, pid {})".format(
+        "[fxhoudinimcp] Server ready on port {} (Houdini {}, pid {})".format(
             _port,
             health.get("houdini_version", "unknown"),
             health.get("pid", "unknown"),

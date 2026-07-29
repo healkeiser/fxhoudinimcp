@@ -15,7 +15,7 @@ from mcp.server.fastmcp import Context
 from mcp.types import ImageContent, TextContent
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 from fxhoudinimcp.tools import result_with_image
 
 

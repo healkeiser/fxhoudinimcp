@@ -7,13 +7,11 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -23,7 +21,7 @@ async def create_wrangle(
     vex_code: str,
     justification: str,
     run_over: str = "Points",
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> dict:
     """Create an Attribute Wrangle node with VEX code.
 
@@ -90,9 +88,7 @@ async def get_wrangle_code(ctx: Context, node_path: str) -> dict:
         node_path: Path to the wrangle node.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "vex.get_wrangle_code", {"node_path": node_path}
-    )
+    return await bridge.execute("vex.get_wrangle_code", {"node_path": node_path})
 
 
 @mcp.tool()

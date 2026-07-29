@@ -29,7 +29,7 @@ class TestSceneTools:
     @pytest.mark.asyncio
     async def test_new_scene(self, mock_ctx, mock_bridge):
         mock_bridge.execute.return_value = {"created": True}
-        result = await new_scene(mock_ctx, save_current=True)
+        await new_scene(mock_ctx, save_current=True)
         mock_bridge.execute.assert_called_once_with("scene.new_scene", {"save_current": True})
 
     @pytest.mark.asyncio
@@ -65,9 +65,7 @@ class TestSceneTools:
         assert result["health"]["pid"] == 123
 
     @pytest.mark.asyncio
-    async def test_connection_status_survives_scene_lookup_failure(
-        self, mock_ctx, mock_bridge
-    ):
+    async def test_connection_status_survives_scene_lookup_failure(self, mock_ctx, mock_bridge):
         """A busy or wedged Houdini must not stop this reporting connected."""
         mock_bridge.base_url = "http://localhost:8100"
         mock_bridge.health_check.return_value = {"status": "ok", "pid": 123}
@@ -110,7 +108,7 @@ class TestNodeTools:
     @pytest.mark.asyncio
     async def test_create_node_required_params(self, mock_ctx, mock_bridge):
         mock_bridge.execute.return_value = {"path": "/obj/geo1/box1"}
-        result = await create_node(mock_ctx, parent_path="/obj/geo1", node_type="box")
+        await create_node(mock_ctx, parent_path="/obj/geo1", node_type="box")
         mock_bridge.execute.assert_called_once_with(
             "nodes.create_node",
             {"parent_path": "/obj/geo1", "node_type": "box"},

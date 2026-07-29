@@ -7,19 +7,17 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
 async def list_installed_hdas(
     ctx: Context,
-    filter: Optional[str] = None,
+    filter: str | None = None,
 ) -> dict:
     """List all installed HDA files and their definitions.
 
@@ -37,9 +35,9 @@ async def list_installed_hdas(
 @mcp.tool()
 async def get_hda_info(
     ctx: Context,
-    node_path: Optional[str] = None,
-    hda_file: Optional[str] = None,
-    type_name: Optional[str] = None,
+    node_path: str | None = None,
+    hda_file: str | None = None,
+    type_name: str | None = None,
 ) -> dict:
     """Get detailed information about an HDA definition.
 
@@ -160,9 +158,7 @@ async def get_hda_sections(ctx: Context, node_path: str) -> dict:
         node_path: Node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "hda.get_hda_sections", {"node_path": node_path}
-    )
+    return await bridge.execute("hda.get_hda_sections", {"node_path": node_path})
 
 
 @mcp.tool()

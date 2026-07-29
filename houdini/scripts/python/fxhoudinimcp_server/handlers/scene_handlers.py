@@ -16,8 +16,8 @@ import hou
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Helpers
+
 
 def _focus_network_editor(node: hou.Node) -> None:
     """Best-effort: layout the parent network, then pan the editor to *node*."""
@@ -37,6 +37,7 @@ def _focus_network_editor(node: hou.Node) -> None:
 
 
 ###### scene.get_scene_info
+
 
 def get_scene_info() -> dict:
     """Return comprehensive information about the current Houdini scene."""
@@ -71,6 +72,7 @@ def get_scene_info() -> dict:
 
 ###### scene.new_scene
 
+
 def new_scene(save_current: bool = False) -> dict:
     """Create a new empty Houdini scene.
 
@@ -91,6 +93,7 @@ def new_scene(save_current: bool = False) -> dict:
 
 ###### scene.save_scene
 
+
 def save_scene(file_path: str = None) -> dict:
     """Save the current Houdini scene.
 
@@ -109,6 +112,7 @@ def save_scene(file_path: str = None) -> dict:
 
 
 ###### scene.load_scene
+
 
 def load_scene(file_path: str, merge: bool = False) -> dict:
     """Open or merge a hip file.
@@ -135,6 +139,7 @@ def load_scene(file_path: str, merge: bool = False) -> dict:
 
 
 ###### scene.import_file
+
 
 def import_file(
     file_path: str,
@@ -218,6 +223,7 @@ def import_file(
 
 
 ###### scene.export_file
+
 
 def export_file(
     node_path: str,
@@ -309,6 +315,7 @@ def export_file(
 
 
 ###### scene.get_context_info
+
 
 def get_context_info(context: str) -> dict:
     """Return detailed information about a network context.

@@ -16,9 +16,9 @@ pytestmark = pytest.mark.integration
 
 class TestBuildSopChain:
     def test_chain_is_wired_in_order_with_params(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         data = call(
             "workflow.build_sop_chain",
             parent_path=geo,
@@ -39,9 +39,9 @@ class TestBuildSopChain:
         assert nodes[2].parm("npts").eval() == 123
 
     def test_unknown_step_type_does_not_claim_success(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         result = call(
             "workflow.build_sop_chain",
             parent_path=geo,
@@ -64,9 +64,7 @@ class TestCreateMaterial:
         )
         shader = hou.node(data["material_path"])
         assert shader is not None
-        basecolor = [
-            shader.parm("basecolor" + c).eval() for c in ("r", "g", "b")
-        ]
+        basecolor = [shader.parm("basecolor" + c).eval() for c in ("r", "g", "b")]
         assert basecolor == pytest.approx([0.1, 0.2, 0.3])
         assert shader.parm("rough").eval() == pytest.approx(0.7)
         assert shader.parm("metallic").eval() == pytest.approx(1.0)
@@ -77,9 +75,9 @@ class TestCreateMaterial:
         )
 
     def test_assign_material_sets_material_sop(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=geo, node_type="box")
         mat = call("workflow.create_material", name="assign_mat")
         data = call(
@@ -88,21 +86,16 @@ class TestCreateMaterial:
             material_path=mat["material_path"],
         )
         flat = str(data)
-        material_sops = [
-            c for c in hou.node(geo).children() if c.type().name() == "material"
-        ]
+        material_sops = [c for c in hou.node(geo).children() if c.type().name() == "material"]
         assert material_sops, f"no Material SOP created: {flat}"
-        assert (
-            material_sops[0].parm("shop_materialpath1").eval()
-            == mat["material_path"]
-        )
+        assert material_sops[0].parm("shop_materialpath1").eval() == mat["material_path"]
 
 
 class TestSimSetups:
     def test_setup_pyro_sim_claimed_nodes_exist(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         sphere = call("nodes.create_node", parent_path=geo, node_type="sphere")
         data = call("workflow.setup_pyro_sim", source_geo=sphere["node_path"])
         assert data["success"] is True
@@ -110,9 +103,9 @@ class TestSimSetups:
             assert hou.node(path) is not None, f"claimed node missing: {path}"
 
     def test_setup_rbd_sim_actually_simulates(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         box = call("nodes.create_node", parent_path=geo, node_type="box")["node_path"]
         call("parameters.set_parameter", node_path=box, parm_name="ty", value=3.0)
         data = call("workflow.setup_rbd_sim", geo_path=geo)
@@ -130,9 +123,7 @@ class TestSimSetups:
         start_y = start_geo.boundingBox().center()[1]
         hou.setFrame(12)
         end_y = display.geometry().boundingBox().center()[1]
-        assert end_y < start_y - 0.3, (
-            f"RBD pieces did not fall: y {start_y:.2f} -> {end_y:.2f}"
-        )
+        assert end_y < start_y - 0.3, f"RBD pieces did not fall: y {start_y:.2f} -> {end_y:.2f}"
 
 
 class TestSetupRender:
@@ -155,6 +146,5 @@ class TestSetupRender:
                 if parm is not None:
                     applied.append(parm.eval())
         assert 640 in applied, (
-            f"resolution [640, 480] claimed in result but not found on "
-            f"ROP or camera: {data}"
+            f"resolution [640, 480] claimed in result but not found on ROP or camera: {data}"
         )

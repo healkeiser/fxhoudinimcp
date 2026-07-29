@@ -32,9 +32,9 @@ class TestHdaAuthoringScenario:
     """User: 'Package this setup into a reusable asset and use it again.'"""
 
     def test_create_hda_and_reinstance_it(self, call, tmp_path):
-        subnet = call(
-            "nodes.create_node", parent_path="/obj", node_type="subnet", name="rock"
-        )["node_path"]
+        subnet = call("nodes.create_node", parent_path="/obj", node_type="subnet", name="rock")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=subnet, node_type="geo", name="inner")
 
         hda_file = str(tmp_path / "rock_asset.hda").replace("\\", "/")
@@ -73,14 +73,14 @@ class TestSolarisSceneScenario:
 
     def test_full_usd_scene_assembly(self, call):
         # SOP asset to bring in
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="hero"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="hero")[
+            "node_path"
+        ]
         call("nodes.create_node", parent_path=geo, node_type="testgeometry_pighead")
 
-        lopnet = call(
-            "nodes.create_node", parent_path="/obj", node_type="lopnet", name="assembly"
-        )["node_path"]
+        lopnet = call("nodes.create_node", parent_path="/obj", node_type="lopnet", name="assembly")[
+            "node_path"
+        ]
 
         # 1. Import the SOP geometry onto the stage. The import root is
         # the pathprefix parm (primpath is unrelated on sopimport).
@@ -141,9 +141,7 @@ class TestSolarisSceneScenario:
         )
 
         # 4. Lights and camera
-        light = call(
-            "lops.create_light", parent_path=lopnet, light_type="dome", intensity=2.5
-        )
+        light = call("lops.create_light", parent_path=lopnet, light_type="dome", intensity=2.5)
         light_node = light["node_path"]
         call("nodes.connect_nodes", source_path=assign, dest_path=light_node)
         camera = call(
@@ -159,9 +157,7 @@ class TestSolarisSceneScenario:
         settings = call(
             "lops.create_lop_node",
             parent_path=lopnet,
-            lop_type=_first_available_lop(
-                "karmarendersettings", "karmarenderproperties"
-            ),
+            lop_type=_first_available_lop("karmarendersettings", "karmarenderproperties"),
             name="karma",
         )["node_path"]
         call("nodes.connect_nodes", source_path=camera, dest_path=settings)
@@ -175,9 +171,7 @@ class TestSolarisSceneScenario:
         materials = call("lops.get_usd_materials", node_path=settings)
         assert "clay" in str(materials)
 
-        hero = call(
-            "lops.get_usd_prim", node_path=settings, prim_path="/geo/hero"
-        )
+        hero = call("lops.get_usd_prim", node_path=settings, prim_path="/geo/hero")
         assert hero, hero
 
         # The dome light exists with the intensity actually applied.
@@ -200,9 +194,9 @@ class TestLightRigScenario:
     """User: 'Give me a three-point light rig.'"""
 
     def test_rig_lights_are_chained_and_configured(self, call):
-        lopnet = call(
-            "nodes.create_node", parent_path="/obj", node_type="lopnet", name="rig"
-        )["node_path"]
+        lopnet = call("nodes.create_node", parent_path="/obj", node_type="lopnet", name="rig")[
+            "node_path"
+        ]
         rig = call(
             "lops.create_light_rig",
             parent_path=lopnet,

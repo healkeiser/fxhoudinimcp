@@ -15,8 +15,8 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### takes.list_takes
+
 
 def _list_takes(**_: Any) -> dict[str, Any]:
     """List all takes in the scene with their hierarchy.
@@ -33,12 +33,14 @@ def _list_takes(**_: Any) -> dict[str, Any]:
         parent_name = parent.name() if parent else None
         children = take.children()
 
-        takes_list.append({
-            "name": take.name(),
-            "is_current": take.name() == current_name,
-            "parent": parent_name,
-            "children": [c.name() for c in children],
-        })
+        takes_list.append(
+            {
+                "name": take.name(),
+                "is_current": take.name() == current_name,
+                "parent": parent_name,
+                "children": [c.name() for c in children],
+            }
+        )
 
     return {
         "count": len(takes_list),
@@ -46,10 +48,12 @@ def _list_takes(**_: Any) -> dict[str, Any]:
         "current_take": current_name,
     }
 
+
 register_handler("takes.list_takes", _list_takes)
 
 
 ###### takes.get_current_take
+
 
 def _get_current_take(**_: Any) -> dict[str, Any]:
     """Get the current take and list its overridden parameters.
@@ -75,21 +79,25 @@ def _get_current_take(**_: Any) -> dict[str, Any]:
                 val = parm.eval()
             except Exception:
                 val = None
-            overridden_parms.append({
-                "node_path": node.path(),
-                "parm_name": parm.name(),
-                "value": val,
-            })
+            overridden_parms.append(
+                {
+                    "node_path": node.path(),
+                    "parm_name": parm.name(),
+                    "value": val,
+                }
+            )
 
     return {
         "name": take_name,
         "overridden_parms": overridden_parms,
     }
 
+
 register_handler("takes.get_current_take", _get_current_take)
 
 
 ###### takes.set_current_take
+
 
 def _set_current_take(*, name: str, **_: Any) -> dict[str, Any]:
     """Set the current take by name.
@@ -105,10 +113,7 @@ def _set_current_take(*, name: str, **_: Any) -> dict[str, Any]:
 
     if target_take is None:
         available = [t.name() for t in hou.takes.takes()]
-        raise ValueError(
-            f"Take not found: '{name}'. "
-            f"Available takes: {available}"
-        )
+        raise ValueError(f"Take not found: '{name}'. Available takes: {available}")
 
     hou.takes.setCurrentTake(target_take)
 
@@ -117,10 +122,12 @@ def _set_current_take(*, name: str, **_: Any) -> dict[str, Any]:
         "success": True,
     }
 
+
 register_handler("takes.set_current_take", _set_current_take)
 
 
 ###### takes.create_take
+
 
 def _create_take(
     *,
@@ -148,8 +155,7 @@ def _create_take(
         if parent_take is None:
             available = [t.name() for t in hou.takes.takes()]
             raise ValueError(
-                f"Parent take not found: '{parent_name}'. "
-                f"Available takes: {available}"
+                f"Parent take not found: '{parent_name}'. Available takes: {available}"
             )
 
         hou.takes.setCurrentTake(parent_take)
@@ -165,5 +171,6 @@ def _create_take(
         "name": new_take.name(),
         "parent": actual_parent_name,
     }
+
 
 register_handler("takes.create_take", _create_take)

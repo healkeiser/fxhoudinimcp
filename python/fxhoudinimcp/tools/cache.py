@@ -7,13 +7,13 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Any, Optional
+from typing import Any
 
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -57,7 +57,7 @@ async def get_cache_status(ctx: Context, node_path: str) -> dict:
 async def clear_cache(
     ctx: Context,
     node_path: str,
-    frame_range: Optional[list[int]] = None,
+    frame_range: list[int] | None = None,
 ) -> dict:
     """Delete cached files on disk for a cache node.
 
@@ -77,7 +77,7 @@ async def clear_cache(
 async def write_cache(
     ctx: Context,
     node_path: str,
-    frame_range: Optional[list[int]] = None,
+    frame_range: list[int] | None = None,
 ) -> dict:
     """Execute a cache node to write files to disk.
 

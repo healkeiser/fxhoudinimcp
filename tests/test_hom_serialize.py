@@ -20,6 +20,7 @@ import pytest
 
 ###### Fake HOM
 
+
 class _FakeVector(tuple):
     """Stands in for hou.Vector2/3/4: a fixed-length iterable of floats."""
 
@@ -155,10 +156,9 @@ def serialize():
 
 ###### JSON-native passthrough
 
+
 class TestPassthrough:
-    @pytest.mark.parametrize(
-        "value", [None, True, False, 0, -3, 1.5, "", "text"]
-    )
+    @pytest.mark.parametrize("value", [None, True, False, 0, -3, 1.5, "", "text"])
     def test_native_values_unchanged(self, serialize, value):
         assert serialize.to_jsonable(value) == value
 
@@ -173,6 +173,7 @@ class TestPassthrough:
 
 
 ###### Containers
+
 
 class TestContainers:
     def test_dict_keys_coerced_to_str(self, serialize):
@@ -204,6 +205,7 @@ class TestContainers:
 
 ###### HOM types
 
+
 class TestHomTypes:
     def test_vector_becomes_list(self, serialize):
         assert serialize.to_jsonable(_FakeVector((1.0, 2.0, 3.0))) == [1.0, 2.0, 3.0]
@@ -222,9 +224,7 @@ class TestHomTypes:
         assert serialize.to_jsonable(_FakeParm("/obj/geo1/tx")) == "/obj/geo1/tx"
 
     def test_geometry_becomes_counts(self, serialize):
-        geo = _FakeGeometry(
-            {"pointcount": 8, "primitivecount": 6, "vertexcount": 24}
-        )
+        geo = _FakeGeometry({"pointcount": 8, "primitivecount": 6, "vertexcount": 24})
         assert serialize.to_jsonable(geo) == {
             "type": "Geometry",
             "point_count": 8,
@@ -238,11 +238,10 @@ class TestHomTypes:
 
 ###### Ramps -- the actual subject of issue #15
 
+
 class TestRamp:
     def test_float_ramp_is_structured(self, serialize):
-        ramp = _FakeRamp(
-            keys=(0.0, 1.0), values=(0.25, 0.75), basis=("BSpline", "Linear")
-        )
+        ramp = _FakeRamp(keys=(0.0, 1.0), values=(0.25, 0.75), basis=("BSpline", "Linear"))
         assert serialize.to_jsonable(ramp) == {
             "type": "Ramp",
             "is_color": False,
@@ -268,6 +267,7 @@ class TestRamp:
 
 
 ###### Degradation
+
 
 class TestDegradation:
     def test_unknown_object_becomes_repr(self, serialize):
@@ -299,6 +299,7 @@ class TestDegradation:
 
 ###### The json.dumps hook
 
+
 class TestJsonDefault:
     def test_hook_makes_dumps_succeed(self, serialize):
         payload = {
@@ -319,6 +320,7 @@ class TestJsonDefault:
 
 
 ###### Defensive type resolution
+
 
 class TestTypeResolution:
     def test_missing_hou_classes_are_skipped(self, serialize):

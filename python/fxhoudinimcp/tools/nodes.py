@@ -7,14 +7,14 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Any, Optional
+from typing import Any
 
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
 from fxhoudinimcp.config import auto_layout_enabled
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -22,8 +22,8 @@ async def create_node(
     ctx: Context,
     parent_path: str,
     node_type: str,
-    name: Optional[str] = None,
-    position: Optional[list[float]] = None,
+    name: str | None = None,
+    position: list[float] | None = None,
 ) -> dict:
     """Create a node inside a parent network.
 
@@ -87,8 +87,8 @@ async def rename_node(ctx: Context, node_path: str, new_name: str) -> dict:
 async def copy_node(
     ctx: Context,
     node_path: str,
-    dest_parent: Optional[str] = None,
-    new_name: Optional[str] = None,
+    dest_parent: str | None = None,
+    new_name: str | None = None,
 ) -> dict:
     """Copy a node, optionally into a different parent network.
 
@@ -146,7 +146,7 @@ async def list_children(
     ctx: Context,
     parent_path: str,
     recursive: bool = False,
-    filter_type: Optional[str] = None,
+    filter_type: str | None = None,
 ) -> dict:
     """List children of a network node.
 
@@ -172,9 +172,9 @@ async def list_children(
 @mcp.tool()
 async def find_nodes(
     ctx: Context,
-    pattern: Optional[str] = None,
-    node_type: Optional[str] = None,
-    context: Optional[str] = None,
+    pattern: str | None = None,
+    node_type: str | None = None,
+    context: str | None = None,
     inside: str = "/",
 ) -> dict:
     """Search for nodes by name pattern, type, or context.
@@ -281,7 +281,7 @@ async def connect_nodes_batch(
 async def disconnect_node(
     ctx: Context,
     node_path: str,
-    input_index: Optional[int] = None,
+    input_index: int | None = None,
     disconnect_all: bool = False,
 ) -> dict:
     """Disconnect one or all inputs of a node.
@@ -300,9 +300,7 @@ async def disconnect_node(
 
 
 @mcp.tool()
-async def reorder_inputs(
-    ctx: Context, node_path: str, new_order: list[int]
-) -> dict:
+async def reorder_inputs(ctx: Context, node_path: str, new_order: list[int]) -> dict:
     """Reorder the input connections of a node.
 
     Args:
@@ -324,11 +322,11 @@ async def reorder_inputs(
 async def set_node_flags(
     ctx: Context,
     node_path: str,
-    display: Optional[bool] = None,
-    render: Optional[bool] = None,
-    bypass: Optional[bool] = None,
-    template: Optional[bool] = None,
-    lock: Optional[bool] = None,
+    display: bool | None = None,
+    render: bool | None = None,
+    bypass: bool | None = None,
+    template: bool | None = None,
+    lock: bool | None = None,
 ) -> dict:
     """Set flags on a node.
 
@@ -360,7 +358,7 @@ async def set_node_flags(
 async def layout_children(
     ctx: Context,
     parent_path: str,
-    spacing: Optional[float] = None,
+    spacing: float | None = None,
 ) -> dict:
     """Auto-layout children of a network node.
 
@@ -387,9 +385,7 @@ async def layout_children(
 
 
 @mcp.tool()
-async def set_node_position(
-    ctx: Context, node_path: str, x: float, y: float
-) -> dict:
+async def set_node_position(ctx: Context, node_path: str, x: float, y: float) -> dict:
     """Set a node's position in the network editor.
 
     Args:

@@ -7,6 +7,8 @@ and detailed error analysis.
 
 from __future__ import annotations
 
+import contextlib
+
 # Built-in
 from typing import Any
 
@@ -16,7 +18,6 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Module-level state
 
 # Snapshot storage for compare_snapshots
@@ -24,6 +25,7 @@ _snapshots: dict[str, dict] = {}
 
 
 ###### Helpers
+
 
 def _get_node(node_path: str) -> hou.Node:
     """Resolve a node path and raise a clear error if it does not exist."""
@@ -36,18 +38,12 @@ def _get_node(node_path: str) -> hou.Node:
 def _node_flags(node: hou.Node) -> dict[str, bool]:
     """Safely read common flags from a node."""
     flags: dict[str, bool] = {}
-    try:
+    with contextlib.suppress(Exception):
         flags["display"] = node.isDisplayFlagSet()
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         flags["render"] = node.isRenderFlagSet()
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         flags["bypass"] = node.isBypassed()
-    except Exception:
-        pass
     return flags
 
 
@@ -85,6 +81,7 @@ def _non_default_parms(node: hou.Node) -> dict[str, Any]:
 
 
 ###### context.get_network_overview
+
 
 def _get_network_overview(
     path: str = "/obj",
@@ -125,16 +122,20 @@ def _get_network_overview(
         for child in children:
             for input_idx, source in enumerate(child.inputs()):
                 if source is not None:
-                    connections.append({
-                        "from": source.name(),
-                        "from_output": 0,
-                        "to": child.name(),
-                        "to_input": input_idx,
-                    })
+                    connections.append(
+                        {
+                            "from": source.name(),
+                            "from_output": 0,
+                            "to": child.name(),
+                            "to_input": input_idx,
+                        }
+                    )
                     # Try to find actual output index
                     for out_conn in source.outputConnections():
-                        if (out_conn.inputNode().path() == child.path()
-                                and out_conn.inputIndex() == input_idx):
+                        if (
+                            out_conn.inputNode().path() == child.path()
+                            and out_conn.inputIndex() == input_idx
+                        ):
                             connections[-1]["from_output"] = out_conn.outputIndex()
                             break
 
@@ -157,7 +158,8 @@ def _get_network_overview(
             for child in children:
                 if child.children():
                     child_networks[child.name()] = _build_overview(
-                        child, remaining_depth - 1,
+                        child,
+                        remaining_depth - 1,
                     )
             if child_networks:
                 result["child_networks"] = child_networks
@@ -237,6 +239,7 @@ def _get_network_overview(
 
 ###### context.get_cook_chain
 
+
 def _get_cook_chain(node_path: str, **_: Any) -> dict:
     """Trace the cook dependency chain from sources to the target node.
 
@@ -264,12 +267,14 @@ def _get_cook_chain(node_path: str, **_: Any) -> dict:
             cook_time = node.cookTime()
         except Exception:
             cook_time = None
-        chain.append({
-            "path": node.path(),
-            "type": node.type().name(),
-            "cook_time": cook_time,
-            "has_errors": _has_errors(node),
-        })
+        chain.append(
+            {
+                "path": node.path(),
+                "type": node.type().name(),
+                "cook_time": cook_time,
+                "has_errors": _has_errors(node),
+            }
+        )
 
     _walk(target)
 
@@ -281,6 +286,7 @@ def _get_cook_chain(node_path: str, **_: Any) -> dict:
 
 
 ###### context.explain_node
+
 
 def _explain_node(node_path: str, **_: Any) -> dict:
     """Return a human-readable explanation of a node.
@@ -306,33 +312,33 @@ def _explain_node(node_path: str, **_: Any) -> dict:
     inputs = []
     for i, inp in enumerate(node.inputs()):
         if inp is not None:
-            inputs.append({
-                "index": i,
-                "path": inp.path(),
-                "name": inp.name(),
-                "type": inp.type().name(),
-            })
+            inputs.append(
+                {
+                    "index": i,
+                    "path": inp.path(),
+                    "name": inp.name(),
+                    "type": inp.type().name(),
+                }
+            )
 
     # Output connections
     outputs = []
     for out in node.outputs():
-        outputs.append({
-            "path": out.path(),
-            "name": out.name(),
-            "type": out.type().name(),
-        })
+        outputs.append(
+            {
+                "path": out.path(),
+                "name": out.name(),
+                "type": out.type().name(),
+            }
+        )
 
     # Current state
     errors = []
     warnings = []
-    try:
+    with contextlib.suppress(Exception):
         errors = list(node.errors())
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         warnings = list(node.warnings())
-    except Exception:
-        pass
     try:
         cook_time = node.cookTime()
     except Exception:
@@ -388,6 +394,7 @@ def _explain_node(node_path: str, **_: Any) -> dict:
 
 ###### context.get_selection
 
+
 def _get_selection(**_: Any) -> dict:
     """Get the current selection in Houdini.
 
@@ -398,11 +405,13 @@ def _get_selection(**_: Any) -> dict:
     selected_nodes = hou.selectedNodes()
     nodes_info = []
     for node in selected_nodes:
-        nodes_info.append({
-            "path": node.path(),
-            "type": node.type().name(),
-            "name": node.name(),
-        })
+        nodes_info.append(
+            {
+                "path": node.path(),
+                "type": node.type().name(),
+                "name": node.name(),
+            }
+        )
 
     # Geometry selection
     geo_info: dict[str, Any] | None = None
@@ -424,9 +433,15 @@ def _get_selection(**_: Any) -> dict:
                         geo = sel_nodes[0].geometry()
                         if geo is not None:
                             for s in selections:
-                                total_count += len(s.selectionString(
-                                    geo,
-                                ).split()) if s.selectionString(geo) else 0
+                                total_count += (
+                                    len(
+                                        s.selectionString(
+                                            geo,
+                                        ).split()
+                                    )
+                                    if s.selectionString(geo)
+                                    else 0
+                                )
                 type_name = "unknown"
                 if sel_type == hou.geometryType.Points:
                     type_name = "points"
@@ -452,6 +467,7 @@ def _get_selection(**_: Any) -> dict:
 
 
 ###### context.set_selection
+
 
 def _set_selection(node_paths: list | None = None, **_: Any) -> dict:
     """Select nodes by their paths.
@@ -481,6 +497,7 @@ def _set_selection(node_paths: list | None = None, **_: Any) -> dict:
 
 
 ###### context.get_scene_summary
+
 
 def _get_scene_summary(**_: Any) -> dict:
     """Return a high-level overview of the entire Houdini scene.
@@ -524,8 +541,7 @@ def _get_scene_summary(**_: Any) -> dict:
             }
             # Try to get output path from common parameter names
             output_path = None
-            for parm_name in ("sopoutput", "vm_picture", "picture",
-                              "lopoutput", "outputimage"):
+            for parm_name in ("sopoutput", "vm_picture", "picture", "lopoutput", "outputimage"):
                 parm = child.parm(parm_name)
                 if parm is not None:
                     try:
@@ -541,10 +557,12 @@ def _get_scene_summary(**_: Any) -> dict:
     stage_node = hou.node("/stage")
     if stage_node is not None:
         for child in stage_node.children():
-            stage_children.append({
-                "name": child.name(),
-                "type": child.type().name(),
-            })
+            stage_children.append(
+                {
+                    "name": child.name(),
+                    "type": child.type().name(),
+                }
+            )
 
     # Total node count and error scan
     total_nodes = 0
@@ -578,6 +596,7 @@ def _get_scene_summary(**_: Any) -> dict:
 
 
 ###### context.compare_snapshots
+
 
 def _compare_snapshots(
     action: str = "take",
@@ -651,10 +670,12 @@ def _compare_snapshots(
                     if old_val != new_val:
                         changes[key] = {"old": old_val, "new": new_val}
                 if changes:
-                    params_changed.append({
-                        "path": path,
-                        "changes": changes,
-                    })
+                    params_changed.append(
+                        {
+                            "path": path,
+                            "changes": changes,
+                        }
+                    )
 
         _LIST_CAP = 200
         return {
@@ -674,12 +695,11 @@ def _compare_snapshots(
         }
 
     else:
-        raise ValueError(
-            f"Unknown action '{action}'. Must be 'take' or 'compare'."
-        )
+        raise ValueError(f"Unknown action '{action}'. Must be 'take' or 'compare'.")
 
 
 ###### context.get_node_errors_detailed
+
 
 def _get_node_errors_detailed(
     node_path: str | None = None,
@@ -703,14 +723,10 @@ def _get_node_errors_detailed(
     def _analyze_node(node: hou.Node) -> None:
         errors = []
         warnings = []
-        try:
+        with contextlib.suppress(Exception):
             errors = list(node.errors())
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             warnings = list(node.warnings())
-        except Exception:
-            pass
 
         if not errors and not warnings:
             return
@@ -734,12 +750,14 @@ def _get_node_errors_detailed(
                             # Expand Houdini variables
                             expanded = hou.text.expandString(val)
                             if expanded and not _os.path.exists(expanded):
-                                suspect_parms.append({
-                                    "name": parm.name(),
-                                    "value": val,
-                                    "expanded": expanded,
-                                    "issue": "file_not_found",
-                                })
+                                suspect_parms.append(
+                                    {
+                                        "name": parm.name(),
+                                        "value": val,
+                                        "expanded": expanded,
+                                        "issue": "file_not_found",
+                                    }
+                                )
             except Exception:
                 pass
 

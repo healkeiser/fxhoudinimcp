@@ -61,22 +61,22 @@ async def _exercise(port: int) -> None:
             {"parent_path": "/obj", "node_type": "geo", "name": "via_http"},
         )
         assert created["node_path"] == "/obj/via_http", created
-        listed = await bridge.execute(
-            "nodes.find_nodes", {"pattern": "via_http"}
-        )
+        listed = await bridge.execute("nodes.find_nodes", {"pattern": "via_http"})
         assert listed["count"] == 1, listed
         print("[e2e] node created and found through the bridge: ok")
 
-        big = await bridge.execute(
-            "nodes.list_node_types", {"context": "Sop", "limit": 5000}
-        )
+        big = await bridge.execute("nodes.list_node_types", {"context": "Sop", "limit": 5000})
         assert big["total_count"] > 200
         print(f"[e2e] large payload ({big['total_count']} types) serialized: ok")
 
         try:
-            await bridge.execute("nodes.create_node", {
-                "parent_path": "/obj", "node_type": "not_a_real_type",
-            })
+            await bridge.execute(
+                "nodes.create_node",
+                {
+                    "parent_path": "/obj",
+                    "node_type": "not_a_real_type",
+                },
+            )
         except FXHoudiniError as exc:
             assert "not_a_real_type" in str(exc), exc
             print("[e2e] structured error surfaced through the bridge: ok")
@@ -123,9 +123,7 @@ def main() -> int:
             if time.time() >= deadline:
                 raise RuntimeError("server never became reachable")
             try:
-                urllib.request.urlopen(
-                    f"http://127.0.0.1:{port}/api", timeout=0.5
-                )
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/api", timeout=0.5)
                 break
             except urllib.error.HTTPError:
                 break

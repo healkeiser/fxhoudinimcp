@@ -6,6 +6,8 @@ file caches from Houdini's filecache and rop_geometry nodes.
 
 from __future__ import annotations
 
+import contextlib
+
 # Built-in
 import glob
 import os
@@ -32,6 +34,7 @@ def _menu_index_by_label(parm: hou.Parm, label_substring: str) -> int | None:
 
 ###### Helpers
 
+
 def _get_node(node_path: str) -> hou.Node:
     """Resolve a node path and raise a clear error if it does not exist."""
     node = hou.node(node_path)
@@ -44,8 +47,11 @@ def _is_cache_node(node: hou.Node) -> bool:
     """Check if a node is a cache-type node (filecache or rop_geometry)."""
     type_name = node.type().name()
     return type_name in (
-        "filecache", "filecache::2.0", "rop_geometry",
-        "rop_alembic", "file",
+        "filecache",
+        "filecache::2.0",
+        "rop_geometry",
+        "rop_alembic",
+        "file",
     )
 
 
@@ -73,17 +79,17 @@ def _get_file_pattern_raw(node: hou.Node) -> str | None:
 def _expand_frame_pattern(pattern: str) -> str:
     """Convert a Houdini frame pattern ($F4, $F, etc.) to a glob pattern."""
     import re
+
     # Replace $F4, $F3, $F with wildcard
-    result = re.sub(r'\$F\d*', '*', pattern)
+    result = re.sub(r"\$F\d*", "*", pattern)
     # Replace `$HIP`, `$JOB` etc. with their expanded values
-    try:
+    with contextlib.suppress(Exception):
         result = hou.text.expandString(result)
-    except Exception:
-        pass
     return result
 
 
 ###### cache.list_caches
+
 
 def _list_caches(*, root_path: str = "/", **_: Any) -> dict[str, Any]:
     """Recursively find all cache-type nodes under the given root.
@@ -114,43 +120,40 @@ def _list_caches(*, root_path: str = "/", **_: Any) -> dict[str, Any]:
             start_parm = node.parm(start_name)
             end_parm = node.parm(end_name) if end_name else None
             if start_parm is not None and end_parm is not None:
-                try:
+                with contextlib.suppress(Exception):
                     frame_range = [start_parm.eval(), end_parm.eval()]
-                except Exception:
-                    pass
                 break
 
         # Determine status by checking if any files exist
         status = "unknown"
         if file_pattern:
-            glob_pattern = _expand_frame_pattern(
-                raw_pattern if raw_pattern else file_pattern
-            )
+            glob_pattern = _expand_frame_pattern(raw_pattern if raw_pattern else file_pattern)
             try:
                 existing = glob.glob(glob_pattern)
-                if existing:
-                    status = f"cached ({len(existing)} files)"
-                else:
-                    status = "empty"
+                status = f"cached ({len(existing)} files)" if existing else "empty"
             except Exception:
                 status = "unknown"
 
-        caches.append({
-            "node_path": node.path(),
-            "file_pattern": file_pattern,
-            "frame_range": frame_range,
-            "status": status,
-        })
+        caches.append(
+            {
+                "node_path": node.path(),
+                "file_pattern": file_pattern,
+                "frame_range": frame_range,
+                "status": status,
+            }
+        )
 
     return {
         "count": len(caches),
         "caches": caches,
     }
 
+
 register_handler("cache.list_caches", _list_caches)
 
 
 ###### cache.get_cache_status
+
 
 def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
     """Get the status of a specific cache node.
@@ -170,9 +173,7 @@ def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
         raise ValueError(f"Could not determine file pattern for node: {node_path}")
 
     # Find existing files using glob
-    glob_pattern = _expand_frame_pattern(
-        raw_pattern if raw_pattern else file_pattern
-    )
+    glob_pattern = _expand_frame_pattern(raw_pattern if raw_pattern else file_pattern)
 
     try:
         existing_files = sorted(glob.glob(glob_pattern))
@@ -181,20 +182,19 @@ def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
 
     # Extract frame numbers from filenames
     import re
+
     frames_on_disk: list[int] = []
     total_size_bytes = 0
 
     for filepath in existing_files:
         # Try to extract frame number from filename
-        match = re.search(r'\.(\d+)\.', os.path.basename(filepath))
+        match = re.search(r"\.(\d+)\.", os.path.basename(filepath))
         if match:
             frames_on_disk.append(int(match.group(1)))
 
         # Accumulate file sizes
-        try:
+        with contextlib.suppress(OSError):
             total_size_bytes += os.path.getsize(filepath)
-        except OSError:
-            pass
 
     total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
     is_valid = len(existing_files) > 0
@@ -209,10 +209,12 @@ def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
         "is_valid": is_valid,
     }
 
+
 register_handler("cache.get_cache_status", _get_cache_status)
 
 
 ###### cache.clear_cache
+
 
 def _clear_cache(
     *,
@@ -237,9 +239,7 @@ def _clear_cache(
     if not file_pattern and not raw_pattern:
         raise ValueError(f"Could not determine file pattern for node: {node_path}")
 
-    glob_pattern = _expand_frame_pattern(
-        raw_pattern if raw_pattern else file_pattern
-    )
+    glob_pattern = _expand_frame_pattern(raw_pattern if raw_pattern else file_pattern)
 
     try:
         existing_files = sorted(glob.glob(glob_pattern))
@@ -247,6 +247,7 @@ def _clear_cache(
         existing_files = []
 
     import re
+
     deleted_count = 0
     freed_bytes = 0
 
@@ -255,7 +256,7 @@ def _clear_cache(
 
         # If frame_range is specified, only delete matching frames
         if frame_range is not None and len(frame_range) >= 2:
-            match = re.search(r'\.(\d+)\.', os.path.basename(filepath))
+            match = re.search(r"\.(\d+)\.", os.path.basename(filepath))
             if match:
                 frame_num = int(match.group(1))
                 if frame_num < frame_range[0] or frame_num > frame_range[1]:
@@ -280,10 +281,12 @@ def _clear_cache(
         "freed_mb": freed_mb,
     }
 
+
 register_handler("cache.clear_cache", _clear_cache)
 
 
 ###### cache.write_cache
+
 
 def _write_cache(
     *,
@@ -348,15 +351,14 @@ def _write_cache(
         f1_parm = node.parm("f1")
         f2_parm = node.parm("f2")
         if f1_parm is not None and f2_parm is not None:
-            try:
+            with contextlib.suppress(Exception):
                 actual_range = [f1_parm.eval(), f2_parm.eval()]
-            except Exception:
-                pass
 
     return {
         "node_path": node_path,
         "frame_range": actual_range,
         "status": status,
     }
+
 
 register_handler("cache.write_cache", _write_cache)

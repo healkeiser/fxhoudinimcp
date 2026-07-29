@@ -6,6 +6,8 @@ node parameters, expressions, channel references, and spare parameters.
 
 from __future__ import annotations
 
+import contextlib
+
 # Built-in
 from difflib import get_close_matches
 from typing import Any
@@ -15,7 +17,6 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
-
 
 ###### Helpers
 
@@ -113,10 +114,8 @@ def _template_to_dict(pt: hou.ParmTemplate) -> dict[str, Any]:
         pass
 
     # Naming scheme (for multi-component parms)
-    try:
+    with contextlib.suppress(Exception):
         info["naming_scheme"] = pt.namingScheme().name()
-    except Exception:
-        pass
 
     # Conditionals and tags omitted — internal Houdini UI metadata,
     # not useful for LLM-driven parameter setting.
@@ -163,9 +162,7 @@ register_handler("parameters.get_parameter", _get_parameter)
 ###### Handler: parameters.set_parameter
 
 
-def _set_parameter(
-    node_path: str, parm_name: str, value: Any, **_: Any
-) -> dict[str, Any]:
+def _set_parameter(node_path: str, parm_name: str, value: Any, **_: Any) -> dict[str, Any]:
     """Set a parameter value, auto-detecting the appropriate type.
 
     A list/tuple value addressed at a vector parameter name (e.g. "size"
@@ -205,9 +202,7 @@ register_handler("parameters.set_parameter", _set_parameter)
 ###### Handler: parameters.set_parameters
 
 
-def _set_parameters(
-    node_path: str, params: dict[str, Any], **_: Any
-) -> dict[str, Any]:
+def _set_parameters(node_path: str, params: dict[str, Any], **_: Any) -> dict[str, Any]:
     """Batch-set multiple parameters on a single node."""
     node = _resolve_node(node_path)
 
@@ -220,9 +215,7 @@ def _set_parameters(
         if parm is None:
             close = get_close_matches(name, available, n=3, cutoff=0.4)
             hint = f" Did you mean: {close}?" if close else ""
-            errors.append(
-                {"parm_name": name, "error": f"Parameter '{name}' not found.{hint}"}
-            )
+            errors.append({"parm_name": name, "error": f"Parameter '{name}' not found.{hint}"})
             continue
         try:
             parm.set(value)
@@ -291,10 +284,7 @@ def _get_parameter_schema(
 
     if filter:
         f = filter.lower()
-        parm_infos = [
-            p for p in parm_infos
-            if f in p["name"].lower() or f in p["label"].lower()
-        ]
+        parm_infos = [p for p in parm_infos if f in p["name"].lower() or f in p["label"].lower()]
 
     return {
         "node_path": node_path,
@@ -319,10 +309,7 @@ def _set_expression(
     """Set an expression on a parameter."""
     parm = _resolve_parm(node_path, parm_name)
 
-    if language.lower() == "python":
-        lang = hou.exprLanguage.Python
-    else:
-        lang = hou.exprLanguage.Hscript
+    lang = hou.exprLanguage.Python if language.lower() == "python" else hou.exprLanguage.Hscript
 
     parm.setExpression(expression, lang)
 
@@ -365,9 +352,7 @@ register_handler("parameters.get_expression", _get_expression)
 ###### Handler: parameters.revert_parameter
 
 
-def _revert_parameter(
-    node_path: str, parm_name: str, **_: Any
-) -> dict[str, Any]:
+def _revert_parameter(node_path: str, parm_name: str, **_: Any) -> dict[str, Any]:
     """Revert a parameter to its default value."""
     parm = _resolve_parm(node_path, parm_name)
 
@@ -399,7 +384,7 @@ def _link_parameters(
     dst = _resolve_parm(dest_path, dest_parm)
 
     # Build the channel reference expression
-    ref_expr = 'ch("{}")'.format(src.path())
+    ref_expr = f'ch("{src.path()}")'
     dst.setExpression(ref_expr, hou.exprLanguage.Hscript)
 
     return {
@@ -415,9 +400,7 @@ register_handler("parameters.link_parameters", _link_parameters)
 ###### Handler: parameters.lock_parameter
 
 
-def _lock_parameter(
-    node_path: str, parm_name: str, locked: bool, **_: Any
-) -> dict[str, Any]:
+def _lock_parameter(node_path: str, parm_name: str, locked: bool, **_: Any) -> dict[str, Any]:
     """Lock or unlock a parameter."""
     parm = _resolve_parm(node_path, parm_name)
 
@@ -461,8 +444,7 @@ def _create_spare_parameter(
     template_cls = type_map.get(parm_type.lower())
     if template_cls is None:
         raise ValueError(
-            f"Unsupported parm_type '{parm_type}'. "
-            f"Supported types: {list(type_map.keys())}"
+            f"Unsupported parm_type '{parm_type}'. Supported types: {list(type_map.keys())}"
         )
 
     # Build keyword arguments for the template constructor
@@ -504,9 +486,7 @@ def _create_spare_parameter(
 
     elif template_cls is hou.MenuParmTemplate:
         # For menu type, default_value should be a list of menu items
-        items = (
-            default_value if isinstance(default_value, (list, tuple)) else []
-        )
+        items = default_value if isinstance(default_value, (list, tuple)) else []
         pt = template_cls(
             parm_name,
             label,
@@ -555,9 +535,7 @@ def _build_parm_template(spec: dict) -> hou.ParmTemplate:
 
     template_cls = type_map.get(parm_type)
     if template_cls is None:
-        raise ValueError(
-            f"Unsupported parm_type '{parm_type}' for parameter '{parm_name}'."
-        )
+        raise ValueError(f"Unsupported parm_type '{parm_type}' for parameter '{parm_name}'.")
 
     kwargs: dict[str, Any] = {}
 
@@ -591,9 +569,7 @@ def _build_parm_template(spec: dict) -> hou.ParmTemplate:
         return template_cls(parm_name, label, default_value=dv)
 
     if template_cls is hou.MenuParmTemplate:
-        items = (
-            default_value if isinstance(default_value, (list, tuple)) else []
-        )
+        items = default_value if isinstance(default_value, (list, tuple)) else []
         return template_cls(
             parm_name,
             label,

@@ -25,8 +25,8 @@ async def search_help(
     limit: int = 10,
 ) -> dict:
     """Search the running Houdini's own documentation — concepts,
-    workflows, VEX functions, expression functions, HOM API, Solaris,
-    TOPs. Version-exact, straight from the install.
+    workflows, VEX functions, expression functions, HOM API, and every
+    effects manual SideFX ships. Version-exact, straight from the install.
 
     Use this BEFORE improvising: when unsure how a workflow is meant to
     be done ("pyro shaping", "vellum constraints"), what a VEX or
@@ -35,8 +35,13 @@ async def search_help(
 
     Args:
         query: Search words (all must match a page).
-        scope: Optional corpus — "nodes", "vex", "expressions", "hom",
-            "solaris", "tops", "character", "ref", "shelf".
+        scope: Optional corpus, named after the archive. Every help
+            archive in the install is searchable, which on a full 22.0 is
+            47 of them. The ones worth knowing by name: "nodes", "vex",
+            "expressions", "hom", "solaris", "tops", plus the workflow
+            manuals "pyro", "fluid", "vellum", "destruction", "grains",
+            "crowds", "model", "copy", "assets", "render", "shade",
+            "anim", "character", "ref", "shelf". Omit to search all.
         limit: Max results.
     """
     bridge = _get_bridge(ctx)

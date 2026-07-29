@@ -7,13 +7,13 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Any, Optional
+from typing import Any
 
 # Third-party
 from mcp.server.fastmcp import Context
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -58,7 +58,7 @@ async def create_material_network(
     ctx: Context,
     name: str,
     shader_type: str = "principled",
-    params: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> dict:
     """Create a new material network in /mat.
 
@@ -81,7 +81,7 @@ async def create_material_network(
 @mcp.tool()
 async def list_material_types(
     ctx: Context,
-    filter: Optional[str] = None,
+    filter: str | None = None,
 ) -> dict:
     """List available VOP/material node types.
 

@@ -17,8 +17,8 @@ import hou
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Helpers
+
 
 def _get_node(node_path: str) -> hou.Node:
     """Resolve a node path and raise a clear error if it does not exist."""
@@ -104,9 +104,10 @@ def _create_first_available(
 
 ###### workflow.setup_pyro_sim
 
+
 def _setup_pyro_sim_sop(
-    geo: "hou.Node",
-    objmerge: "hou.Node",
+    geo: hou.Node,
+    objmerge: hou.Node,
     substeps: int,
     all_nodes: list[str],
 ) -> dict:
@@ -169,8 +170,8 @@ def _setup_pyro_sim_sop(
 
 
 def _setup_pyro_sim_dop(
-    geo: "hou.Node",
-    objmerge: "hou.Node",
+    geo: hou.Node,
+    objmerge: hou.Node,
     substeps: int,
     all_nodes: list[str],
 ) -> dict:
@@ -340,7 +341,9 @@ def _setup_pyro_sim(
     if hou.node(source_geo) is not None:
         print(f"[workflow] Source geometry found at {source_geo}")
     else:
-        print(f"[workflow] Warning: source geometry '{source_geo}' not found, Object Merge created but path may need updating")
+        print(
+            f"[workflow] Warning: source geometry '{source_geo}' not found, Object Merge created but path may need updating"
+        )
 
     # -- Try modern SOP-level Pyro first, fall back to DOP approach
     try:
@@ -384,6 +387,7 @@ def _setup_pyro_sim(
 
 
 ###### workflow.setup_rbd_sim
+
 
 def _setup_rbd_sim(
     geo_path: str = "/obj/geo1",
@@ -455,9 +459,7 @@ def _setup_rbd_sim(
     if solver is not None:
         print("[workflow] Creating SOP-level RBD Bullet Solver")
         solver.setInput(0, last_sop, 0)
-        if fracture is not None and fracture.type().name().startswith(
-            "rbdmaterialfracture"
-        ):
+        if fracture is not None and fracture.type().name().startswith("rbdmaterialfracture"):
             # Outputs line up 1:1 with the solver's first three inputs.
             solver.setInput(1, fracture, 1)
             solver.setInput(2, fracture, 2)
@@ -533,6 +535,7 @@ def _setup_rbd_sim(
 
 ###### workflow.setup_flip_sim
 
+
 def _setup_flip_sim(
     source_geo: str = "/obj/geo1/sphere1",
     domain: str = "box",
@@ -570,7 +573,9 @@ def _setup_flip_sim(
     if hou.node(source_geo) is not None:
         print(f"[workflow] Source geometry found at {source_geo}")
     else:
-        print(f"[workflow] Warning: source geometry '{source_geo}' not found -- Object Merge created but path may need updating")
+        print(
+            f"[workflow] Warning: source geometry '{source_geo}' not found -- Object Merge created but path may need updating"
+        )
 
     # -- Step 3: Create DOP Network
     print("[workflow] Creating DOP Network")
@@ -666,6 +671,7 @@ def _setup_flip_sim(
 
 ###### workflow.setup_vellum_sim
 
+
 def _setup_vellum_sim(
     geo_path: str = "/obj/geo1",
     sim_type: str = "cloth",
@@ -717,7 +723,9 @@ def _setup_vellum_sim(
     if hou.node(geo_path) is not None:
         print(f"[workflow] Source geometry found at {geo_path}")
     else:
-        print(f"[workflow] Warning: source geometry '{geo_path}' not found -- Object Merge created but path may need updating")
+        print(
+            f"[workflow] Warning: source geometry '{geo_path}' not found -- Object Merge created but path may need updating"
+        )
 
     # -- Step 3: Vellum Configure
     print(f"[workflow] Creating Vellum Configure ({sim_type})")
@@ -725,14 +733,16 @@ def _setup_vellum_sim(
     try:
         vellum_configure = geo.createNode(configure_type, f"vellum_{sim_type}1")
     except hou.OperationFailed:
-        print(f"[workflow] Warning: {configure_type} not available, falling back to {configure_fallback}")
+        print(
+            f"[workflow] Warning: {configure_type} not available, falling back to {configure_fallback}"
+        )
         try:
             vellum_configure = geo.createNode(configure_fallback, f"vellum_{sim_type}1")
         except hou.OperationFailed:
             raise ValueError(
                 f"Could not create Vellum configure node. "
                 f"Tried '{configure_type}' and '{configure_fallback}'."
-            )
+            ) from None
     vellum_configure.setInput(0, objmerge, 0)
     all_nodes.append(vellum_configure.path())
 
@@ -787,6 +797,7 @@ def _setup_vellum_sim(
 
 
 ###### workflow.create_material
+
 
 def _create_material(
     name: str = "material1",
@@ -843,7 +854,9 @@ def _create_material(
             except hou.OperationFailed:
                 # Fallback: create a subnet with materialx nodes
                 shader = mat.createNode("subnet", name)
-                print("[workflow] Warning: MaterialX node types not directly available, created subnet")
+                print(
+                    "[workflow] Warning: MaterialX node types not directly available, created subnet"
+                )
 
         if base_color is not None and len(base_color) >= 3:
             print(f"[workflow] Setting base color to {base_color}")
@@ -875,6 +888,7 @@ def _create_material(
 
 
 ###### workflow.assign_material
+
 
 def _assign_material(
     geo_path: str,
@@ -954,6 +968,7 @@ def _assign_material(
 
 ###### workflow.build_sop_chain
 
+
 def _build_sop_chain(
     parent_path: str = "/obj/geo1",
     steps: list = None,
@@ -986,15 +1001,17 @@ def _build_sop_chain(
         node_name = step.get("name")
         params = step.get("params", {})
 
-        print(f"[workflow] Step {i + 1}/{len(steps)}: Creating '{node_type}'" +
-              (f" (name='{node_name}')" if node_name else ""))
+        print(
+            f"[workflow] Step {i + 1}/{len(steps)}: Creating '{node_type}'"
+            + (f" (name='{node_name}')" if node_name else "")
+        )
 
         try:
             node = parent.createNode(node_type, node_name=node_name)
         except hou.OperationFailed as e:
             raise ValueError(
                 f"Failed to create node of type '{node_type}' at step {i + 1}: {e}"
-            )
+            ) from e
 
         # Wire to previous node
         if prev_node is not None:
@@ -1009,11 +1026,13 @@ def _build_sop_chain(
             for parm_name, parm_value in params.items():
                 _set_parm_safe(node, parm_name, parm_value)
 
-        created_nodes.append({
-            "path": node.path(),
-            "type": node.type().name(),
-            "name": node.name(),
-        })
+        created_nodes.append(
+            {
+                "path": node.path(),
+                "type": node.type().name(),
+                "name": node.name(),
+            }
+        )
         prev_node = node
 
     # Set display flag on last node
@@ -1041,6 +1060,7 @@ def _build_sop_chain(
 
 
 ###### workflow.setup_render
+
 
 def _setup_render(
     renderer: str = "karma",
@@ -1085,7 +1105,9 @@ def _setup_render(
     else:
         print(f"[workflow] Using existing camera: {camera}")
         if hou.node(camera) is None:
-            print(f"[workflow] Warning: camera '{camera}' not found -- ROP will reference it anyway")
+            print(
+                f"[workflow] Warning: camera '{camera}' not found -- ROP will reference it anyway"
+            )
 
     # -- Step 2: ROP node
     if renderer == "karma":

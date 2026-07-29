@@ -9,6 +9,7 @@ from __future__ import annotations
 
 # Built-in
 import json
+import re
 
 # Third-party
 import pytest
@@ -65,9 +66,7 @@ class TestShippedTable:
 
     def test_series_are_ordered_oldest_first(self):
         series = node_versions.sampled_series()
-        assert series == sorted(
-            series, key=lambda s: tuple(int(p) for p in s.split("."))
-        )
+        assert series == sorted(series, key=lambda s: tuple(int(p) for p in s.split(".")))
 
     def test_supported_versions_are_not_flagged(self):
         for series in node_versions.sampled_series():
@@ -152,3 +151,30 @@ class TestDegradation:
         loaded = node_versions.load_table()
         assert loaded["series"] == []
         assert loaded["builds"] == {"22.0.368": "22.0"}
+
+
+class TestInstructionAnnotationsSurvive:
+    """The generated node block must keep its version markers.
+
+    tools/gen_node_domains.py emits bare names and tools/gen_node_versions.py
+    annotates them in a second pass, so running the first without the second
+    silently strips every "(21.0+)" and "(20.5-21.0)" from the instructions. The
+    names stay correct, which is why nothing else catches it, but a 20.5 user is
+    then told about nodes that only exist in 22.0.
+    """
+
+    _MARKER = re.compile(r"\(\d+\.\d+(?:\+|-\d+\.\d+)\)")
+
+    def test_generated_block_still_carries_version_markers(self):
+        from fxhoudinimcp._loader import load_markdown
+
+        text = load_markdown("instructions/server_instructions.md")
+        begin = text.index("<!-- BEGIN GENERATED: node domains -->")
+        end = text.index("<!-- END GENERATED: node domains -->")
+        block = text[begin:end]
+        markers = self._MARKER.findall(block)
+        assert len(markers) > 10, (
+            "the node domain block has lost its version annotations; run "
+            "python tools/gen_node_versions.py to restore them "
+            f"(found {len(markers)})"
+        )

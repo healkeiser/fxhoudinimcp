@@ -15,6 +15,8 @@ parameter can never take down a whole response.
 
 from __future__ import annotations
 
+import contextlib
+
 # Built-in
 from typing import Any
 
@@ -57,6 +59,7 @@ _PARMS = _hou_types("Parm", "ParmTuple")
 
 ###### Individual HOM types
 
+
 def ramp_to_dict(ramp: Any) -> dict:
     """Return a ``hou.Ramp`` as its constructor arguments.
 
@@ -65,24 +68,14 @@ def ramp_to_dict(ramp: Any) -> dict:
     3-tuples for their values; float ramps yield floats.
     """
     result: dict[str, Any] = {"type": "Ramp"}
-    try:
+    with contextlib.suppress(Exception):
         result["is_color"] = ramp.isColor()
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         result["basis"] = [b.name() for b in ramp.basis()]
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         result["keys"] = list(ramp.keys())
-    except Exception:
-        pass
-    try:
-        result["values"] = [
-            list(v) if isinstance(v, tuple) else v for v in ramp.values()
-        ]
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        result["values"] = [list(v) if isinstance(v, tuple) else v for v in ramp.values()]
     return result
 
 
@@ -99,14 +92,13 @@ def geometry_summary(geo: Any) -> dict:
         ("prim_count", "primitivecount"),
         ("vertex_count", "vertexcount"),
     ):
-        try:
+        with contextlib.suppress(Exception):
             summary[key] = geo.intrinsicValue(intrinsic)
-        except Exception:
-            pass
     return summary
 
 
 ###### Entry point
+
 
 def to_jsonable(value: Any, _depth: int = 0) -> Any:
     """Convert *value* into something ``json.dumps`` accepts.
@@ -127,9 +119,7 @@ def to_jsonable(value: Any, _depth: int = 0) -> Any:
         return value.decode("utf-8", "replace")
 
     if isinstance(value, dict):
-        return {
-            str(key): to_jsonable(item, _depth + 1) for key, item in value.items()
-        }
+        return {str(key): to_jsonable(item, _depth + 1) for key, item in value.items()}
 
     # HOM vector/matrix types are iterable, so they must be matched before the
     # generic sequence branch below.

@@ -61,6 +61,59 @@ class TestPromptTemplates:
         assert "{network_housekeeping}" not in text
 
 
+class TestSimulationDispatch:
+    """simulation_setup serves a solver-specific guide where one exists.
+
+    The generic file had to cover pyro, FLIP, Vellum, RBD and MPM at once, so it
+    could not say more than a table row about any of them, while Houdini ships a
+    whole manual per solver. A wrong dispatch silently serves the shallow file.
+    """
+
+    def test_pyro_gets_the_pyro_guide(self):
+        text = simulation_setup("pyro", "a campfire")
+        assert "campfire" in text
+        # Content only the specialised file carries.
+        assert "Voxel Size" in text
+        assert "pyro/lookdev" in text
+
+    def test_case_and_whitespace_do_not_defeat_dispatch(self):
+        assert "Voxel Size" in simulation_setup("  PYRO  ", "x")
+
+    def test_unknown_solver_falls_back_to_the_generic_guide(self):
+        text = simulation_setup("ripple", "a pond")
+        assert "pond" in text
+        assert "DOP-level nodes" in text
+        assert "Voxel Size" not in text
+
+    @pytest.mark.parametrize(
+        ("sim_type", "marker"),
+        [
+            ("flip", "particle separation"),
+            ("liquid", "particle separation"),
+            ("rbd", "rbdmaterialfracture"),
+            ("fracture", "rbdmaterialfracture"),
+            ("cloth", "pscale"),
+            ("vellum", "pscale"),
+            ("mpm", "Particle Separation"),
+            ("sand", "Particle Separation"),
+            ("smoke", "Voxel Size"),
+        ],
+    )
+    def test_aliases_reach_the_corpus_that_documents_them(self, sim_type, marker):
+        """SideFX files FLIP under fluid/ and RBD under destruction/.
+
+        Users say "flip" and "rbd", so the alias map has to hold, or the request
+        silently gets the shallow generic guide instead.
+        """
+        text = simulation_setup(sim_type, "x")
+        assert marker.lower() in text.lower(), sim_type
+
+    def test_no_dispatch_leaves_placeholders_unrendered(self):
+        for sim_type in ("pyro", "ripple", "flip"):
+            text = simulation_setup(sim_type, "x")
+            assert not re.findall(r"\{[a-z_]+\}", text), sim_type
+
+
 class TestResources:
     @pytest.mark.asyncio
     async def test_scene_resources_delegate(self, mock_ctx, mock_bridge):
@@ -68,25 +121,17 @@ class TestResources:
         mock_bridge.execute.assert_called_with("scene.get_scene_info", {})
 
         await node_info("obj/geo1", mock_ctx)
-        mock_bridge.execute.assert_called_with(
-            "nodes.get_node_info", {"node_path": "/obj/geo1"}
-        )
+        mock_bridge.execute.assert_called_with("nodes.get_node_info", {"node_path": "/obj/geo1"})
 
         await scene_tree(mock_ctx)
         # "/" is a real node path; the old "all" value crashed the handler.
-        mock_bridge.execute.assert_called_with(
-            "scene.get_context_info", {"context": "/"}
-        )
+        mock_bridge.execute.assert_called_with("scene.get_context_info", {"context": "/"})
 
         await scene_errors(mock_ctx)
-        mock_bridge.execute.assert_called_with(
-            "viewport.find_error_nodes", {"root_path": "/"}
-        )
+        mock_bridge.execute.assert_called_with("viewport.find_error_nodes", {"root_path": "/"})
 
         await node_types("Sop", mock_ctx)
-        mock_bridge.execute.assert_called_with(
-            "nodes.list_node_types", {"context": "Sop"}
-        )
+        mock_bridge.execute.assert_called_with("nodes.list_node_types", {"context": "Sop"})
 
         await installed_hdas(mock_ctx)
         mock_bridge.execute.assert_called_with("hda.list_installed_hdas", {})
@@ -123,7 +168,7 @@ class TestInstructionHeaderCounts:
         from fxhoudinimcp._loader import load_markdown
         from fxhoudinimcp.server import mcp
 
-        text = load_markdown("server_instructions.md")
+        text = load_markdown("instructions/server_instructions.md")
         match = self._HEADER.search(text)
         assert match, "the 'N tools across M categories' sentence has gone missing"
 

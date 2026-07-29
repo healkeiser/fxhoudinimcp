@@ -73,9 +73,7 @@ async def verify_network(ctx: Context, parent_path: str) -> dict:
         parent_path: Network to verify (e.g. "/obj/geo1").
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "graph.verify_network", {"parent_path": parent_path}
-    )
+    return await bridge.execute("graph.verify_network", {"parent_path": parent_path})
 
 
 @mcp.tool()

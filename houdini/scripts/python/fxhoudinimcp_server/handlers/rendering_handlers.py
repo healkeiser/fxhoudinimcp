@@ -7,7 +7,6 @@ operations including Karma, OpenGL, and other Houdini renderers.
 from __future__ import annotations
 
 # Built-in
-import base64
 import logging
 import os
 
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 ###### rendering.render_viewport
+
 
 def _find_flipbook_output(output_path: str, frame: float) -> str:
     """Find the actual output file after flipbook, handling frame number insertion.
@@ -78,9 +78,7 @@ def render_viewport(
             break
 
     if scene_viewer is None:
-        raise RuntimeError(
-            "No Scene Viewer pane found. A viewport must be open to capture."
-        )
+        raise RuntimeError("No Scene Viewer pane found. A viewport must be open to capture.")
 
     viewport = scene_viewer.curViewport()
 
@@ -115,6 +113,7 @@ def render_viewport(
     mime_type = "image/jpeg"
     if os.path.isfile(actual_path):
         from fxhoudinimcp_server.handlers.viewport_handlers import _downscale_and_encode
+
         image_base64, mime_type = _downscale_and_encode(actual_path)
 
     return {
@@ -130,6 +129,7 @@ def render_viewport(
 
 
 ###### rendering.render_quad_view
+
 
 def render_quad_view(
     output_path: str,
@@ -185,6 +185,7 @@ def render_quad_view(
 
 
 ###### rendering.list_render_nodes
+
 
 def list_render_nodes() -> dict:
     """List all ROP (render) nodes in /out and embedded in other networks.
@@ -244,6 +245,7 @@ def list_render_nodes() -> dict:
 
 ###### rendering.get_render_settings
 
+
 def get_render_settings(node_path: str) -> dict:
     """Get key render settings from a ROP node.
 
@@ -268,10 +270,20 @@ def get_render_settings(node_path: str) -> dict:
 
     # Common render parameters to extract
     parm_names = [
-        "camera", "vm_picture", "picture", "copoutput", "sopoutput",
-        "res_overridex", "res_overridey", "resx", "resy",
-        "resoverride", "res",
-        "f1", "f2", "f3",  # frame range start, end, increment
+        "camera",
+        "vm_picture",
+        "picture",
+        "copoutput",
+        "sopoutput",
+        "res_overridex",
+        "res_overridey",
+        "resx",
+        "resy",
+        "resoverride",
+        "res",
+        "f1",
+        "f2",
+        "f3",  # frame range start, end, increment
         "trange",  # time range mode
         "override_camerares",
         "renderer",
@@ -303,6 +315,7 @@ def get_render_settings(node_path: str) -> dict:
 
 
 ###### rendering.set_render_settings
+
 
 def set_render_settings(node_path: str, settings: dict) -> dict:
     """Set render parameters on a ROP node.
@@ -351,6 +364,7 @@ def set_render_settings(node_path: str, settings: dict) -> dict:
 
 ###### rendering.create_render_node
 
+
 def create_render_node(
     renderer: str,
     name: str = None,
@@ -396,9 +410,7 @@ def create_render_node(
     try:
         node = out_context.createNode(node_type, name)
     except hou.OperationFailed as e:
-        raise ValueError(
-            f"Failed to create render node of type '{node_type}': {e}"
-        )
+        raise ValueError(f"Failed to create render node of type '{node_type}': {e}") from e
 
     # Set camera if provided
     if camera is not None:
@@ -426,6 +438,7 @@ def create_render_node(
 
 
 ###### rendering.start_render
+
 
 def start_render(
     node_path: str,
@@ -480,6 +493,7 @@ def start_render(
 
 ###### rendering.render_node_network
 
+
 def render_node_network(
     node_path: str,
     output_path: str,
@@ -519,8 +533,10 @@ def render_node_network(
 
     # Capture the network editor as an image via Qt widget grab
     from fxhoudinimcp_server.handlers.viewport_handlers import (
-        _capture_pane_tab_qt, _downscale_and_encode,
+        _capture_pane_tab_qt,
+        _downscale_and_encode,
     )
+
     _capture_pane_tab_qt(network_editor, output_path)
 
     image_base64 = None
@@ -538,6 +554,7 @@ def render_node_network(
 
 
 ###### rendering.get_render_progress
+
 
 def get_render_progress(node_path: str) -> dict:
     """Check the render status / progress of a ROP node.

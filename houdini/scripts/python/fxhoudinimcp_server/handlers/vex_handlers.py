@@ -6,6 +6,8 @@ in Attribute Wrangle nodes and VEX expressions.
 
 from __future__ import annotations
 
+import contextlib
+
 # Built-in
 import re
 
@@ -16,8 +18,8 @@ import hou
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
 
-
 ###### Helpers
+
 
 def _get_node(node_path: str) -> hou.Node:
     """Return a node or raise if not found."""
@@ -29,21 +31,15 @@ def _get_node(node_path: str) -> hou.Node:
 
 def _validate_vex_quick(node: hou.Node) -> dict:
     """Cook a wrangle node and return any VEX errors/warnings."""
-    try:
+    with contextlib.suppress(hou.OperationFailed):
         node.cook(force=True)
-    except hou.OperationFailed:
-        pass
 
     errors = []
     warnings = []
-    try:
+    with contextlib.suppress(Exception):
         errors = list(node.errors() or [])
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         warnings = list(node.warnings() or [])
-    except Exception:
-        pass
 
     return {
         "vex_valid": len(errors) == 0,
@@ -61,8 +57,7 @@ def _resolve_class_value(node: hou.Node, run_over: str) -> int:
     class_parm = node.parm("class")
     if class_parm is None:
         raise ValueError(
-            f"Node {node.path()} has no 'class' parameter — "
-            "is it an Attribute Wrangle?"
+            f"Node {node.path()} has no 'class' parameter — is it an Attribute Wrangle?"
         )
 
     template = class_parm.parmTemplate()
@@ -78,10 +73,7 @@ def _resolve_class_value(node: hou.Node, run_over: str) -> int:
         if target in label.lower():
             return int(items[idx]) if items[idx].isdigit() else idx
 
-    raise ValueError(
-        f"Invalid run_over value '{run_over}'. "
-        f"Available options: {labels}"
-    )
+    raise ValueError(f"Invalid run_over value '{run_over}'. Available options: {labels}")
 
 
 def _reverse_class_label(node: hou.Node) -> str | None:
@@ -125,7 +117,7 @@ def _check_channel_paths(vex_code: str) -> list[str]:
     warnings = []
     if _RE_ABS_CH.search(vex_code):
         warnings.append(
-            "VEX contains absolute channel path (ch(\"/...\")). "
+            'VEX contains absolute channel path (ch("/...")). '
             "Prefer relative paths — use ../parm_name to reach the "
             "immediate parent, ../../parm_name for two levels up, etc. "
             "Absolute paths break when nodes are renamed or moved."
@@ -134,6 +126,7 @@ def _check_channel_paths(vex_code: str) -> list[str]:
 
 
 ###### vex.create_wrangle
+
 
 def create_wrangle(
     parent_path: str,
@@ -161,14 +154,12 @@ def create_wrangle(
         else:
             node = parent.createNode("attribwrangle")
     except hou.OperationFailed as e:
-        raise ValueError(f"Failed to create attribwrangle node: {e}")
+        raise ValueError(f"Failed to create attribwrangle node: {e}") from e
 
     # Set the VEX snippet
     snippet_parm = node.parm("snippet")
     if snippet_parm is None:
-        raise ValueError(
-            f"Created node {node.path()} does not have a 'snippet' parameter."
-        )
+        raise ValueError(f"Created node {node.path()} does not have a 'snippet' parameter.")
     snippet_parm.set(vex_code)
 
     # Set the run_over class (resolved dynamically from menu labels)
@@ -212,6 +203,7 @@ def create_wrangle(
 
 ###### vex.set_wrangle_code
 
+
 def set_wrangle_code(node_path: str, vex_code: str) -> dict:
     """Set VEX code on an existing Attribute Wrangle node.
 
@@ -224,8 +216,7 @@ def set_wrangle_code(node_path: str, vex_code: str) -> dict:
     snippet_parm = node.parm("snippet")
     if snippet_parm is None:
         raise ValueError(
-            f"Node {node_path} does not have a 'snippet' parameter. "
-            "Is it an Attribute Wrangle?"
+            f"Node {node_path} does not have a 'snippet' parameter. Is it an Attribute Wrangle?"
         )
 
     snippet_parm.set(vex_code)
@@ -247,6 +238,7 @@ def set_wrangle_code(node_path: str, vex_code: str) -> dict:
 
 ###### vex.get_wrangle_code
 
+
 def get_wrangle_code(node_path: str) -> dict:
     """Read the VEX code from an Attribute Wrangle node.
 
@@ -258,8 +250,7 @@ def get_wrangle_code(node_path: str) -> dict:
     snippet_parm = node.parm("snippet")
     if snippet_parm is None:
         raise ValueError(
-            f"Node {node_path} does not have a 'snippet' parameter. "
-            "Is it an Attribute Wrangle?"
+            f"Node {node_path} does not have a 'snippet' parameter. Is it an Attribute Wrangle?"
         )
 
     vex_code = snippet_parm.eval()
@@ -275,6 +266,7 @@ def get_wrangle_code(node_path: str) -> dict:
 
 
 ###### vex.create_vex_expression
+
 
 def create_vex_expression(
     node_path: str,
@@ -295,9 +287,7 @@ def create_vex_expression(
 
     parm = node.parm(parm_name)
     if parm is None:
-        raise ValueError(
-            f"Parameter '{parm_name}' not found on node {node_path}."
-        )
+        raise ValueError(f"Parameter '{parm_name}' not found on node {node_path}.")
 
     try:
         parm.setExpression(vex_code, language=hou.exprLanguage.Hscript)
@@ -306,9 +296,7 @@ def create_vex_expression(
         try:
             parm.setExpression(vex_code, language=hou.exprLanguage.Python)
         except Exception as e:
-            raise ValueError(
-                f"Failed to set expression on {node_path}/{parm_name}: {e}"
-            )
+            raise ValueError(f"Failed to set expression on {node_path}/{parm_name}: {e}") from e
 
     return {
         "success": True,
@@ -319,6 +307,7 @@ def create_vex_expression(
 
 
 ###### vex.validate_vex
+
 
 def validate_vex(node_path: str) -> dict:
     """Validate VEX code by cooking the node and checking for errors.
@@ -334,11 +323,10 @@ def validate_vex(node_path: str) -> dict:
     if snippet_parm is not None:
         vex_code = snippet_parm.eval()
 
-    # Force cook the node to trigger VEX compilation
-    try:
+    # Force cook the node to trigger VEX compilation. A failure here is the
+    # expected path for broken VEX; the errors are read off the node below.
+    with contextlib.suppress(hou.OperationFailed):
         node.cook(force=True)
-    except hou.OperationFailed:
-        pass  # Errors will be captured below
 
     # Gather errors and warnings
     errors = []

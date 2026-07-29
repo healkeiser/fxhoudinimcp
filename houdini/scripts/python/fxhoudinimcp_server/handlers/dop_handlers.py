@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 ###### Helpers
 
+
 def _get_dop_node(node_path: str) -> hou.Node:
     """Return a DOP network node or raise if not found."""
     node = hou.node(node_path)
@@ -35,8 +36,7 @@ def _get_simulation(node_path: str) -> hou.DopSimulation:
     sim = node.simulation()
     if sim is None:
         raise hou.OperationFailed(
-            f"Node '{node_path}' does not have a simulation. "
-            "Ensure it is a DOP network node."
+            f"Node '{node_path}' does not have a simulation. Ensure it is a DOP network node."
         )
     return sim
 
@@ -107,6 +107,7 @@ def _records_to_dict(data: hou.DopData) -> dict:
 
 
 ###### Handlers
+
 
 def _get_simulation_info(node_path: str) -> dict:
     """Get DOP network simulation state information."""
@@ -252,7 +253,7 @@ def _get_dop_field(
     except Exception as e:
         raise hou.OperationFailed(
             f"Error reading field '{field_name}' at data path '{data_path}': {e}"
-        )
+        ) from e
 
     if not found:
         raise hou.OperationFailed(
@@ -305,9 +306,7 @@ def _get_dop_relationships(node_path: str) -> dict:
                         entry["records"] = {}
                     # Try to find objects involved
                     try:
-                        entry["object_names"] = [
-                            o.name() for o in rel.objects()
-                        ]
+                        entry["object_names"] = [o.name() for o in rel.objects()]
                     except (hou.OperationFailed, AttributeError) as e:
                         logger.debug("Could not read relationship objects: %s", e)
                         entry["source_object"] = obj.name()
@@ -325,7 +324,7 @@ def _get_dop_relationships(node_path: str) -> dict:
 
 def _step_simulation(node_path: str, steps: int = 1) -> dict:
     """Advance the simulation by N frames."""
-    node = _get_dop_node(node_path)
+    _get_dop_node(node_path)
     # Ensure the node is a DOP network with a simulation
     _get_simulation(node_path)
 
@@ -348,7 +347,7 @@ def _step_simulation(node_path: str, steps: int = 1) -> dict:
 
 def _reset_simulation(node_path: str) -> dict:
     """Reset the simulation to its initial state."""
-    node = _get_dop_node(node_path)
+    _get_dop_node(node_path)
     sim = _get_simulation(node_path)
 
     # Attempt to clear the simulation cache
@@ -370,7 +369,7 @@ def _reset_simulation(node_path: str) -> dict:
 
 def _get_sim_memory_usage(node_path: str) -> dict:
     """Get a detailed memory breakdown for the simulation."""
-    node = _get_dop_node(node_path)
+    _get_dop_node(node_path)
     sim = _get_simulation(node_path)
 
     # Total memory
@@ -390,11 +389,13 @@ def _get_sim_memory_usage(node_path: str) -> dict:
                 obj_mem = obj.memoryUsage()
             except (hou.OperationFailed, AttributeError) as e:
                 logger.debug("Could not read memory for object '%s': %s", obj.name(), e)
-            per_object.append({
-                "name": obj.name(),
-                "memory_bytes": obj_mem,
-                "memory_mb": round(obj_mem / (1024 * 1024), 2) if obj_mem else 0,
-            })
+            per_object.append(
+                {
+                    "name": obj.name(),
+                    "memory_bytes": obj_mem,
+                    "memory_mb": round(obj_mem / (1024 * 1024), 2) if obj_mem else 0,
+                }
+            )
 
     # Sort by memory usage descending
     per_object.sort(key=lambda x: x["memory_bytes"], reverse=True)

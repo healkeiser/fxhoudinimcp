@@ -25,8 +25,8 @@ import hwebserver
 from fxhoudinimcp_server import dispatcher
 from fxhoudinimcp_server.serialize import json_default
 
-
 ###### Registration
+
 
 def _api_function(namespace: str):
     """Register an API function with hwebserver and keep the module attribute.
@@ -40,6 +40,7 @@ def _api_function(namespace: str):
     ``threading.local()``, so the thread that imports this module must also be
     the thread that calls ``hwebserver.run()``. See startup.py.
     """
+
     def decorator(function):
         hwebserver.apiFunction(namespace=namespace)(function)
         return function
@@ -59,20 +60,21 @@ def _json_response(payload: dict) -> hwebserver.Response:
     try:
         body = json.dumps(payload, default=json_default)
     except Exception as exc:
-        body = json.dumps({
-            "status": "error",
-            "error": {
-                "code": "SERIALIZATION_ERROR",
-                "message": (
-                    f"Result could not be JSON-encoded: {type(exc).__name__}: {exc}"
-                ),
-                "traceback": traceback.format_exc(),
-            },
-        })
+        body = json.dumps(
+            {
+                "status": "error",
+                "error": {
+                    "code": "SERIALIZATION_ERROR",
+                    "message": (f"Result could not be JSON-encoded: {type(exc).__name__}: {exc}"),
+                    "traceback": traceback.format_exc(),
+                },
+            }
+        )
     return hwebserver.Response(body.encode("utf-8"), 200, "application/json")
 
 
 ###### Endpoints
+
 
 @_api_function("mcp")
 def execute(request, command="", params=None, request_id=""):

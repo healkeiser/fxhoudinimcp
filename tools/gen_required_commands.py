@@ -46,9 +46,7 @@ def collect(root: Path = _CLIENT) -> tuple[set[str], list[str]]:
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            name = func.attr if isinstance(func, ast.Attribute) else getattr(
-                func, "id", None
-            )
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
             if name != "execute":
                 continue
 
@@ -61,9 +59,7 @@ def collect(root: Path = _CLIENT) -> tuple[set[str], list[str]]:
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 commands.add(first.value)
             else:
-                dynamic.append(
-                    f"{relative}:{node.lineno} ({type(first).__name__})"
-                )
+                dynamic.append(f"{relative}:{node.lineno} ({type(first).__name__})")
 
     return commands, dynamic
 
@@ -92,14 +88,10 @@ def main() -> int:
         print("No commands found. The extractor or the client layout changed.")
         return 1
 
-    payload = json.dumps(
-        {"commands": sorted(commands)}, indent=2, sort_keys=True
-    ) + "\n"
+    payload = json.dumps({"commands": sorted(commands)}, indent=2, sort_keys=True) + "\n"
 
     if args.check:
-        current = (
-            _MANIFEST.read_text(encoding="utf-8") if _MANIFEST.is_file() else ""
-        )
+        current = _MANIFEST.read_text(encoding="utf-8") if _MANIFEST.is_file() else ""
         if current != payload:
             print(
                 f"STALE: {_MANIFEST.relative_to(REPO_ROOT)}\n"

@@ -29,9 +29,9 @@ class TestBenchmarks:
     def test_create_node_latency_growth(self, call):
         """create_node lays out + pans after every call — cost grows with
         network size. Measure first vs thirtieth node."""
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="bench"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="bench")[
+            "node_path"
+        ]
         timings = []
         for index in range(30):
             _, elapsed = _timed(
@@ -57,16 +57,13 @@ class TestBenchmarks:
             context="Sop",
             limit=5000,
         )
-        print(
-            f"[bench] Sop types: total={data['total_count']} "
-            f"returned={data['returned_count']}"
-        )
+        print(f"[bench] Sop types: total={data['total_count']} returned={data['returned_count']}")
         assert data["total_count"] > 200
 
     def test_get_points_pagination_on_dense_grid(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="grid_geo"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="grid_geo")[
+            "node_path"
+        ]
         grid = call("nodes.create_node", parent_path=geo, node_type="grid")
         call(
             "parameters.set_parameters",
@@ -84,9 +81,9 @@ class TestBenchmarks:
         assert points
 
     def test_workflow_setup_costs(self, call):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         sphere = call("nodes.create_node", parent_path=geo, node_type="sphere")
         _timed(
             "workflow.setup_pyro_sim",

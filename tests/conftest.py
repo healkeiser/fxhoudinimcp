@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 # Built-in
-import sys
 from unittest.mock import AsyncMock, MagicMock
 
 # Third-party

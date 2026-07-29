@@ -14,8 +14,7 @@ from mcp.server.fastmcp import Context
 
 # Internal
 from fxhoudinimcp._types import Value
-from fxhoudinimcp.server import mcp, _get_bridge
-
+from fxhoudinimcp.server import _get_bridge, mcp
 
 ###### parameters.get_parameter
 
@@ -39,9 +38,7 @@ async def get_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
 
 
 @mcp.tool()
-async def set_parameter(
-    ctx: Context, node_path: str, parm_name: str, value: Value
-) -> dict:
+async def set_parameter(ctx: Context, node_path: str, parm_name: str, value: Value) -> dict:
     """Set a parameter value.
 
     Args:
@@ -60,9 +57,7 @@ async def set_parameter(
 
 
 @mcp.tool()
-async def set_parameters(
-    ctx: Context, node_path: str, params: dict[str, Any]
-) -> dict:
+async def set_parameters(ctx: Context, node_path: str, params: dict[str, Any]) -> dict:
     """Batch-set multiple parameters on a node.
 
     Args:
@@ -159,9 +154,7 @@ async def get_expression(ctx: Context, node_path: str, parm_name: str) -> dict:
 
 
 @mcp.tool()
-async def revert_parameter(
-    ctx: Context, node_path: str, parm_name: str
-) -> dict:
+async def revert_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
     """Revert a parameter to its default value.
 
     Args:
@@ -210,9 +203,7 @@ async def link_parameters(
 
 
 @mcp.tool()
-async def lock_parameter(
-    ctx: Context, node_path: str, parm_name: str, locked: bool
-) -> dict:
+async def lock_parameter(ctx: Context, node_path: str, parm_name: str, locked: bool) -> dict:
     """Lock or unlock a parameter.
 
     Args:

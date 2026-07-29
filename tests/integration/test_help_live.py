@@ -32,9 +32,7 @@ class TestSearchHelp:
         assert result["total_matches"] == 0
 
     def test_unknown_scope_is_clean_error(self, call):
-        error = call(
-            "help.search_help", query="noise", scope="cookbook", expect_error=True
-        )
+        error = call("help.search_help", query="noise", scope="cookbook", expect_error=True)
         assert "cookbook" in error["message"]
         assert "vex" in error["message"]
 
@@ -51,9 +49,7 @@ class TestGetHelpPage:
         assert "scatter" in page["text"].lower()
 
     def test_unknown_page_suggests_close_matches(self, call):
-        error = call(
-            "help.get_help_page", path="nodes/sop/scatterr", expect_error=True
-        )
+        error = call("help.get_help_page", path="nodes/sop/scatterr", expect_error=True)
         assert "scatter" in error["message"]
 
 
@@ -63,9 +59,7 @@ class TestStrippedBuildDegradation:
         import hou
         from fxhoudinimcp_server.handlers import help_handlers
 
-        monkeypatch.setattr(
-            help_handlers, "_help_dir", lambda: str(tmp_path / "no_help_here")
-        )
+        monkeypatch.setattr(help_handlers, "_help_dir", lambda: str(tmp_path / "no_help_here"))
         with pytest.raises(hou.OperationFailed) as excinfo:
             help_handlers.search_help(query="anything")
         message = str(excinfo.value)

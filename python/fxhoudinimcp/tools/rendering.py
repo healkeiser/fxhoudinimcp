@@ -14,7 +14,7 @@ from mcp.server.fastmcp import Context
 from mcp.types import ImageContent, TextContent
 
 # Internal
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 from fxhoudinimcp.tools import result_with_image
 
 
@@ -76,16 +76,14 @@ async def get_render_settings(ctx: Context, node_path: str) -> dict:
         node_path: ROP node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "rendering.get_render_settings", {"node_path": node_path}
-    )
+    return await bridge.execute("rendering.get_render_settings", {"node_path": node_path})
 
 
 @mcp.tool()
 async def set_render_settings(
     ctx: Context,
     node_path: str,
-    settings: dict[str, Any] = {},
+    settings: dict[str, Any] | None = None,
 ) -> dict:
     """Set render parameters on a ROP node.
 
@@ -94,9 +92,11 @@ async def set_render_settings(
         settings: Parameter name-value pairs.
     """
     bridge = _get_bridge(ctx)
+    # The default was a mutable {} literal. None is the safe default, but the
+    # handler is still sent a dict, so the wire format does not change.
     return await bridge.execute(
         "rendering.set_render_settings",
-        {"node_path": node_path, "settings": settings},
+        {"node_path": node_path, "settings": settings or {}},
     )
 
 
@@ -173,6 +173,4 @@ async def get_render_progress(ctx: Context, node_path: str) -> dict:
         node_path: ROP node path.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "rendering.get_render_progress", {"node_path": node_path}
-    )
+    return await bridge.execute("rendering.get_render_progress", {"node_path": node_path})

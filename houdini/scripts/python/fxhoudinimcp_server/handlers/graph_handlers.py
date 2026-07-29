@@ -27,6 +27,7 @@ from fxhoudinimcp_server.dispatcher import register_handler
 
 ###### Helpers
 
+
 def _resolve_node_type(category: hou.NodeTypeCategory, type_name: str):
     """Resolve *type_name* in *category* the way createNode would.
 
@@ -64,9 +65,7 @@ def _apply_parm(node: hou.Node, name: str, value: Any) -> None:
         if parm_tuple is None:
             raise ValueError(f"'{name}' is not a parm tuple")
         if len(value) != len(parm_tuple):
-            raise ValueError(
-                f"'{name}' has {len(parm_tuple)} components, got {len(value)}"
-            )
+            raise ValueError(f"'{name}' has {len(parm_tuple)} components, got {len(value)}")
         if all(isinstance(v, (int, float)) for v in value):
             parm_tuple.set([float(v) for v in value])
         else:
@@ -117,6 +116,7 @@ def _geometry_summary(node: hou.Node) -> dict[str, Any] | None:
 
 
 ###### graph.build_network
+
 
 def build_network(
     parent_path: str,
@@ -177,13 +177,10 @@ def build_network(
         if type_name not in resolved_types:
             node_type = _resolve_node_type(category, type_name)
             if node_type is None:
-                close = get_close_matches(
-                    type_name, list(category.nodeTypes()), n=3, cutoff=0.5
-                )
+                close = get_close_matches(type_name, list(category.nodeTypes()), n=3, cutoff=0.5)
                 hint = f" Did you mean: {close}?" if close else ""
                 errors.append(
-                    f"node {label}: type '{type_name}' does not exist in "
-                    f"{category.name()}.{hint}"
+                    f"node {label}: type '{type_name}' does not exist in {category.name()}.{hint}"
                 )
                 continue
             resolved_types[type_name] = node_type
@@ -192,9 +189,7 @@ def build_network(
             if name in spec_names:
                 errors.append(f"duplicate node name in spec: '{name}'")
             if name in existing:
-                errors.append(
-                    f"node '{name}' already exists under {parent_path}"
-                )
+                errors.append(f"node '{name}' already exists under {parent_path}")
             spec_names.append(name)
 
     # Learn parameter names by instantiating each unique type once (probe
@@ -203,17 +198,11 @@ def build_network(
     # errors exist: report everything in one pass.
     parm_knowledge: dict[str, tuple[set, set]] = {}
     if resolved_types:
-        display_before = (
-            parent.displayNode() if hasattr(parent, "displayNode") else None
-        )
-        render_before = (
-            parent.renderNode() if hasattr(parent, "renderNode") else None
-        )
+        display_before = parent.displayNode() if hasattr(parent, "displayNode") else None
+        render_before = parent.renderNode() if hasattr(parent, "renderNode") else None
         try:
             for type_name, node_type in resolved_types.items():
-                parm_knowledge[type_name] = _parm_names_for_type(
-                    parent, node_type
-                )
+                parm_knowledge[type_name] = _parm_names_for_type(parent, node_type)
         finally:
             with contextlib.suppress(Exception):
                 if display_before is not None:
@@ -226,10 +215,12 @@ def build_network(
         knowledge = parm_knowledge.get(spec.get("type"))
         if knowledge:
             parm_names, tuple_names = knowledge
-            for parm_name in (spec.get("parms") or {}):
+            for parm_name in spec.get("parms") or {}:
                 if parm_name not in parm_names and parm_name not in tuple_names:
                     close = get_close_matches(
-                        parm_name, sorted(parm_names | tuple_names), n=3,
+                        parm_name,
+                        sorted(parm_names | tuple_names),
+                        n=3,
                         cutoff=0.5,
                     )
                     hint = f" Did you mean: {close}?" if close else ""
@@ -267,9 +258,7 @@ def build_network(
             "valid": True,
             "dry_run": True,
             "validated_nodes": len(nodes),
-            "validated_types": sorted(
-                t.name() for t in resolved_types.values()
-            ),
+            "validated_types": sorted(t.name() for t in resolved_types.values()),
         }
 
     ###### Phase 2: build (atomic — any failure rolls back)
@@ -277,9 +266,7 @@ def build_network(
     created: dict[str, hou.Node] = {}
     try:
         for spec in nodes:
-            node = parent.createNode(
-                resolved_types[spec["type"]].name(), spec.get("name")
-            )
+            node = parent.createNode(resolved_types[spec["type"]].name(), spec.get("name"))
             created[spec.get("name") or node.name()] = node
 
         for spec, node in zip(nodes, created.values(), strict=False):
@@ -287,9 +274,7 @@ def build_network(
                 try:
                     _apply_parm(node, parm_name, value)
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"{node.path()} parm '{parm_name}': {exc}"
-                    ) from exc
+                    raise RuntimeError(f"{node.path()} parm '{parm_name}': {exc}") from exc
             for input_index, entry in enumerate(spec.get("inputs") or []):
                 if isinstance(entry, dict):
                     source_name = entry.get("source")
@@ -352,6 +337,7 @@ def build_network(
 
 ###### graph.verify_network
 
+
 def verify_network(parent_path: str, **_: Any) -> dict:
     """Inspect every node in a network: the 'middle-click everything' pass.
 
@@ -371,11 +357,7 @@ def verify_network(parent_path: str, **_: Any) -> dict:
     reports = []
     for child in parent.children():
         report = _node_report(child)
-        report["display"] = (
-            child.isDisplayFlagSet()
-            if hasattr(child, "isDisplayFlagSet")
-            else None
-        )
+        report["display"] = child.isDisplayFlagSet() if hasattr(child, "isDisplayFlagSet") else None
         reports.append(report)
 
     error_nodes = [r["path"] for r in reports if r["errors"]]
@@ -412,9 +394,7 @@ def _help_text(node_type, category_name: str) -> str | None:
     """Houdini's own help for a node type, version-exact, headless-safe."""
     global _HELP_ZIP_INDEX
     # hou.text.expandString, not the deprecated hou.expandString.
-    zip_path = os.path.join(
-        hou.text.expandString("$HFS"), "houdini", "help", "nodes.zip"
-    )
+    zip_path = os.path.join(hou.text.expandString("$HFS"), "houdini", "help", "nodes.zip")
     if _HELP_ZIP_INDEX is None:
         _HELP_ZIP_INDEX = {}
         if os.path.isfile(zip_path):
@@ -460,19 +440,11 @@ def get_node_card(
     categories = hou.nodeTypeCategories()
     category = categories.get(context)
     if category is None:
-        raise ValueError(
-            f"Unknown context '{context}'. "
-            f"Available: {sorted(categories.keys())}"
-        )
+        raise ValueError(f"Unknown context '{context}'. Available: {sorted(categories.keys())}")
     resolved = _resolve_node_type(category, node_type)
     if resolved is None:
-        close = get_close_matches(
-            node_type, list(category.nodeTypes()), n=5, cutoff=0.4
-        )
-        raise ValueError(
-            f"Node type '{node_type}' not found in {context}. "
-            f"Close matches: {close}"
-        )
+        close = get_close_matches(node_type, list(category.nodeTypes()), n=5, cutoff=0.4)
+        raise ValueError(f"Node type '{node_type}' not found in {context}. Close matches: {close}")
 
     parms: list[dict[str, Any]] = []
     _PARM_CAP = 80
@@ -481,8 +453,11 @@ def get_node_card(
         if template.isHidden():
             continue
         name, label = template.name(), template.label()
-        if parm_filter and parm_filter.lower() not in name.lower() \
-                and parm_filter.lower() not in label.lower():
+        if (
+            parm_filter
+            and parm_filter.lower() not in name.lower()
+            and parm_filter.lower() not in label.lower()
+        ):
             continue
         if len(parms) >= _PARM_CAP:
             truncated = True
@@ -523,6 +498,7 @@ def get_node_card(
 
 
 ###### graph.find_expensive_nodes
+
 
 def find_expensive_nodes(
     root_path: str = "/",
@@ -583,8 +559,15 @@ def find_expensive_nodes(
 
     def _walk(entry: dict, path_parts: list[str]) -> None:
         name = entry.get("name", "")
-        is_real_node = bool(name) and not name.startswith("{") and name not in (
-            "Total Statistics", "Other", "Nodes",
+        is_real_node = (
+            bool(name)
+            and not name.startswith("{")
+            and name
+            not in (
+                "Total Statistics",
+                "Other",
+                "Nodes",
+            )
         )
         parts = path_parts + [name] if is_real_node else path_parts
         cook_ms = 0.0
@@ -602,9 +585,7 @@ def find_expensive_nodes(
     return {
         "root_path": root_path,
         "cooked_nodes": len(targets),
-        "top_nodes": [
-            {"path": path, "cook_ms": round(ms, 2)} for ms, path in rows[:limit]
-        ],
+        "top_nodes": [{"path": path, "cook_ms": round(ms, 2)} for ms, path in rows[:limit]],
         "note": (
             "cook_ms is cumulative (parents include children); compare "
             "siblings to find the real hotspot"

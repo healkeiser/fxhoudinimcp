@@ -108,9 +108,7 @@ def test_several_candidates_all_get_written(monkeypatch, tmp_path):
     assert "every candidate" in reason
 
 
-def test_several_candidates_install_into_all_of_them(
-    plugin_dir, tmp_path, monkeypatch, capsys
-):
+def test_several_candidates_install_into_all_of_them(plugin_dir, tmp_path, monkeypatch, capsys):
     """End to end: no prompt, no refusal, both files written."""
     first, second = tmp_path / "a", tmp_path / "b"
     first.mkdir()
@@ -197,13 +195,9 @@ def test_client_only_skips_the_houdini_half(plugin_dir, isolated, tmp_path, caps
     assert "Restart your MCP client" in out
 
 
-def test_client_only_survives_ambiguous_candidates(
-    plugin_dir, monkeypatch, tmp_path, capsys
-):
+def test_client_only_survives_ambiguous_candidates(plugin_dir, monkeypatch, tmp_path, capsys):
     """Several candidates block a normal install but must not block this one."""
-    monkeypatch.setattr(
-        inst, "candidate_package_dirs", lambda: [tmp_path / "a", tmp_path / "b"]
-    )
+    monkeypatch.setattr(inst, "candidate_package_dirs", lambda: [tmp_path / "a", tmp_path / "b"])
     monkeypatch.setattr(inst, "claude_code_available", lambda: False)
     monkeypatch.setattr(inst, "desktop_config_path", lambda: None)
 
@@ -292,18 +286,14 @@ def test_desktop_install_keeps_env_on_disk(tmp_path):
 
     inst.install_desktop(config, ["/abs/py", "-m", "fxhoudinimcp"], dry_run=False)
 
-    entry = json.loads(config.read_text(encoding="utf-8"))["mcpServers"][
-        inst.SERVER_NAME
-    ]
+    entry = json.loads(config.read_text(encoding="utf-8"))["mcpServers"][inst.SERVER_NAME]
     assert entry["env"] == {"HOUDINI_PORT": "8100"}
     assert entry["command"] == "/abs/py"
 
 
 def test_pinned_port_is_reported():
     """Pinning HOUDINI_PORT silently disables the multi-session port scan."""
-    warning = inst.pinned_port_warning(
-        {"command": "python", "env": {"HOUDINI_PORT": "8100"}}
-    )
+    warning = inst.pinned_port_warning({"command": "python", "env": {"HOUDINI_PORT": "8100"}})
     assert warning
     assert any("8100" in line for line in warning)
     assert any("second Houdini" in line for line in warning)
@@ -414,9 +404,7 @@ def test_current_command_parses_the_human_output(monkeypatch):
         "run",
         lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout=output),
     )
-    assert (
-        inst.claude_code_current_command() == "C:\\Program Files\\Python311\\python.exe"
-    )
+    assert inst.claude_code_current_command() == "C:\\Program Files\\Python311\\python.exe"
 
 
 def test_current_command_none_when_not_registered(monkeypatch):
@@ -506,9 +494,7 @@ def test_a_stale_entry_is_repointed_not_reported(monkeypatch, capsys):
 def test_an_already_correct_entry_is_left_alone(monkeypatch):
     """Nothing to repoint, and nothing removed: no churn on a good config."""
     monkeypatch.setattr(inst, "claude_code_available", lambda: True)
-    monkeypatch.setattr(
-        inst, "claude_code_current_command", lambda: inst.client_command()[0]
-    )
+    monkeypatch.setattr(inst, "claude_code_current_command", lambda: inst.client_command()[0])
     calls = _runs(monkeypatch, 1)
 
     lines = inst.install_claude_code(dry_run=False)
@@ -567,7 +553,7 @@ _MODIFIED = "Added stdio MCP server fxhoudini\nFile modified: C:\\Users\\me\\.cl
 
 
 def test_success_names_the_config_file(monkeypatch):
-    """"Registered with Claude Code (user scope)" is not a checkable claim.
+    """ "Registered with Claude Code (user scope)" is not a checkable claim.
 
     CLAUDE_CONFIG_DIR decides which profile is user scope, and a machine can
     have several. A correct, connected registration in one was invisible to
@@ -604,9 +590,7 @@ def test_repointing_names_the_config_file(monkeypatch):
         adds.append(1)
         if len(adds) > 1:  # the re-add, after the removal
             return subprocess.CompletedProcess(argv, 0, stdout=_MODIFIED)
-        return subprocess.CompletedProcess(
-            argv, 1, stderr="MCP server fxhoudini already exists"
-        )
+        return subprocess.CompletedProcess(argv, 1, stderr="MCP server fxhoudini already exists")
 
     monkeypatch.setattr(inst.subprocess, "run", fake_run)
 
@@ -647,9 +631,7 @@ def test_every_parser_spells_itself_the_module_way():
 ###### A dry run has to be honest about what would fail
 
 
-def test_dry_run_rejects_a_directory_that_does_not_exist(
-    plugin_dir, isolated, tmp_path, capsys
-):
+def test_dry_run_rejects_a_directory_that_does_not_exist(plugin_dir, isolated, tmp_path, capsys):
     """A dry run that reports success for a write that would fail is worthless.
 
     It was reporting "Would write ... into C:\\nowhere" and exiting 0, while the
@@ -661,9 +643,7 @@ def test_dry_run_rejects_a_directory_that_does_not_exist(
     assert "Not a directory" in capsys.readouterr().err
 
 
-def test_nothing_is_written_when_one_destination_is_missing(
-    plugin_dir, monkeypatch, tmp_path
-):
+def test_nothing_is_written_when_one_destination_is_missing(plugin_dir, monkeypatch, tmp_path):
     """Every destination is checked before the first one is written."""
     first, second = tmp_path / "a", tmp_path / "b"
     first.mkdir()  # second is never created

@@ -13,11 +13,13 @@ import logging
 import threading
 import time
 import traceback
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 # Third-party (hdefereval is only available in graphical Houdini sessions)
 try:
     import hdefereval
+
     HAS_HDEFEREVAL = True
 except ImportError:
     HAS_HDEFEREVAL = False
@@ -105,9 +107,7 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
             worker.join(timeout=_COMMAND_TIMEOUT)
 
             if worker.is_alive():
-                logger.error(
-                    "Command '%s' timed out after %s seconds", command, _COMMAND_TIMEOUT
-                )
+                logger.error("Command '%s' timed out after %s seconds", command, _COMMAND_TIMEOUT)
                 result = {
                     "status": "error",
                     "error": {

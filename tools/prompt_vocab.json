@@ -1,0 +1,204 @@
+{
+  "_comment": [
+    "Curated node vocabulary for the workflow prompts. EDIT THIS, not the",
+    "generated tables in prompts/markdown/*.md.",
+    "",
+    "Why this file exists: gen_node_domains.py groups by SideFX #tags, and",
+    "SideFX only populated those for SOPs (66% of pages). LOP coverage is 19%",
+    "and materiallibrary carries no tag at all, so the tag path cannot produce",
+    "the categories a lookdev or PDG task needs. The grouping here is therefore",
+    "editorial. The names are not: gen_prompt_vocab.py checks every one against",
+    "tools/node_versions.json and annotates version ranges, so an invented or",
+    "removed name fails --check instead of shipping.",
+    "",
+    "cells has one entry per column after the label, so len(cells) is",
+    "len(headers) - 1."
+  ],
+  "blocks": [
+    {
+      "file": "workflows/model.md",
+      "marker": "sop vocabulary",
+      "contexts": ["Sop"],
+      "headers": ["Category", "Types"],
+      "rows": [
+        {"label": "Primitives", "cells": [["box", "sphere", "tube", "torus", "grid", "circle", "line", "curve", "add"]]},
+        {"label": "Modeling", "cells": [["polyextrude", "polybevel", "boolean", "clip", "mirror", "subdivide", "sweep", "revolve", "skin", "polyloft", "polysplit"]]},
+        {"label": "Deform", "cells": [["xform", "bend", "lattice", "peak", "mountain"]]},
+        {"label": "Copy", "cells": [["copytopoints", "copyxform"]]},
+        {"label": "Scatter/conform", "cells": [["scatter", "ray"]]},
+        {"label": "Groups/filter", "cells": [["groupcreate", "groupexpression", "grouprange", "blast", "split", "delete", "dissolve"]]},
+        {"label": "Attributes", "cells": [["attribcreate", "attribrandomize", "attribtransfer", "attribpromote", "measure"]]},
+        {"label": "Topology", "cells": [["fuse", "clean", "resample", "reverse", "divide", "remesh", "polyreduce"]]},
+        {"label": "Utility", "cells": [["merge", "switch", "null", "object_merge", "sort", "pack", "unpack"]]},
+        {"label": "Loops", "cells": [["block_begin", "block_end"]]},
+        {"label": "UV", "cells": [["uvunwrap", "uvflatten", "uvproject", "uvlayout"]]}
+      ]
+    },
+    {
+      "file": "workflows/dyno.md",
+      "marker": "sop solvers",
+      "contexts": ["Sop"],
+      "headers": ["Sim", "Types"],
+      "rows": [
+        {"label": "Pyro", "cells": [["pyrosolver", "pyrosource", "pyroburstsource", "pyropostprocess", "pyrotrailsource", "pyrotrailpath"]]},
+        {"label": "FLIP", "cells": [["flipsolver", "flipsource", "flipcontainer", "flipcollide", "flipboundary", "particlefluidsurface"]]},
+        {"label": "Vellum", "cells": [["vellumsolver", "vellumconstraints", "vellumdrape", "vellumpostprocess", "vellumpack", "vellumunpack"]]},
+        {"label": "RBD", "cells": [["voronoifracture", "booleanfracture", "rbdmaterialfracture", "rbdinteriordetail", "rbdconfigure", "rbdconstraintproperties", "rbdconstraintsfromrules", "connectadjacentpieces"]]},
+        {"label": "Whitewater", "cells": [["whitewatersolver", "whitewatersource", "whitewaterpostprocess"]]},
+        {"label": "MPM", "cells": [["mpmcontainer", "mpmsolver", "mpmsource", "mpmpostfracture", "mpmdebrissource", "mpmdeformpieces"]]},
+        {"label": "Ripple / shallow water", "cells": [["ripplesolver", "shallowwatersolver"]]}
+      ]
+    },
+    {
+      "file": "workflows/dyno.md",
+      "marker": "dop nodes",
+      "contexts": ["Dop"],
+      "headers": ["Sim", "Object", "Solver", "Extras"],
+      "rows": [
+        {"label": "Pyro", "cells": [["smokeobject_sparse"], ["pyrosolver_sparse"], ["volumesource", "gasresizefield", "gasturbulence", "gasdisturb"]]},
+        {"label": "FLIP", "cells": [["flipobject"], ["flipsolver"], ["flipconfigureobject", "volumesource"]]},
+        {"label": "RBD", "cells": [["rbdpackedobject", "rbdobject"], ["bulletrbdsolver", "rbdsolver"], ["constraintnetwork", "staticobject", "groundplane"]]},
+        {"label": "Vellum", "cells": [["vellumobject"], ["vellumsolver"], ["vellumsource", "vellumconstraints", "vellumconstraintproperty"]]},
+        {"label": "Cloth", "cells": [["clothobject"], ["clothsolver"], ["clothstitchconstraint"]]},
+        {"label": "Wire", "cells": [["wireobject"], ["wiresolver"], ["wirephysparms", "wireelasticity"]]},
+        {"label": "FEM", "cells": [["femsolidobject", "femhybridobject"], ["femsolver"], ["femattachconstraint", "femfuseconstraint"]]},
+        {"label": "POP", "cells": [["popobject"], ["popsolver"], ["popsource", "popforce", "popdrag", "popwind", "popgrains"]]},
+        {"label": "Crowd", "cells": [["crowdobject"], ["crowdsolver"], ["crowdstate", "crowdtransition", "crowdtrigger"]]}
+      ]
+    },
+    {
+      "file": "workflows/pyro.md",
+      "marker": "pyro nodes",
+      "contexts": ["Sop", "Dop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Source geometry", "cells": [["pyrosource", "pyroburstsource", "pyrotrailsource", "pyrotrailpath", "cloud", "cloudnoise"]]},
+        {"label": "Instanced sources", "cells": [["pyrosourceinstance", "pyrosourcepack"]]},
+        {"label": "Collisions", "cells": [["collisionsource", "vdbfrompolygons"]]},
+        {"label": "SOP solve", "cells": [["pyrosolver"]]},
+        {"label": "DOP solve", "cells": [["smokeobject_sparse", "pyrosolver_sparse", "volumesource", "gasresizefield", "gasturbulence", "gasdisturb"]]},
+        {"label": "Post and bake", "cells": [["pyropostprocess", "pyrobakevolume"]]}
+      ]
+    },
+    {
+      "file": "workflows/fluid.md",
+      "marker": "fluid nodes",
+      "contexts": ["Sop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Container and sourcing", "cells": [["flipcontainer", "flipsource", "flipboundary"]]},
+        {"label": "Collisions", "cells": [["flipcollide", "collisionsource", "trail"]]},
+        {"label": "Solve", "cells": [["flipsolver"]]},
+        {"label": "Surfacing", "cells": [["particlefluidsurface", "fluidcompress"]]},
+        {"label": "Whitewater", "cells": [["whitewatersource", "whitewatersolver", "whitewaterpostprocess"]]},
+        {"label": "Reuse the fields", "cells": [["dopimportfield"]]}
+      ]
+    },
+    {
+      "file": "workflows/vellum.md",
+      "marker": "vellum nodes",
+      "contexts": ["Sop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Constraints and setup", "cells": [["vellumconstraints", "vellumdrape", "vellumrestblend"]]},
+        {"label": "Solve", "cells": [["vellumsolver"]]},
+        {"label": "Pack and unpack", "cells": [["vellumpack", "vellumunpack"]]},
+        {"label": "Cache", "cells": [["vellumio"]]},
+        {"label": "Post", "cells": [["vellumpostprocess"]]},
+        {"label": "Fixing bad input", "cells": [["matchtopology", "timeshift"]]}
+      ]
+    },
+    {
+      "file": "workflows/destruction.md",
+      "marker": "destruction nodes",
+      "contexts": ["Sop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Fracture", "cells": [["rbdmaterialfracture", "voronoifracture", "booleanfracture", "rbdinteriordetail"]]},
+        {"label": "Constraints", "cells": [["rbdconstraintsfromrules", "rbdconstraintsfromlines", "rbdconstraintsfromcurves", "rbdconstraintproperties", "connectadjacentpieces"]]},
+        {"label": "Configure and solve", "cells": [["rbdconfigure", "rbdbulletsolver"]]},
+        {"label": "Inspect", "cells": [["rbdexplodedview"]]},
+        {"label": "Cache", "cells": [["rbdio"]]}
+      ]
+    },
+    {
+      "file": "workflows/mpm.md",
+      "marker": "mpm nodes",
+      "contexts": ["Sop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Container", "cells": [["mpmcontainer"]]},
+        {"label": "Sourcing", "cells": [["mpmsource", "mpmdebrissource"]]},
+        {"label": "Solve", "cells": [["mpmsolver"]]},
+        {"label": "Post", "cells": [["mpmpostfracture", "mpmdeformpieces"]]}
+      ]
+    },
+    {
+      "file": "workflows/heightfields.md",
+      "marker": "heightfield nodes",
+      "contexts": ["Sop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Create", "cells": [["heightfield", "heightfield_noise", "heightfield_file", "heightfield_project"]]},
+        {"label": "Layers", "cells": [["heightfield_layer", "heightfield_copylayer", "heightfield_visualize"]]},
+        {"label": "Masks", "cells": [["heightfield_maskbyfeature", "heightfield_maskbyobject", "heightfield_paint"]]},
+        {"label": "Erode and shape", "cells": [["heightfield_erode", "heightfield_slump", "heightfield_terrace", "heightfield_distort", "heightfield_blur", "heightfield_flowfield"]]},
+        {"label": "Resolution and extent", "cells": [["heightfield_resample", "heightfield_clip"]]},
+        {"label": "Populate and output", "cells": [["heightfield_scatter", "heightfield_output"]]}
+      ]
+    },
+    {
+      "file": "workflows/copernicus.md",
+      "marker": "cop nodes",
+      "contexts": ["Cop"],
+      "headers": ["Stage", "Types"],
+      "rows": [
+        {"label": "Bring data in", "cells": [["file", "sopimport", "rasterizesetup"]]},
+        {"label": "Operate", "cells": [["blur", "ramp", "switch"]]},
+        {"label": "Structure", "cells": [["null", "output"]]},
+        {"label": "Write", "cells": [["rop_image"]]}
+      ]
+    },
+    {
+      "file": "workflows/solaris.md",
+      "marker": "lop vocabulary",
+      "contexts": ["Lop"],
+      "headers": ["Category", "Types"],
+      "rows": [
+        {"label": "Scene assembly", "cells": [["sublayer", "reference", "assetreference", "merge", "componentoutput", "stagemanager", "sceneimport"]]},
+        {"label": "Layer control", "cells": [["configurelayer", "layerbreak", "loadlayer", "layerreplace", "edittargetlayer"]]},
+        {"label": "SOP bridge", "cells": [["sopimport", "sopcreate", "sopmodify"]]},
+        {"label": "Transforms", "cells": [["xform", "edit", "matchsize", "restructurescenegraph", "duplicate"]]},
+        {"label": "Materials", "cells": [["materiallibrary", "assignmaterial", "editmaterialproperties", "editmaterial", "materialvariation", "materiallinker"]]},
+        {"label": "Lights", "cells": [["light", "distantlight", "domelight", "lightmixer", "portallight", "geometrylight", "lightlinker"]]},
+        {"label": "Rendering", "cells": [["karmarendersettings", "renderproduct", "rendervar", "rendersettings"]]},
+        {"label": "Karma effects", "cells": [["karmaphysicalsky", "karmaskyatmosphere", "karmafogbox", "karmacryptomatte", "shadowcatcher", "backgroundplate"]]},
+        {"label": "Instancing", "cells": [["copytopoints", "instancer", "pointinstancer", "scatterinstances", "modifypointinstances", "splitpointinstancers", "retimeinstances"]]},
+        {"label": "Layout", "cells": [["paintinstances", "layout", "drop", "editprototypes"]]},
+        {"label": "Pruning/config", "cells": [["prune", "configurelayer", "configureprimitive", "drawmode", "configurestage"]]},
+        {"label": "USD editing", "cells": [["editproperties", "addvariant", "setvariant", "collection", "scope", "graftbranches", "graftstages", "splitscene", "copyproperty", "modifypaths"]]},
+        {"label": "Constraints", "cells": [["blendconstraint", "followpathconstraint", "lookatconstraint", "parentconstraint"]]},
+        {"label": "Geometry prims", "cells": [["mesh", "basiscurves", "points", "volume", "capsule", "cone", "cube", "cylinder", "sphere"]]}
+      ]
+    },
+    {
+      "file": "workflows/tops.md",
+      "marker": "top vocabulary",
+      "contexts": ["Top"],
+      "headers": ["Category", "Types"],
+      "rows": [
+        {"label": "Generators", "cells": [["genericgenerator", "filepattern", "filerange", "rangegenerate", "wedge"]]},
+        {"label": "ROP fetch", "cells": [["ropfetch", "ropgeometry", "ropmantra", "ropkarma", "ropusd", "ropalembic", "ropimage", "ropfbx", "ropflipbook", "ropcomposite", "ropopengl"]]},
+        {"label": "Processors", "cells": [["hdaprocessor", "pythonprocessor", "pythonscript"]]},
+        {"label": "Partitioners", "cells": [["partitionbyframe", "partitionbyattribute", "partitionbyexpression", "partitionbyindex", "partitionbycombination", "partitionbyrange", "partitionbytile", "waitforall"]]},
+        {"label": "File ops", "cells": [["fileremove", "filerename", "filecopy", "filecompress", "filedecompress", "makedir"]]},
+        {"label": "Data I/O", "cells": [["csvoutput", "csvinput", "jsoninput", "jsonoutput", "sqlinput", "xmlinput"]]},
+        {"label": "Attributes", "cells": [["attributecreate", "attributecopy", "attributedelete", "attributerename", "attributepromote", "attributerandomize", "attributefromstring"]]},
+        {"label": "Filtering", "cells": [["filterbyexpression", "filterbyattribute", "filterbyrange", "filterbystate", "split"]]},
+        {"label": "Control flow", "cells": [["merge", "switch", "sort", "feedbackbegin", "feedbackend", "workitemexpand"]]},
+        {"label": "External", "cells": [["ffmpegencodevideo", "ffmpegextractimages", "imagemagick", "downloadfile", "urlrequest"]]},
+        {"label": "USD", "cells": [["usdimport", "usdimportfiles", "usdrender", "usdrenderscene"]]}
+      ]
+    }
+  ]
+}

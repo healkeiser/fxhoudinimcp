@@ -22,7 +22,11 @@ classifiers = [
     "Topic :: Multimedia :: Graphics :: 3D Modeling",
 ]
 dependencies = [
-    "mcp>=1.8.0",
+    # Capped below 2.0: mcp 2.0.0 removed mcp.server.fastmcp, which every tool,
+    # resource and prompt in this package imports, so an uncapped floor resolves
+    # to a version where the server cannot import at all. Lifting the cap means
+    # porting to whatever replaced FastMCP in 2.x, not just widening the range.
+    "mcp>=1.8.0,<2",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
 ]

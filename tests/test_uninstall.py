@@ -100,9 +100,7 @@ def test_nothing_is_removed_without_confirmation(
     assert "Cancelled" in capsys.readouterr().out
 
 
-def test_a_bare_return_is_not_consent(
-    monkeypatch, no_clients, interactive, tmp_path
-):
+def test_a_bare_return_is_not_consent(monkeypatch, no_clients, interactive, tmp_path):
     """The prompt reads [y/N], so the default has to actually be no."""
     mine = _package_file(tmp_path / "h22")
     monkeypatch.setattr(uninst, "existing_packages", lambda: [(mine, "")])
@@ -112,9 +110,7 @@ def test_a_bare_return_is_not_consent(
     assert mine.is_file()
 
 
-def test_a_script_that_cannot_be_asked_is_refused(
-    monkeypatch, no_clients, tmp_path, capsys
-):
+def test_a_script_that_cannot_be_asked_is_refused(monkeypatch, no_clients, tmp_path, capsys):
     """No terminal means no consent. --yes is how a script says it meant it."""
     mine = _package_file(tmp_path / "h22")
     monkeypatch.setattr(uninst, "existing_packages", lambda: [(mine, "")])
@@ -140,14 +136,10 @@ def test_yes_removes_without_asking(monkeypatch, no_clients, tmp_path):
     assert not mine.exists()
 
 
-def test_confirming_removes_every_file(
-    monkeypatch, no_clients, interactive, tmp_path
-):
+def test_confirming_removes_every_file(monkeypatch, no_clients, interactive, tmp_path):
     first = _package_file(tmp_path / "h21")
     second = _package_file(tmp_path / "h22")
-    monkeypatch.setattr(
-        uninst, "existing_packages", lambda: [(first, ""), (second, "")]
-    )
+    monkeypatch.setattr(uninst, "existing_packages", lambda: [(first, ""), (second, "")])
     _answers(monkeypatch, "y")
 
     assert uninst.main([]) == 0
@@ -172,9 +164,7 @@ def test_what_will_be_removed_is_listed_before_the_question(
 ###### Dry run
 
 
-def test_dry_run_removes_nothing_and_never_asks(
-    monkeypatch, no_clients, tmp_path, capsys
-):
+def test_dry_run_removes_nothing_and_never_asks(monkeypatch, no_clients, tmp_path, capsys):
     mine = _package_file(tmp_path / "h22")
     monkeypatch.setattr(uninst, "existing_packages", lambda: [(mine, "")])
 
@@ -233,9 +223,7 @@ def test_client_none_touches_no_config(monkeypatch, tmp_path, capsys):
     assert "No client config was touched" in capsys.readouterr().out
 
 
-def test_the_python_package_is_left_alone_and_said_so(
-    monkeypatch, no_clients, capsys
-):
+def test_the_python_package_is_left_alone_and_said_so(monkeypatch, no_clients, capsys):
     """Removing the package from inside itself is how you get a half-install."""
     monkeypatch.setattr(uninst, "existing_packages", lambda: [])
 
@@ -345,9 +333,7 @@ def test_a_genuine_failure_is_reported(monkeypatch):
     monkeypatch.setattr(
         uninst.subprocess,
         "run",
-        lambda argv, **kw: subprocess.CompletedProcess(
-            argv, 1, stdout="", stderr="disk on fire"
-        ),
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout="", stderr="disk on fire"),
     )
 
     lines = uninst.remove_claude_code(dry_run=False)

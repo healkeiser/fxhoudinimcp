@@ -113,8 +113,7 @@ class TestVex:
             name="broken_wrangle",
         )
         assert data["vex_valid"] is False, (
-            "validate claimed broken VEX is valid — hallucinated success: "
-            f"{data}"
+            f"validate claimed broken VEX is valid — hallucinated success: {data}"
         )
         assert data["vex_errors"], "no errors reported for broken VEX"
 

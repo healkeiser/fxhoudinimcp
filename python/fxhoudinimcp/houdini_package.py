@@ -61,9 +61,7 @@ def package_json(path: Path | None = None) -> str:
     JSON need escaping, which is a common way to break this file by hand.
     """
     target = (path or plugin_path()).as_posix()
-    return json.dumps(
-        {"env": [{"FXHOUDINIMCP": target}], "path": "$FXHOUDINIMCP"}, indent=4
-    ) + "\n"
+    return json.dumps({"env": [{"FXHOUDINIMCP": target}], "path": "$FXHOUDINIMCP"}, indent=4) + "\n"
 
 
 def candidate_package_dirs() -> list[Path]:
@@ -155,9 +153,7 @@ def existing_packages(
             for entry in data.get("env") or []:
                 if "FXHOUDINIMCP" in entry:
                     value = entry["FXHOUDINIMCP"]
-                    target = (
-                        value if isinstance(value, str) else value.get("value", target)
-                    )
+                    target = value if isinstance(value, str) else value.get("value", target)
         except Exception:
             pass
         found.append((candidate, target))
@@ -253,10 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Candidate packages directories found on this machine:")
         for candidate in candidates:
             print(f"    {candidate}")
-        print(
-            f"\nWrite it with:\n"
-            f"    {CLI} houdini-package --write \"{candidates[0]}\""
-        )
+        print(f'\nWrite it with:\n    {CLI} houdini-package --write "{candidates[0]}"')
     else:
         print(
             "No Houdini packages directory found. Create one inside your Houdini\n"

@@ -49,9 +49,7 @@ def test_ensure_running_restarts_when_cached_state_is_stale(monkeypatch):
         "_wait_for_current_process_health",
         lambda port, timeout_seconds=0.5: None,
     )
-    monkeypatch.setattr(
-        startup, "start", lambda **kw: calls.append(kw)
-    )
+    monkeypatch.setattr(startup, "start", lambda **kw: calls.append(kw))
 
     startup.ensure_running()
 
@@ -66,9 +64,7 @@ def test_ensure_running_keeps_live_server(monkeypatch):
         "_wait_for_current_process_health",
         lambda port, timeout_seconds=0.5: {"pid": os.getpid()},
     )
-    monkeypatch.setattr(
-        startup, "start", lambda **kw: calls.append(kw)
-    )
+    monkeypatch.setattr(startup, "start", lambda **kw: calls.append(kw))
 
     startup.ensure_running()
 
@@ -112,9 +108,7 @@ def test_confirm_ready_marks_running(monkeypatch):
 
 def test_confirm_ready_raises_when_nothing_answers(monkeypatch):
     """The synchronous path must raise so Start Server can report why."""
-    monkeypatch.setattr(
-        startup, "_wait_for_current_process_health", lambda port: None
-    )
+    monkeypatch.setattr(startup, "_wait_for_current_process_health", lambda port: None)
 
     with pytest.raises(RuntimeError, match="did not answer"):
         startup._confirm_ready(None)
@@ -136,9 +130,7 @@ def test_confirm_ready_rejects_another_process(monkeypatch):
 def test_async_confirm_never_raises_and_clears_starting(monkeypatch, capsys):
     """A worker-thread exception would die unheard, so it must be reported."""
     monkeypatch.setattr(startup, "_starting", True)
-    monkeypatch.setattr(
-        startup, "_wait_for_current_process_health", lambda port: None
-    )
+    monkeypatch.setattr(startup, "_wait_for_current_process_health", lambda port: None)
 
     startup._confirm_ready_async(None)  # must not raise
 
@@ -202,6 +194,7 @@ def test_reuses_a_port_this_process_already_serves():
 
 def test_our_own_port_wins_over_moving_on():
     """Ours at 8101 should be reused, not skipped for a free 8102."""
+
     def probe(port):
         if port == 8100:
             return {"pid": os.getpid() + 1}

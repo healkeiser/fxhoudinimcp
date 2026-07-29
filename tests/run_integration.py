@@ -22,6 +22,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+
 def _search_patterns() -> list[str]:
     """Where Houdini installs live, per platform.
 
@@ -30,9 +31,7 @@ def _search_patterns() -> list[str]:
     two relocations that turn up most often; anything more exotic is reachable
     via $HFS or $HYTHON.
     """
-    program_files = os.environ.get("PROGRAMFILES", "C:/Program Files").replace(
-        "\\", "/"
-    )
+    program_files = os.environ.get("PROGRAMFILES", "C:/Program Files").replace("\\", "/")
     return [
         # Windows
         f"{program_files}/Side Effects Software/Houdini *",

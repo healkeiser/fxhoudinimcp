@@ -7,8 +7,6 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
-from typing import Optional
-
 # Third-party
 from mcp.server.fastmcp import Context
 
@@ -16,7 +14,7 @@ from mcp.server.fastmcp import Context
 from fxhoudinimcp.compat import compatibility_warning, missing_commands
 from fxhoudinimcp.errors import ConnectionError as HoudiniConnectionError
 from fxhoudinimcp.node_versions import sampled_series, staleness_warning
-from fxhoudinimcp.server import mcp, _get_bridge
+from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
@@ -112,13 +110,11 @@ async def new_scene(ctx: Context, save_current: bool = False) -> dict:
         save_current: Save the current scene before clearing.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "scene.new_scene", {"save_current": save_current}
-    )
+    return await bridge.execute("scene.new_scene", {"save_current": save_current})
 
 
 @mcp.tool()
-async def save_scene(ctx: Context, file_path: Optional[str] = None) -> dict:
+async def save_scene(ctx: Context, file_path: str | None = None) -> dict:
     """Save the current Houdini scene to disk.
 
     Args:
@@ -154,7 +150,7 @@ async def import_file(
     ctx: Context,
     file_path: str,
     parent_path: str = "/obj",
-    node_name: Optional[str] = None,
+    node_name: str | None = None,
 ) -> dict:
     """Import a geometry, USD, or Alembic file into the scene.
 
@@ -178,7 +174,7 @@ async def export_file(
     ctx: Context,
     node_path: str,
     file_path: str,
-    frame_range: Optional[list[float]] = None,
+    frame_range: list[float] | None = None,
 ) -> dict:
     """Export a node's output to a file on disk.
 

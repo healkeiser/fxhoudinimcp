@@ -28,33 +28,34 @@ def result_with_image(result: dict) -> list[TextContent | ImageContent]:
     ]
 
     if image_data:
-        content.append(
-            ImageContent(type="image", data=image_data, mimeType=mime_type)
-        )
+        content.append(ImageContent(type="image", data=image_data, mimeType=mime_type))
 
     return content
 
 
-# Internal
-from fxhoudinimcp.tools import scene  # noqa: F401
-from fxhoudinimcp.tools import nodes  # noqa: F401
-from fxhoudinimcp.tools import graph  # noqa: F401
-from fxhoudinimcp.tools import help  # noqa: F401
-from fxhoudinimcp.tools import parameters  # noqa: F401
-from fxhoudinimcp.tools import code  # noqa: F401
-from fxhoudinimcp.tools import dops  # noqa: F401
-from fxhoudinimcp.tools import animation  # noqa: F401
-from fxhoudinimcp.tools import rendering  # noqa: F401
-from fxhoudinimcp.tools import viewport  # noqa: F401
-from fxhoudinimcp.tools import tops  # noqa: F401
-from fxhoudinimcp.tools import cops  # noqa: F401
-from fxhoudinimcp.tools import hda  # noqa: F401
-from fxhoudinimcp.tools import vex  # noqa: F401
-from fxhoudinimcp.tools import geometry  # noqa: F401
-from fxhoudinimcp.tools import lops  # noqa: F401
-from fxhoudinimcp.tools import context  # noqa: F401
-from fxhoudinimcp.tools import workflows  # noqa: F401
-from fxhoudinimcp.tools import materials  # noqa: F401
-from fxhoudinimcp.tools import chops  # noqa: F401
-from fxhoudinimcp.tools import cache  # noqa: F401
-from fxhoudinimcp.tools import takes  # noqa: F401
+# Internal. Imported below the helper above on purpose: importing a tool
+# module registers its tools on mcp, and they need the helper to exist.
+from fxhoudinimcp.tools import (  # noqa: E402
+    animation,  # noqa: F401
+    cache,  # noqa: F401
+    chops,  # noqa: F401
+    code,  # noqa: F401
+    context,  # noqa: F401
+    cops,  # noqa: F401
+    dops,  # noqa: F401
+    geometry,  # noqa: F401
+    graph,  # noqa: F401
+    hda,  # noqa: F401
+    help,  # noqa: F401
+    lops,  # noqa: F401
+    materials,  # noqa: F401
+    nodes,  # noqa: F401
+    parameters,  # noqa: F401
+    rendering,  # noqa: F401
+    scene,  # noqa: F401
+    takes,  # noqa: F401
+    tops,  # noqa: F401
+    vex,  # noqa: F401
+    viewport,  # noqa: F401
+    workflows,  # noqa: F401
+)

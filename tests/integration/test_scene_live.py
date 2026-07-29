@@ -24,9 +24,9 @@ class TestSceneInfo:
 
 class TestFileRoundtrip:
     def test_export_then_import_preserves_geometry(self, call, tmp_path):
-        geo = call(
-            "nodes.create_node", parent_path="/obj", node_type="geo", name="geo1"
-        )["node_path"]
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="geo1")[
+            "node_path"
+        ]
         box = call("nodes.create_node", parent_path=geo, node_type="box")
         out = tmp_path / "box.bgeo.sc"
         call(
