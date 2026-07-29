@@ -135,21 +135,15 @@ async def main() -> int:
         # Semicolons rather than newlines in these snippets: the code travels as a
         # JSON string, and embedded newlines are one escaping layer too many.
         async def set_viewer_context(path: str, current: str | None = None) -> None:
-            """Point the viewer at a network. No dedicated tool does this yet."""
-            snippet = (
-                "import hou; "
-                "sv = next(p for p in hou.ui.paneTabs() "
-                "if p.type() == hou.paneTabType.SceneViewer); "
-                f"sv.setPwd(hou.node('{path}'))"
-            )
+            """Point the viewer at a network, using the tool that now exists.
+
+            This used to need execute_python, which is what the tool was added
+            for; using it here means the gate also covers it.
+            """
+            params = {"network_path": path}
             if current:
-                snippet += f"; sv.setCurrentNode(hou.node('{current}'))"
-            await call(
-                "code.execute_python",
-                soft=True,
-                justification="Setting the viewer context, which no dedicated tool covers.",
-                code=snippet,
-            )
+                params["current_node"] = current
+            await call("viewport.set_viewer_context", soft=True, **params)
 
         # Hydra delegates only exist for a scene graph view, so an object-level
         # viewport must refuse the request rather than call it unverifiable.

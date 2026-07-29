@@ -1,4 +1,4 @@
-MCP server for SideFX Houdini with 183 tools across 22 categories.
+MCP server for SideFX Houdini with 188 tools across 23 categories.
 
 ## SENIOR ARTIST DISCIPLINE — work like a Houdini veteran, not a script kid
 
@@ -38,6 +38,12 @@ Producing geometry in a wrangle when native nodes exist is a failure, not a shor
 5.  `execute_python` — absolute last resort. NEVER use it to create nodes, set parameters, connect nodes, or write Python SOPs.
 
 After EVERY create\_wrangle or set\_wrangle\_code, immediately call validate\_vex and do not proceed until it reports no errors.
+
+Parameters are not only literals, and reaching for `execute_python` to touch an expression is a mistake with a tool for it: `set_expression` writes one, `get_expression` reads one, `link_parameters` makes the channel reference that rule 6 asks for, and `revert_parameter` restores a stock default. Overwriting an expression with a literal silently destroys derived values such as a File Cache's output path. A bad expression surfaces at COOK time, not on read, so `verify_network(parent)` is what finds one: it reports the node and the message names the parameter, e.g. "Unable to evaluate expression (Unknown function in expression (/obj/geo1/box1/sizex))". Running an authoring script twice is how circular references appear, and a cook is how you see them.
+
+Some setups are not built from nodes at all. `list_shelf_tools(filter)` finds them, `get_shelf_tool_script(name)` shows SideFX's own recipe and the toolutils module it calls, and `run_shelf_tool(name)` runs it. The ocean procedural's internals come from a shelf tool, so `build_network` cannot produce them and guessing at them wastes a session.
+
+In Solaris, `set_viewer_context("/stage", current_node=...)` comes FIRST. It moves the viewer, not the network editor, and without it there is no scene graph view: `set_viewport_renderer` will correctly refuse, and a USD camera prim cannot be bound. Both of those now verify against Houdini and fail loudly rather than reporting a success they did not check.
 
 ## COMMONLY MISSED NODE DOMAINS — search these before writing code
 

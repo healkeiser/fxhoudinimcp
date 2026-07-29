@@ -47,3 +47,20 @@ class TestFileRoundtrip:
         sops = imported.children() if imported.children() else ()
         assert sops, "imported container has no SOPs"
         assert sops[0].geometry().intrinsicValue("pointcount") == 8
+
+
+class TestSetViewerContext:
+    """Moving the VIEWER, not the network editor.
+
+    This is the prerequisite for a Solaris preview: without a scene graph view
+    there is no Hydra delegate and no USD camera to bind. A recorded session
+    burned several execute_python calls on it.
+    """
+
+    def test_headless_says_there_is_no_viewer(self, call):
+        if hou.isUIAvailable():
+            pytest.skip("graphical session: covered by gui_session_check.py instead")
+        error = call("viewport.set_viewer_context", network_path="/stage", expect_error=True)
+        # The useful failure is "no Scene Viewer", not an AttributeError from
+        # somewhere inside hou.ui.
+        assert error["message"].strip(), error

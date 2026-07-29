@@ -965,3 +965,56 @@ register_handler("viewport.capture_network_editor", capture_network_editor)
 register_handler("viewport.set_current_network", set_current_network)
 register_handler("viewport.find_error_nodes", find_error_nodes)
 register_handler("viewport.log_status", log_status)
+
+
+###### viewport.set_viewer_context
+
+
+def set_viewer_context(
+    network_path: str,
+    current_node: str = None,
+    pane_name: str = None,
+) -> dict:
+    """Point the Scene Viewer at a network, and optionally a node within it.
+
+    set_current_network moves the network EDITOR. This moves the VIEWER, which is
+    a different pane and the one that decides whether a scene graph view exists at
+    all. Without it there was no way to enter Solaris, so no way to preview a USD
+    stage or set a Hydra delegate: a recorded session burned several
+    execute_python calls on exactly this, and even this project's own GUI checks
+    had to reach for Python.
+
+    Args:
+        network_path: Network for the viewer to display, e.g. "/stage".
+        current_node: Optional node inside it to make current, which is what
+            selects the stage a Solaris viewport shows.
+        pane_name: Optional pane tab name.
+    """
+    network = hou.node(network_path)
+    if network is None:
+        raise ValueError(f"Network not found: {network_path}")
+
+    scene_viewer = _find_scene_viewer(pane_name)
+    scene_viewer.setPwd(network)
+
+    if current_node is not None:
+        node = hou.node(current_node)
+        if node is None:
+            raise ValueError(f"Node not found: {current_node}")
+        scene_viewer.setCurrentNode(node)
+
+    result = {
+        "success": True,
+        "network_path": scene_viewer.pwd().path(),
+        "pane_name": scene_viewer.name(),
+        # Whether Hydra delegates apply here, which is the question the caller is
+        # usually really asking.
+        "is_scene_graph_view": _is_scene_graph_view(scene_viewer),
+    }
+    with contextlib.suppress(Exception):
+        current = scene_viewer.currentNode()
+        result["current_node"] = current.path() if current else None
+    return result
+
+
+register_handler("viewport.set_viewer_context", set_viewer_context)

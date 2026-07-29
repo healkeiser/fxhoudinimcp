@@ -174,3 +174,21 @@ async def cook_frame_range(
     if attribs is not None:
         params["attribs"] = attribs
     return await bridge.execute("graph.cook_frame_range", params)
+
+
+@mcp.tool()
+async def get_cook_status(ctx: Context, node_path: str = "/obj") -> dict:
+    """Whether a node has cooked, how often, and whether it is time dependent.
+
+    Note the shape of the limitation: every command runs on Houdini's main
+    thread, so a long cook blocks the bridge and cannot be polled while it runs.
+    This answers the after-the-fact question instead -- did it really recook, is
+    it time dependent, did it end in error -- plus whether the hip has unsaved
+    changes. For asynchronous work use a ROP's background execution and
+    get_render_progress.
+
+    Args:
+        node_path: Node to report on.
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute("graph.get_cook_status", {"node_path": node_path})

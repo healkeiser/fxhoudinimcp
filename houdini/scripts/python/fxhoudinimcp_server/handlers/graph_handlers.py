@@ -815,3 +815,48 @@ def cook_frame_range(
 
 
 register_handler("graph.cook_frame_range", cook_frame_range)
+
+
+###### graph.get_cook_status
+
+
+def get_cook_status(node_path: str = "/obj", **_: Any) -> dict:
+    """Whether a node has cooked, how often, and whether it changes per frame.
+
+    Read the limitation first: every command runs on Houdini's main thread, so a
+    long cook BLOCKS the bridge and cannot be polled from outside while it runs.
+    A recorded session ended up watching the Houdini process's CPU from
+    PowerShell for exactly that reason, and no tool can change that shape. What
+    this answers is the after-the-fact question -- did the thing actually recook,
+    is it time dependent, did it end up in error. For genuinely asynchronous
+    work, use a ROP's background execution and poll get_render_progress.
+
+    Args:
+        node_path: Node to report on.
+    """
+    node = hou.node(node_path)
+    if node is None:
+        raise hou.OperationFailed(f"Node not found: {node_path}")
+
+    result: dict[str, Any] = {
+        "node_path": node.path(),
+        "type": node.type().name(),
+        "frame": hou.frame(),
+    }
+    for key, method in (
+        ("cook_count", "cookCount"),
+        ("is_time_dependent", "isTimeDependent"),
+    ):
+        with contextlib.suppress(Exception):
+            result[key] = getattr(node, method)()
+    with contextlib.suppress(Exception):
+        result["errors"] = [e.splitlines()[0][:200] for e in node.errors()]
+        result["warnings"] = [w.splitlines()[0][:200] for w in node.warnings()]
+    with contextlib.suppress(Exception):
+        result["unsaved_changes"] = hou.hipFile.hasUnsavedChanges()
+    with contextlib.suppress(Exception):
+        result["hip_file"] = hou.hipFile.path()
+    return result
+
+
+register_handler("graph.get_cook_status", get_cook_status)
