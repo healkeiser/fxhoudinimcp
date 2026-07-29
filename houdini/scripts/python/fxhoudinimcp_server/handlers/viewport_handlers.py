@@ -18,6 +18,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.ui import require_ui
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,7 @@ def _is_scene_graph_view(scene_viewer) -> bool:
 
 def list_panes() -> dict:
     """List all visible pane tabs, their types, and associated information."""
+    require_ui("list Houdini's panes")
     pane_tabs = hou.ui.paneTabs()
     panes = []
     for pt in pane_tabs:
@@ -790,6 +792,10 @@ def set_current_network(network_path: str) -> dict:
     if node is None:
         raise ValueError(f"Network path not found: {network_path}")
 
+    require_ui(
+        "navigate the network editor",
+        alternative="Without a UI the network can still be read with list_children.",
+    )
     network_editor = None
     for pane_tab in hou.ui.paneTabs():
         if pane_tab.type() == hou.paneTabType.NetworkEditor:
@@ -888,6 +894,10 @@ def _find_scene_viewer(pane_name: str = None):
         RuntimeError: If no Scene Viewer is found.
         ValueError: If the named pane is not a Scene Viewer.
     """
+    require_ui(
+        "find a Scene Viewer",
+        alternative="Geometry can still be inspected with get_geometry_info and sample_geometry.",
+    )
     if pane_name is not None:
         pane_tab = _find_pane_by_name(pane_name)
         if pane_tab.type() != hou.paneTabType.SceneViewer:
@@ -915,6 +925,7 @@ def _find_pane_by_name(pane_name: str):
     Raises:
         ValueError: If no pane with the given name exists.
     """
+    require_ui(f"find the pane {pane_name!r}")
     for pane_tab in hou.ui.paneTabs():
         if pane_tab.name() == pane_name:
             return pane_tab

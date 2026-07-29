@@ -25,6 +25,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -284,7 +285,9 @@ def build_network(
                 try:
                     _apply_parm(node, parm_name, value)
                 except Exception as exc:
-                    raise RuntimeError(f"{node.path()} parm '{parm_name}': {exc}") from exc
+                    raise RuntimeError(
+                        f"{node.path()} parm '{parm_name}': {readable_message(exc)}"
+                    ) from exc
             for input_index, entry in enumerate(spec.get("inputs") or []):
                 if isinstance(entry, dict):
                     source_name = entry.get("source")
@@ -318,7 +321,7 @@ def build_network(
                 node.destroy()
         return {
             "valid": False,
-            "errors": [f"build failed and was rolled back: {exc}"],
+            "errors": [f"build failed and was rolled back: {readable_message(exc)}"],
             "created": [],
         }
 

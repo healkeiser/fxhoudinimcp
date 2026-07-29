@@ -16,6 +16,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -78,7 +79,9 @@ def _set_parm_safe(node: hou.Node, parm_name: str, value: Any) -> bool:
             parm.set(value)
             return True
         except Exception as e:
-            print(f"[workflow] Warning: could not set {parm_name}={value} on {node.path()}: {e}")
+            print(
+                f"[workflow] Warning: could not set {parm_name}={value} on {node.path()}: {readable_message(e)}"
+            )
             return False
     return False
 
@@ -261,7 +264,7 @@ def _setup_pyro_sim_dop(
         pyrosolver.setInput(0, merge_dop, 0)
         all_nodes.append(merge_dop.path())
     except Exception as e:
-        print(f"[workflow] Warning: merge DOP failed, wiring directly: {e}")
+        print(f"[workflow] Warning: merge DOP failed, wiring directly: {readable_message(e)}")
         pyrosolver.setInput(0, smokeobj, 0)
 
     # -- DOP Import SOP
@@ -628,7 +631,7 @@ def _setup_flip_sim(
             _set_parm_safe(fliptank, "sizez", 4.0)
             all_nodes.append(fliptank.path())
         except Exception as e:
-            print(f"[workflow] Warning: could not create domain: {e}")
+            print(f"[workflow] Warning: could not create domain: {readable_message(e)}")
             fliptank = None
 
     # -- Step 8: DOP Import
@@ -1010,7 +1013,7 @@ def _build_sop_chain(
             node = parent.createNode(node_type, node_name=node_name)
         except hou.OperationFailed as e:
             raise ValueError(
-                f"Failed to create node of type '{node_type}' at step {i + 1}: {e}"
+                f"Failed to create node of type '{node_type}' at step {i + 1}: {readable_message(e)}"
             ) from e
 
         # Wire to previous node
@@ -1018,7 +1021,9 @@ def _build_sop_chain(
             try:
                 node.setInput(0, prev_node, 0)
             except Exception as e:
-                print(f"[workflow] Warning: could not wire step {i + 1} to previous node: {e}")
+                print(
+                    f"[workflow] Warning: could not wire step {i + 1} to previous node: {readable_message(e)}"
+                )
 
         # Set parameters
         if params:

@@ -17,6 +17,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -154,7 +155,7 @@ def create_wrangle(
         else:
             node = parent.createNode("attribwrangle")
     except hou.OperationFailed as e:
-        raise ValueError(f"Failed to create attribwrangle node: {e}") from e
+        raise ValueError(f"Failed to create attribwrangle node: {readable_message(e)}") from e
 
     # Set the VEX snippet
     snippet_parm = node.parm("snippet")
@@ -296,7 +297,9 @@ def create_vex_expression(
         try:
             parm.setExpression(vex_code, language=hou.exprLanguage.Python)
         except Exception as e:
-            raise ValueError(f"Failed to set expression on {node_path}/{parm_name}: {e}") from e
+            raise ValueError(
+                f"Failed to set expression on {node_path}/{parm_name}: {readable_message(e)}"
+            ) from e
 
     return {
         "success": True,

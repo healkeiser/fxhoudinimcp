@@ -7,6 +7,7 @@ Houdini Digital Assets.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import os
 
 # Third-party
@@ -14,6 +15,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -288,7 +290,7 @@ def install_hda(file_path: str, force: bool = False) -> dict:
     try:
         hou.hda.installFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to install HDA: {e}") from e
+        raise ValueError(f"Failed to install HDA: {readable_message(e)}") from e
 
     # List definitions that were installed
     definitions = hou.hda.definitionsInFile(file_path)
@@ -311,10 +313,25 @@ def uninstall_hda(file_path: str) -> dict:
     Args:
         file_path: Path to the HDA file to uninstall.
     """
+    # hou.hda.uninstallFile raises a bare "The attempted operation failed." for
+    # anything wrong, which tells a caller nothing about what to do next. The
+    # overwhelmingly likely cause is that this file was never installed, so say so
+    # and name what IS installed.
+    installed: list[str] = []
+    with contextlib.suppress(Exception):  # only used to improve the message
+        installed = list(hou.hda.loadedFiles())
+    if installed and file_path not in installed:
+        raise ValueError(
+            f"HDA file is not installed, so there is nothing to uninstall: {file_path}. "
+            f"Installed files: {installed[:6]}"
+        )
     try:
         hou.hda.uninstallFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to uninstall HDA: {e}") from e
+        raise ValueError(
+            f"Failed to uninstall HDA {file_path}: {readable_message(e)}. "
+            f"Installed files: {installed[:6] if installed else 'none'}"
+        ) from e
 
     return {
         "success": True,
@@ -338,7 +355,7 @@ def reload_hda(file_path: str) -> dict:
     try:
         hou.hda.reloadFile(file_path)
     except Exception as e:
-        raise ValueError(f"Failed to reload HDA: {e}") from e
+        raise ValueError(f"Failed to reload HDA: {readable_message(e)}") from e
 
     definitions = hou.hda.definitionsInFile(file_path)
     type_names = [d.nodeTypeName() for d in definitions]
@@ -386,7 +403,7 @@ def create_hda(
             version=version,
         )
     except Exception as e:
-        raise ValueError(f"Failed to create HDA: {e}") from e
+        raise ValueError(f"Failed to create HDA: {readable_message(e)}") from e
 
     return {
         "success": True,
@@ -413,7 +430,7 @@ def update_hda(node_path: str) -> dict:
     try:
         node.type().definition().updateFromNode(node)
     except Exception as e:
-        raise ValueError(f"Failed to update HDA definition: {e}") from e
+        raise ValueError(f"Failed to update HDA definition: {readable_message(e)}") from e
 
     return {
         "success": True,
@@ -482,7 +499,7 @@ def get_hda_section_content(node_path: str, section_name: str) -> dict:
     try:
         content = sections[section_name].contents()
     except Exception as e:
-        raise ValueError(f"Failed to read section '{section_name}': {e}") from e
+        raise ValueError(f"Failed to read section '{section_name}': {readable_message(e)}") from e
 
     return {
         "node_path": node.path(),
@@ -516,7 +533,7 @@ def set_hda_section_content(
     try:
         definition.addSection(section_name, content)
     except Exception as e:
-        raise ValueError(f"Failed to write section '{section_name}': {e}") from e
+        raise ValueError(f"Failed to write section '{section_name}': {readable_message(e)}") from e
 
     return {
         "success": True,

@@ -24,6 +24,8 @@ try:
 except ImportError:
     HAS_HDEFEREVAL = False
 
+from fxhoudinimcp_server.errors import readable_message
+
 logger = logging.getLogger(__name__)
 
 ###### Constants
@@ -85,7 +87,7 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
                 "status": "error",
                 "error": {
                     "code": type(e).__name__,
-                    "message": str(e),
+                    "message": readable_message(e),
                     "traceback": traceback.format_exc(),
                 },
             }

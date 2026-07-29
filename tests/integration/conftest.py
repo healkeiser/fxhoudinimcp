@@ -88,10 +88,28 @@ def call():
         _command: str,
         expect_error: bool = False,
         allow_error: bool = False,
+        assert_failure: bool = False,
         **params,
     ):
         result = dispatcher.dispatch(_command, params)
         _OP_TIMINGS.append((_command, result.get("timing_ms", 0.0)))
+        if assert_failure:
+            # "This must not report success, by either route." Handlers signal
+            # failure two ways -- raising, or returning success: False -- and a
+            # table of bad inputs should not have to know which a given handler
+            # picked. allow_error cannot express this: it accepts success too, and
+            # records the call as a smoke test that asserted nothing.
+            if result["status"] == "error":
+                _CALL_MODES[_command].add("raises")
+                message = str(result["error"].get("message", ""))
+                assert message.strip(), f"{_command} failed with an empty message"
+                return result["error"]
+            data = result.get("data") or {}
+            assert isinstance(data, dict) and data.get("success") is False, (
+                f"{_command} reported success for input that should have failed: {data}"
+            )
+            _CALL_MODES[_command].add("reports")
+            return data
         if allow_error:
             # Smoke mode: success or a CLEAN structured error both pass.
             _CALL_MODES[_command].add("smoke")

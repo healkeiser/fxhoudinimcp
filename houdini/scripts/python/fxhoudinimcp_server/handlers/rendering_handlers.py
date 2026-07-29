@@ -15,11 +15,13 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.outputs import (
     failure_verdict,
     reported_outputs,
     write_verdict,
 )
+from fxhoudinimcp_server.ui import require_ui
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,10 @@ def render_viewport(
         resolution: Optional [width, height] override.
         camera: Optional camera node path to look through before capture.
     """
+    require_ui(
+        "capture a viewport screenshot",
+        alternative="For a rendered image without a UI, build a ROP and use start_render.",
+    )
     # Ensure the output directory exists
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
@@ -146,6 +152,10 @@ def render_quad_view(
         output_path: Destination image path.
         resolution: Optional [width, height] override.
     """
+    require_ui(
+        "capture a quad view",
+        alternative="For a rendered image without a UI, build a ROP and use start_render.",
+    )
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
@@ -415,7 +425,9 @@ def create_render_node(
     try:
         node = out_context.createNode(node_type, name)
     except hou.OperationFailed as e:
-        raise ValueError(f"Failed to create render node of type '{node_type}': {e}") from e
+        raise ValueError(
+            f"Failed to create render node of type '{node_type}': {readable_message(e)}"
+        ) from e
 
     # Set camera if provided
     if camera is not None:
@@ -558,6 +570,10 @@ def render_node_network(
         node_path: Path to the node whose network to capture.
         output_path: Destination image path.
     """
+    require_ui(
+        "screenshot the network editor",
+        alternative="get_network_overview and list_children describe a network without a UI.",
+    )
     node = hou.node(node_path)
     if node is None:
         raise ValueError(f"Node not found: {node_path}")

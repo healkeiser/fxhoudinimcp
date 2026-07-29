@@ -17,6 +17,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -217,7 +218,9 @@ def _create_material_network(
     try:
         node = mat_context.createNode(actual_type, node_name=name)
     except hou.OperationFailed as e:
-        raise ValueError(f"Failed to create material of type '{actual_type}' in /mat: {e}") from e
+        raise ValueError(
+            f"Failed to create material of type '{actual_type}' in /mat: {readable_message(e)}"
+        ) from e
 
     # Set parameters if provided
     if params:

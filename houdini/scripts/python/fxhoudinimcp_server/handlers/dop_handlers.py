@@ -15,6 +15,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +253,7 @@ def _get_dop_field(
                 break
     except Exception as e:
         raise hou.OperationFailed(
-            f"Error reading field '{field_name}' at data path '{data_path}': {e}"
+            f"Error reading field '{field_name}' at data path '{data_path}': {readable_message(e)}"
         ) from e
 
     if not found:
