@@ -162,16 +162,28 @@ def build_network(
     parent = hou.node(parent_path)
     errors: list[str] = []
     if parent is None:
-        return {"valid": False, "errors": [f"Parent not found: {parent_path}"]}
+        return {
+            "success": False,
+            "valid": False,
+            "errors": [f"Parent not found: {parent_path}"],
+            # Every other command reports a single message; carry one here too so a
+            # caller does not have to know that this one answers in a list.
+            "message": f"Parent not found: {parent_path}",
+        }
     category = parent.childTypeCategory()
     if category is None:
         return {
+            "success": False,
             "valid": False,
             "errors": [f"{parent_path} cannot contain child nodes"],
         }
 
     if not isinstance(nodes, list) or not nodes:
-        return {"valid": False, "errors": ["'nodes' must be a non-empty list"]}
+        return {
+            "success": False,
+            "valid": False,
+            "errors": ["'nodes' must be a non-empty list"],
+        }
 
     ###### Phase 1: validate everything before touching the scene
 
@@ -263,9 +275,10 @@ def build_network(
                 )
 
     if errors:
-        return {"valid": False, "errors": errors, "created": []}
+        return {"success": False, "valid": False, "errors": errors, "created": []}
     if dry_run:
         return {
+            "success": True,
             "valid": True,
             "dry_run": True,
             "validated_nodes": len(nodes),
@@ -320,6 +333,7 @@ def build_network(
             with contextlib.suppress(Exception):
                 node.destroy()
         return {
+            "success": False,
             "valid": False,
             "errors": [f"build failed and was rolled back: {readable_message(exc)}"],
             "created": [],
@@ -339,6 +353,7 @@ def build_network(
     reports = [_node_report(node) for node in created.values()]
     error_nodes = [r["path"] for r in reports if r["errors"]]
     return {
+        "success": True,
         "valid": True,
         "created": reports,
         "display_node": display.path() if display is not None else None,

@@ -209,9 +209,26 @@ def _report_failure_coverage(terminalreporter, registered: set[str]) -> None:
     terminalreporter.write_line(
         f"  {len(failing):>3} asserted to fail correctly (error raised or reported)"
     )
+    # Splitting these matters: a command with no possible bad input is not a gap,
+    # and lumping it with the untested ones makes the number look worse than it is
+    # while hiding the ones that are genuinely missing a test.
+    try:
+        from failure_contract import NO_FAILURE_INPUT
+
+        declared = success_only & set(NO_FAILURE_INPUT)
+    except Exception:  # noqa: BLE001 - reporting must not break the run
+        declared = set()
+    gap = success_only - declared
     terminalreporter.write_line(
-        f"  {len(success_only):>3} success path only -- never made to go wrong"
+        f"  {len(declared):>3} declared failure-free (no input can be wrong)"
     )
+    terminalreporter.write_line(
+        f"  {len(gap):>3} success path only -- never made to go wrong, not declared"
+    )
+    if gap:
+        terminalreporter.write_line("untested failure paths:")
+        for command in sorted(gap):
+            terminalreporter.write_line(f"  {command}")
     terminalreporter.write_line(f"  {len(smoke_only):>3} smoke only -- the answer is not asserted")
     terminalreporter.write_line(f"  {len(never):>3} never called")
     if failing:

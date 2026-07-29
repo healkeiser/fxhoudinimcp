@@ -483,14 +483,28 @@ def _set_selection(node_paths: list | None = None, **_: Any) -> dict:
     hou.clearAllSelected()
 
     selected_count = 0
+    missing: list[str] = []
     for path in node_paths:
         node = hou.node(path)
         if node is not None:
             node.setSelected(True)
             selected_count += 1
+        else:
+            missing.append(path)
 
+    # Asking for three nodes and selecting two is not success. This reported
+    # {"success": True, "selected_count": 0, "requested_count": 1} for a path that
+    # does not exist -- the counts disagreed and the verdict ignored them, so a
+    # caller reading "success" went on to operate on an empty selection.
     return {
-        "success": True,
+        "success": not missing,
+        "missing": missing,
+        "message": (
+            f"Selected {selected_count} of {len(node_paths)} node(s)."
+            if not missing
+            else f"Could not select {len(missing)} of {len(node_paths)} node(s), "
+            f"because these paths do not exist: {missing[:6]}"
+        ),
         "selected_count": selected_count,
         "requested_count": len(node_paths),
     }

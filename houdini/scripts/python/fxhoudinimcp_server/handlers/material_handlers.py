@@ -69,6 +69,17 @@ def _list_materials(*, root_path: str = "/mat", **_: Any) -> dict[str, Any]:
     Args:
         root_path: Root path to search for materials (default: "/mat").
     """
+    # The requested root must exist. The loop below tolerates a missing node so
+    # that the /stage it adds on its own can be absent, but applying that tolerance
+    # to the caller's own argument meant a misspelled root_path came back
+    # {"count": 0, "materials": []} -- indistinguishable from a scene with no
+    # materials, and the caller goes looking for why its shaders vanished.
+    if hou.node(root_path) is None:
+        raise ValueError(
+            f"Root path not found: {root_path}. Materials usually live under /mat, "
+            f"or under a material library LOP in /stage."
+        )
+
     materials: list[dict[str, Any]] = []
     search_paths = [root_path]
 

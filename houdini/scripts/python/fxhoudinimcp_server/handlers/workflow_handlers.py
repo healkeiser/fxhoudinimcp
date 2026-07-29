@@ -105,6 +105,41 @@ def _create_first_available(
     )
 
 
+def _source_status(objmerge: hou.Node, source_geo: str, what: str) -> dict[str, Any]:
+    """Whether the source geometry a sim was pointed at actually exists.
+
+    Building the network with a placeholder source is legitimate -- the path is a
+    parameter, fixable later -- but reporting success: True and nothing else means a
+    caller walks away with a sim that will never produce anything, and no reason to
+    look. setup_pyro_sim said so; setup_flip_sim, setup_rbd_sim and
+    setup_vellum_sim did not, which is the kind of inconsistency that makes a
+    server's answers untrustworthy in aggregate.
+
+    Args:
+        objmerge: The Object Merge SOP holding the reference.
+        source_geo: The path it was pointed at.
+        what: Sim name for the description ("FLIP", "RBD", "Vellum").
+    """
+    found = hou.node(source_geo) is not None
+    return {
+        "objmerge_path": objmerge.path(),
+        "source_geo": source_geo,
+        "source_geo_found": found,
+        "network_description": (
+            f"The {what} network is wired. Source geometry is referenced via the "
+            f"Object Merge SOP at {objmerge.path()} (parameter 'objpath1' = "
+            f"'{source_geo}'). "
+            + (
+                "The source geometry was found and connected successfully."
+                if found
+                else f"WARNING: source geometry '{source_geo}' was NOT found, so this "
+                f"sim will simulate nothing until the 'objpath1' parameter on "
+                f"{objmerge.path()} points at a real SOP."
+            )
+        ),
+    }
+
+
 ###### workflow.setup_pyro_sim
 
 
@@ -533,6 +568,7 @@ def _setup_rbd_sim(
         "solver_path": solver_path,
         "cache_path": filecache.path(),
         "all_nodes": all_nodes,
+        **_source_status(objmerge, geo_path, "RBD"),
     }
 
 
@@ -669,6 +705,7 @@ def _setup_flip_sim(
         "dop_path": dopnet.path(),
         "cache_path": filecache.path(),
         "all_nodes": all_nodes,
+        **_source_status(objmerge, source_geo, "FLIP"),
     }
 
 
@@ -796,6 +833,7 @@ def _setup_vellum_sim(
         "cache_path": filecache.path(),
         "sim_type": sim_type,
         "all_nodes": all_nodes,
+        **_source_status(objmerge, geo_path, "Vellum"),
     }
 
 

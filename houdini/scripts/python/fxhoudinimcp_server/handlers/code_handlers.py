@@ -83,6 +83,10 @@ def _execute_python(code: str, return_expression: str | None = None, **_: Any) -
 
     if exec_error:
         response: dict[str, Any] = {
+            # "executed" predates the server-wide "success" convention. Code that
+            # raised is a failure, and a caller checking the usual key got None --
+            # falsy, but not False, and easy to read as "no opinion".
+            "success": False,
             "executed": False,
             "error": exec_error,
         }
@@ -102,6 +106,9 @@ def _execute_python(code: str, return_expression: str | None = None, **_: Any) -
 
     if eval_error:
         response = {
+            # The code ran, but the expression the caller asked to evaluate did
+            # not, so the answer they wanted is missing.
+            "success": False,
             "executed": True,
             "return_value": None,
             "eval_error": eval_error,
@@ -113,6 +120,7 @@ def _execute_python(code: str, return_expression: str | None = None, **_: Any) -
         return response
 
     response = {
+        "success": True,
         "executed": True,
         "return_value": _serialize_result(result),
     }
