@@ -7,6 +7,7 @@ including scene info, save/load, import/export, and context introspection.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import os
 
 # Third-party
@@ -15,6 +16,12 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.outputs import (
+    OUTPUT_PARMS,
+    failure_verdict,
+    reported_outputs,
+    write_verdict,
+)
 
 ###### Helpers
 
@@ -34,6 +41,25 @@ def _focus_network_editor(node: hou.Node) -> None:
                 return
     except Exception:
         pass
+
+
+# Extensions that are really two, so the frame number belongs before both.
+# os.path.splitext("cache.bgeo.sc") yields ("cache.bgeo", ".sc"), which produced
+# "cache.bgeo.0001.sc" -- a name Houdini writes but no sequence reader recognises.
+_COMPOUND_EXTENSIONS = (".bgeo.sc", ".bgeo.gz", ".geo.gz", ".vdb.gz", ".usd.gz", ".tar.gz")
+
+
+def _split_sequence_extension(file_path: str) -> tuple[str, str]:
+    """Split a path so a frame number can go where Houdini expects it.
+
+    Returns ``(base, extension)`` such that ``f"{base}.0001{extension}"`` is the
+    conventional sequence name: ``cache.0001.bgeo.sc``, not ``cache.bgeo.0001.sc``.
+    """
+    lowered = file_path.lower()
+    for compound in _COMPOUND_EXTENSIONS:
+        if lowered.endswith(compound):
+            return file_path[: -len(compound)], file_path[-len(compound) :]
+    return os.path.splitext(file_path)
 
 
 ###### scene.get_scene_info
@@ -248,7 +274,8 @@ def export_file(
     category = node.type().category().name()
 
     if category == "Sop":
-        # Export geometry
+        # Export geometry. saveToFile raises on failure, so returning normally is
+        # genuine evidence here -- unlike the Driver branch below.
         geo = node.geometry()
         if geo is None:
             raise ValueError(f"Node {node_path} has no geometry (cook may have failed).")
@@ -257,19 +284,26 @@ def export_file(
             end = int(frame_range[1])
             step = int(frame_range[2]) if len(frame_range) > 2 else 1
             saved_frames = []
-            for frame in range(start, end + 1, step):
-                hou.setFrame(frame)
-                frame_geo = node.geometry()
-                # Inject frame number into filename
-                base, ext = os.path.splitext(file_path)
-                frame_file = f"{base}.{frame:04d}{ext}"
-                frame_geo.saveToFile(frame_file)
-                saved_frames.append(frame_file)
+            # Exporting is a query, so it must not move the playbar. This loop used
+            # to leave the scene parked on the last exported frame, which silently
+            # changed what every later tool saw.
+            original_frame = hou.frame()
+            try:
+                base, ext = _split_sequence_extension(file_path)
+                for frame in range(start, end + 1, step):
+                    hou.setFrame(frame)
+                    frame_geo = node.geometry()
+                    frame_file = f"{base}.{frame:04d}{ext}"
+                    frame_geo.saveToFile(frame_file)
+                    saved_frames.append(frame_file)
+            finally:
+                hou.setFrame(original_frame)
             return {
                 "success": True,
                 "node_path": node_path,
                 "files": saved_frames,
                 "frame_range": frame_range,
+                "restored_frame": original_frame,
             }
         else:
             geo.saveToFile(file_path)
@@ -279,33 +313,70 @@ def export_file(
                 "file_path": file_path,
             }
     elif category == "Driver":
-        # ROP node: execute render
-        if frame_range is not None:
-            start = float(frame_range[0])
-            end = float(frame_range[1])
-            step = float(frame_range[2]) if len(frame_range) > 2 else 1.0
-            node.render(
-                frame_range=(start, end),
-                frame_increment=step,
-                output_progress=True,
+        # Two things were wrong here. A ROP's render() returning without raising is
+        # NOT evidence that anything was written -- it may shell out to husk or
+        # mantra, and a non-zero exit is recorded on the node while render() returns
+        # normally -- yet this branch answered with the hardcoded string "Render
+        # complete." regardless. And it ignored file_path altogether, rendering to
+        # whatever the ROP's own output parm already said, while the docstring
+        # promised file_path was the destination.
+        target_parm = next((p for name in OUTPUT_PARMS if (p := node.parm(name))), None)
+        if target_parm is None:
+            raise ValueError(
+                f"{node_path} has no recognised output parameter "
+                f"({', '.join(OUTPUT_PARMS)}), so there is nowhere to write "
+                f"'{file_path}'. Set the ROP's output path and use start_render."
             )
-        else:
-            node.render(output_progress=True)
-        return {
-            "success": True,
-            "node_path": node_path,
-            "message": "Render complete.",
-        }
+        # Repointing the ROP is a means, not the request, so put it back afterwards
+        # rather than leaving the artist's node aimed somewhere they did not choose.
+        original_output = target_parm.unexpandedString()
+        target_parm.set(file_path)
+        try:
+            before = reported_outputs(node)
+            try:
+                if frame_range is not None:
+                    start = float(frame_range[0])
+                    end = float(frame_range[1])
+                    step = float(frame_range[2]) if len(frame_range) > 2 else 1.0
+                    # The increment is the third element of frame_range; there is no
+                    # frame_increment keyword, and passing one raises TypeError.
+                    node.render(frame_range=(start, end, step), output_progress=True)
+                else:
+                    node.render(output_progress=True)
+            except hou.OperationFailed as e:
+                return {
+                    "node_path": node_path,
+                    "requested_path": file_path,
+                    "output_parm": target_parm.name(),
+                    **failure_verdict(node, before, e, action="Export"),
+                }
+            return {
+                "node_path": node_path,
+                "requested_path": file_path,
+                "output_parm": target_parm.name(),
+                **write_verdict(node, before, action="Export"),
+            }
+        finally:
+            with contextlib.suppress(Exception):
+                target_parm.set(original_output)
     elif category == "Lop":
-        # USD export
+        # USD export. Export() raises on failure, but it also returns False on
+        # some failures rather than raising, so take it at its word either way.
         stage = node.stage()
         if stage is None:
             raise ValueError(f"Node {node_path} has no USD stage.")
-        stage.Export(file_path)
+        exported = stage.Export(file_path)
+        wrote = os.path.exists(file_path)
         return {
-            "success": True,
+            "success": exported is not False and wrote,
             "node_path": node_path,
             "file_path": file_path,
+            "wrote_files": wrote,
+            "message": (
+                "Exported USD stage."
+                if wrote
+                else f"Export returned without raising, but no file exists at {file_path}."
+            ),
         }
     else:
         raise ValueError(

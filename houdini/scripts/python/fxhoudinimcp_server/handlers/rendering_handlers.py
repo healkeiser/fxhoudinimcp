@@ -7,7 +7,6 @@ operations including Karma, OpenGL, and other Houdini renderers.
 from __future__ import annotations
 
 # Built-in
-import contextlib
 import logging
 import os
 
@@ -16,6 +15,11 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.outputs import (
+    failure_verdict,
+    reported_outputs,
+    write_verdict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -440,20 +444,7 @@ def create_render_node(
 
 ###### rendering.start_render
 
-# Where different ROPs keep their output path. A render that reports success and
-# writes nowhere is indistinguishable from one that worked, which is why a
-# recorded session resorted to PowerShell to stat the output directory.
-_OUTPUT_PARMS = (
-    "sopoutput",
-    "lopoutput",
-    "picture",
-    "outputimage",
-    "file",
-    "dopoutput",
-    "copoutput",
-)
-
-# Where they keep their frame range.
+# Where ROP-style nodes keep their frame range.
 _RANGE_PARMS = ("f1", "f2", "f3")
 
 
@@ -469,62 +460,6 @@ def _apply_frame_range_parms(node: hou.Node, frame_range: list) -> None:
         parm = node.parm(name)
         if parm is not None:
             parm.set(value)
-
-
-# Output values that are not files. "__render__.usd" is the in-memory stage a LOP
-# ROP feeds to husk, and ip/md are MPlay targets, so reporting them as missing
-# files would be noise that trains a caller to ignore this field.
-_NON_FILE_OUTPUTS = frozenset({"__render__.usd", "ip", "md"})
-
-
-def _reported_outputs(node: hou.Node) -> list[dict]:
-    """The node's output path(s) and whether anything is on disk there."""
-    found: list[dict] = []
-    for name in _OUTPUT_PARMS:
-        parm = node.parm(name)
-        if parm is None:
-            continue
-        try:
-            path = parm.eval()
-        except hou.OperationFailed:
-            continue
-        if not path:
-            # An empty output path is the quiet failure worth naming: the render
-            # ran and wrote nothing.
-            found.append({"parm": name, "path": None, "exists": False, "empty": True})
-            continue
-        if path in _NON_FILE_OUTPUTS:
-            found.append({"parm": name, "path": path, "is_file_output": False})
-            continue
-        entry: dict = {"parm": name, "path": path}
-        with contextlib.suppress(Exception):
-            entry["exists"] = os.path.exists(path)
-            if entry["exists"]:
-                entry["size_bytes"] = os.path.getsize(path)
-                entry["mtime"] = os.path.getmtime(path)
-        found.append(entry)
-    return found
-
-
-def _wrote_anything(before: list[dict], after: list[dict]) -> bool:
-    """Whether any file output appeared or changed across the render.
-
-    Existence alone is not evidence: re-rendering over yesterday's frame would
-    look like success even if nothing ran, which is the mistake this whole branch
-    exists to stop making.
-    """
-    prior = {entry.get("path"): entry for entry in before}
-    for entry in after:
-        if not entry.get("exists") or entry.get("is_file_output") is False:
-            continue
-        was = prior.get(entry.get("path"))
-        if was is None or not was.get("exists"):
-            return True
-        if entry.get("mtime") and was.get("mtime") and entry["mtime"] > was["mtime"]:
-            return True
-        if entry.get("size_bytes") != was.get("size_bytes"):
-            return True
-    return False
 
 
 def start_render(
@@ -565,7 +500,7 @@ def start_render(
 
     # Snapshot the outputs so "did this write anything" is answerable afterwards
     # rather than inferred from a call that did not raise.
-    before = _reported_outputs(node)
+    before = reported_outputs(node)
 
     method = None
     try:
@@ -588,19 +523,11 @@ def start_render(
                 _apply_frame_range_parms(node, frame_range)
             execute_parm.pressButton()
     except hou.OperationFailed as e:
-        # Same shape as the non-raising path, so a caller never has to branch on
-        # which kind of failure it was to find out whether anything was written.
-        failed_outputs = _reported_outputs(node)
         return {
-            "success": False,
             "node_path": node_path,
             "category": category,
             "method": method,
-            "error": str(e),
-            "errors": [str(e)[:400]],
-            "wrote_files": _wrote_anything(before, failed_outputs),
-            "outputs": failed_outputs,
-            "message": "Render raised before completing; nothing was verified.",
+            **failure_verdict(node, before, e),
         }
 
     # render() returning without raising is NOT evidence that a render happened.
@@ -609,39 +536,13 @@ def start_render(
     # still returns normally. Reporting that as success is how a caller ends up
     # verifying a screenshot of an image that was never written, so read the
     # node's own errors and whether the files moved.
-    errors: list[str] = []
-    warnings: list[str] = []
-    with contextlib.suppress(Exception):
-        errors = [e.strip()[:400] for e in node.errors()]
-        warnings = [w.strip()[:400] for w in node.warnings()]
-
-    after = _reported_outputs(node)
-    wrote = _wrote_anything(before, after)
-
-    result = {
-        "success": not errors,
+    return {
         "node_path": node_path,
         "category": category,
         "method": method,
         "frame_range": frame_range,
-        "wrote_files": wrote,
-        "outputs": after,
+        **write_verdict(node, before, action="Render"),
     }
-    if errors:
-        result["errors"] = errors
-        result["message"] = f"Render reported {len(errors)} error(s); nothing was verified."
-    elif not wrote:
-        # No error and no file: legitimate for an MPlay target, suspicious for
-        # anything else, and worth saying rather than implying completion.
-        result["message"] = (
-            "The node reported no errors, but no output file appeared or changed. "
-            "Check the output path, or whether this ROP renders to MPlay."
-        )
-    else:
-        result["message"] = "Render completed and wrote output."
-    if warnings:
-        result["warnings"] = warnings
-    return result
 
 
 ###### rendering.render_node_network

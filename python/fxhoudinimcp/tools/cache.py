@@ -79,7 +79,12 @@ async def write_cache(
     node_path: str,
     frame_range: list[int] | None = None,
 ) -> dict:
-    """Execute a cache node to write files to disk.
+    """Execute a cache node, and report whether a cache actually appeared.
+
+    `success` and `wrote_files` reflect the files on disk and the errors of the
+    node that did the writing -- a filecache delegates to an internal ROP and
+    stays silent itself, so a failed write used to be reported as success.
+    Errors are named with the node they came from.
 
     Args:
         ctx: MCP context.
