@@ -17,7 +17,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
-from fxhoudinimcp_server.errors import readable_message
+from fxhoudinimcp_server.errors import as_text, readable_message
 
 ###### Helpers
 
@@ -354,10 +354,11 @@ def _list_material_types(
             label = node_type.description()
 
             # Apply filter if provided
-            if filter is not None:
-                filter_lower = filter.lower()
-                if filter_lower not in type_name.lower() and filter_lower not in label.lower():
-                    continue
+            filter_lower = as_text(filter, "filter").lower()
+            if filter_lower and (
+                filter_lower not in type_name.lower() and filter_lower not in label.lower()
+            ):
+                continue
 
             results.append(
                 {

@@ -191,7 +191,17 @@ def _get_keyframes(
 
 
 def _set_frame(frame: float) -> dict:
-    """Set the current frame."""
+    """Set the current frame.
+
+    Args:
+        frame: Frame number. Non-numeric input used to reach hou.setFrame and come
+            back as "in method 'setFrame', argument 1 of type 'double'", a SWIG
+            binding message that names neither the argument nor this server.
+    """
+    try:
+        frame = float(frame)
+    except (TypeError, ValueError):
+        raise ValueError(f"frame must be a number, not {type(frame).__name__}: {frame!r}") from None
     hou.setFrame(frame)
     return {
         "frame": hou.frame(),

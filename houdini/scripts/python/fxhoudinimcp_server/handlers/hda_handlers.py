@@ -15,7 +15,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
-from fxhoudinimcp_server.errors import readable_message
+from fxhoudinimcp_server.errors import as_text, readable_message
 
 ###### Helpers
 
@@ -129,13 +129,10 @@ def list_installed_hdas(filter: str = None) -> dict:
         except Exception:
             definitions = []
 
+        needle = as_text(filter, "filter").lower()
         for defn in definitions:
             type_name = defn.nodeTypeName()
-            if (
-                filter
-                and filter.lower() not in type_name.lower()
-                and filter.lower() not in hda_file.lower()
-            ):
+            if needle and needle not in type_name.lower() and needle not in hda_file.lower():
                 continue
 
             results.append(

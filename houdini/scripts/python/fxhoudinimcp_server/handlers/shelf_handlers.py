@@ -24,6 +24,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import as_int, as_text
 
 ###### Helpers
 
@@ -82,7 +83,8 @@ def list_shelf_tools(
         limit: Maximum tools to return.
     """
     tools = hou.shelves.tools()
-    needle = (filter or "").strip().lower()
+    needle = as_text(filter, "filter").strip().lower()
+    limit = as_int(limit, "limit")
 
     matched = []
     for name, tool in tools.items():

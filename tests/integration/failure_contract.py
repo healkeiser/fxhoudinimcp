@@ -69,54 +69,35 @@ def assert_useful(command: str, message: str, must_mention: tuple[str, ...] = ()
         )
 
 
-# Commands with no argument that can be wrong, each with the reason. Recorded as a
+# Commands with no argument that can carry a WRONG VALUE, each with the reason.
+#
+# Precisely: no semantically invalid value exists for what they accept. Wrong TYPES
+# are a separate matter and are rejected by shared validators, asserted in
+# TestWrongTypesAndMissingArgumentsAreExplained -- an earlier version of this list
+# claimed "no input can be wrong", which a type probe disproved for 6 of them.
+#
+# This list was 26 entries and 8 of them were wrong. Every one of the 8 had an
+# argument with a default, and "has a default" was quietly treated as "cannot be
+# given a wrong value" -- but an optional enum still has invalid values, and
+# find_nodes takes a path to search inside. They were found by probing all 26 with
+# deliberately bad input rather than by re-reading the reasoning, which had already
+# convinced its author once. Recorded as a
 # fact about the command rather than left looking like an oversight, and checked by
 # test_the_no_failure_input_list_is_still_true so it cannot become a permanent
 # exemption when one of them grows a parameter.
 NO_FAILURE_INPUT: dict[str, str] = {
     "animation.get_frame": "takes nothing; the current frame always exists",
-    "animation.set_frame": "any float is a frame; Houdini clamps to the range",
-    "code.get_env_variable": "an unset variable is a valid answer, not a failure",
-    "code.execute_hscript": (
-        "hscript reports an unknown command in its output rather than by failing, "
-        "so there is no input that makes the call itself fail"
-    ),
-    "context.compare_snapshots": "defaults to taking a snapshot; nothing to get wrong",
     "context.get_scene_summary": "takes nothing; summarises whatever is loaded",
     "context.get_selection": "takes nothing; an empty selection is a valid answer",
     "cops.list_cop_node_types": "only an optional filter; matching nothing is valid",
-    "hda.list_installed_hdas": "only an optional filter; matching nothing is valid",
-    "materials.create_material_network": "any name is valid; Houdini uniquifies collisions",
-    "materials.list_material_types": "only an optional filter; matching nothing is valid",
-    "nodes.find_nodes": "all arguments optional; finding nothing is a valid answer",
     "rendering.list_render_nodes": "takes nothing; an empty /out is a valid answer",
     "scene.get_scene_info": "takes nothing; always describes the current scene",
     "scene.new_scene": "only an optional save flag",
-    "shelf.list_shelf_tools": "only an optional filter; matching nothing is valid",
-    "takes.create_take": "any name is valid; Houdini uniquifies collisions",
     "takes.get_current_take": "takes nothing; there is always a current take",
     "takes.list_takes": "takes nothing; the main take always exists",
-    "viewport.log_status": "any string is a valid status message",
-    "workflow.create_material": "every argument has a working default",
-    "workflow.setup_render": "every argument has a working default",
-    # The sim setups reference their source geometry through an Object Merge
-    # parameter, so a missing source is fixable afterwards and is reported as a
-    # warning by design. TestSimSetupsWarnRatherThanFail asserts the warning.
-    "workflow.setup_flip_sim": "a missing source is a warning, not a failure; see the warning test",
-    "workflow.setup_pyro_sim": "a missing source is a warning, not a failure; see the warning test",
-    "workflow.setup_rbd_sim": "a missing source is a warning, not a failure; see the warning test",
-    "workflow.setup_vellum_sim": (
-        "a missing source is a warning, not a failure; see the warning test"
-    ),
 }
 
-# Arguments that exist but cannot be wrong: free text that is echoed back, or a
-# lookup whose empty answer is legitimate.
-HARMLESS_ARGUMENTS: dict[str, set[str]] = {
-    "animation.set_frame": {"frame"},
-    "code.execute_hscript": {"command"},
-    "code.get_env_variable": {"var_name"},
-    "materials.create_material_network": {"name"},
-    "takes.create_take": {"name"},
-    "viewport.log_status": {"message"},
-}
+# Arguments that exist but cannot be wrong. Empty now: everything that once needed an
+# exemption here turned out to be testable after all, which is the same lesson as the
+# list above.
+HARMLESS_ARGUMENTS: dict[str, set[str]] = {}

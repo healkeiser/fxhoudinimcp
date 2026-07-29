@@ -220,7 +220,7 @@ def _report_failure_coverage(terminalreporter, registered: set[str]) -> None:
         declared = set()
     gap = success_only - declared
     terminalreporter.write_line(
-        f"  {len(declared):>3} declared failure-free (no input can be wrong)"
+        f"  {len(declared):>3} declared failure-free, and probed to confirm it"
     )
     terminalreporter.write_line(
         f"  {len(gap):>3} success path only -- never made to go wrong, not declared"

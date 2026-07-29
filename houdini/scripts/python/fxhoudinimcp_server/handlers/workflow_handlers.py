@@ -355,12 +355,22 @@ def _setup_pyro_sim(
 
     Args:
         source_geo: Path to the source geometry SOP to drive the simulation.
-        container: Container type hint (reserved for future use).
+        container: Container shape. Only "box" is implemented; anything else is
+            rejected rather than silently ignored.
         res_scale: Resolution scale multiplier for the simulation.
         substeps: Number of DOP substeps or solver substeps.
         name: Name for the top-level geometry node.
     """
     obj = _ensure_obj_context()
+    # A parameter that is accepted and ignored is worse than one that is missing:
+    # it reads as functional, so asking for something else returns a box and
+    # reports success. Only "box" is built, so say so.
+    if container != "box":
+        raise ValueError(
+            f"Unsupported container '{container}'. Only 'box' is implemented; the "
+            f"other shapes are not built yet."
+        )
+
     all_nodes: list[str] = []
 
     # -- Create top-level geo container
@@ -466,6 +476,17 @@ def _setup_rbd_sim(
     # one-input choice whose outputs (geometry/constraints/proxy) feed the
     # Bullet solver directly. Plain voronoifracture REQUIRES cell points
     # on its second input — wiring it alone leaves an uncookable network.
+    # Only "voronoi" ever did anything; every other string silently skipped
+    # fracturing and still reported success, so a typo returned an unfractured sim
+    # that looks like a working one. Not fracturing is a legitimate request, so it
+    # gets a name rather than being what happens when you misspell the other one.
+    valid_pieces = ("voronoi", "none")
+    if pieces_type not in valid_pieces:
+        raise ValueError(
+            f"Invalid pieces_type '{pieces_type}'. Must be one of: {valid_pieces}. "
+            f"Use 'none' to simulate the geometry unfractured."
+        )
+
     fracture = None
     if pieces_type == "voronoi":
         try:
@@ -589,11 +610,21 @@ def _setup_flip_sim(
 
     Args:
         source_geo: Path to the source geometry SOP.
-        domain: Domain type hint (reserved for future use).
+        domain: Domain shape. Only "box" is implemented; anything else is
+            rejected rather than silently ignored.
         particle_sep: Particle separation distance for the FLIP sim.
         name: Name for the top-level geometry node.
     """
     obj = _ensure_obj_context()
+    # A parameter that is accepted and ignored is worse than one that is missing:
+    # it reads as functional, so asking for something else returns a box and
+    # reports success. Only "box" is built, so say so.
+    if domain != "box":
+        raise ValueError(
+            f"Unsupported domain '{domain}'. Only 'box' is implemented; the "
+            f"other shapes are not built yet."
+        )
+
     all_nodes: list[str] = []
 
     # -- Step 1: Create geo container

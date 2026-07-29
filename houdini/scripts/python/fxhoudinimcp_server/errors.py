@@ -41,3 +41,31 @@ def readable_message(exc: BaseException) -> str:
     except Exception:  # noqa: BLE001 - formatting must never mask the real error
         pass
     return str(exc)
+
+
+def as_text(value: object, name: str) -> str:
+    """A string argument, or a message that names the argument and its type.
+
+    Handlers that took an optional ``filter`` called ``.lower()`` on it directly, so
+    a non-string leaked ``'int' object has no attribute 'lower'`` -- a Python
+    internal that names neither the argument nor this server. The MCP tool schema
+    type-checks these in normal use, so this is the second line of defence for
+    anything reaching the HTTP bridge directly.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    raise ValueError(f"{name} must be a string, not {type(value).__name__}: {value!r}")
+
+
+def as_int(value: object, name: str) -> int:
+    """An integer argument, or a message that names the argument and its type."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError(f"{name} must be a number, not {type(value).__name__}: {value!r}")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{name} must be a whole number, not {type(value).__name__}: {value!r}"
+        ) from None

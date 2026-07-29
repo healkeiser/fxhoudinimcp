@@ -17,6 +17,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import as_text
 
 ###### Constants
 
@@ -139,7 +140,9 @@ register_handler("code.execute_python", _execute_python)
 
 def _execute_hscript(command: str, **_: Any) -> dict[str, Any]:
     """Execute an HScript command and return its output."""
-    output, errors = hou.hscript(command)
+    # A non-string reached the SWIG binding and came back as "in method
+    # 'hscript', argument 1 of type 'char const *'".
+    output, errors = hou.hscript(as_text(command, "command"))
 
     return {
         "output": _truncate_output(output) if output else output,
@@ -180,7 +183,7 @@ register_handler("code.evaluate_expression", _evaluate_expression)
 
 def _get_env_variable(var_name: str, **_: Any) -> dict[str, Any]:
     """Get a Houdini environment variable."""
-    value = hou.getenv(var_name)
+    value = hou.getenv(as_text(var_name, "var_name"))
 
     return {
         "var_name": var_name,

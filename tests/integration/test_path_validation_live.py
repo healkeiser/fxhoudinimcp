@@ -53,6 +53,10 @@ PATH_PARAMS = (
     # this handler does with a missing node.
     "geo_path",
     "source_geo",
+    # find_nodes searches inside this. It validated it correctly all along; the
+    # parameter name simply was not on this list, which is how a self-discovering
+    # test still misses things -- discovery is only as wide as its vocabulary.
+    "inside",
 )
 
 # A path no scene can contain.
