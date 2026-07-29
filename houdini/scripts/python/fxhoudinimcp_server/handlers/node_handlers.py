@@ -14,6 +14,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import auto_layout_enabled, layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.serialize import to_jsonable
 
 ###### Helpers
@@ -77,7 +78,7 @@ def create_node(
         node = parent.createNode(node_type, node_name=name)
     except hou.OperationFailed as e:
         raise ValueError(
-            f"Failed to create node of type '{node_type}' inside '{parent_path}': {e}"
+            f"Failed to create node of type '{node_type}' inside '{parent_path}': {readable_message(e)}"
         ) from e
 
     if position is not None and len(position) >= 2:

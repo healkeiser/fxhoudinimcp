@@ -42,3 +42,7 @@ Thumbs.db
 .cursor/
 .aider*
 .copilot/
+
+# Test artifact: a SOP ROP given the MPlay target "ip" writes a file of that
+# name into the working directory.
+/ip

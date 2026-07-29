@@ -17,6 +17,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import as_text, readable_message
 
 ###### Helpers
 
@@ -68,6 +69,17 @@ def _list_materials(*, root_path: str = "/mat", **_: Any) -> dict[str, Any]:
     Args:
         root_path: Root path to search for materials (default: "/mat").
     """
+    # The requested root must exist. The loop below tolerates a missing node so
+    # that the /stage it adds on its own can be absent, but applying that tolerance
+    # to the caller's own argument meant a misspelled root_path came back
+    # {"count": 0, "materials": []} -- indistinguishable from a scene with no
+    # materials, and the caller goes looking for why its shaders vanished.
+    if hou.node(root_path) is None:
+        raise ValueError(
+            f"Root path not found: {root_path}. Materials usually live under /mat, "
+            f"or under a material library LOP in /stage."
+        )
+
     materials: list[dict[str, Any]] = []
     search_paths = [root_path]
 
@@ -217,7 +229,9 @@ def _create_material_network(
     try:
         node = mat_context.createNode(actual_type, node_name=name)
     except hou.OperationFailed as e:
-        raise ValueError(f"Failed to create material of type '{actual_type}' in /mat: {e}") from e
+        raise ValueError(
+            f"Failed to create material of type '{actual_type}' in /mat: {readable_message(e)}"
+        ) from e
 
     # Set parameters if provided
     if params:
@@ -340,10 +354,11 @@ def _list_material_types(
             label = node_type.description()
 
             # Apply filter if provided
-            if filter is not None:
-                filter_lower = filter.lower()
-                if filter_lower not in type_name.lower() and filter_lower not in label.lower():
-                    continue
+            filter_lower = as_text(filter, "filter").lower()
+            if filter_lower and (
+                filter_lower not in type_name.lower() and filter_lower not in label.lower()
+            ):
+                continue
 
             results.append(
                 {

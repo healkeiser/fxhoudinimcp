@@ -18,6 +18,11 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.outputs import (
+    failure_verdict,
+    reported_outputs,
+    write_verdict,
+)
 
 
 def _menu_index_by_label(parm: hou.Parm, label_substring: str) -> int | None:
@@ -322,8 +327,16 @@ def _write_cache(
         if f2_parm is not None:
             f2_parm.set(frame_range[1])
 
-    # Execute the cache
-    status = "success"
+    # Snapshot the output before executing, so "did a cache appear" is answerable
+    # afterwards. pressButton() is fire-and-forget: a File Cache SOP that fails to
+    # write records the failure on the node and raises nothing at all, so this
+    # function used to set status = "success" on the strength of having pressed a
+    # button. That is the report an artist trusts before closing Houdini for the
+    # night, and it was never evidence that a cache exists.
+    before = reported_outputs(node)
+
+    failure: Exception | None = None
+    method = "execute button"
     try:
         # Try pressing the execute button first (filecache style)
         execute_parm = node.parm("execute")
@@ -331,6 +344,7 @@ def _write_cache(
             execute_parm.pressButton()
         else:
             # Fall back to render() for ROP-style nodes
+            method = "render()"
             if frame_range is not None and len(frame_range) >= 2:
                 frame_range_tuple = (
                     frame_range[0],
@@ -340,10 +354,8 @@ def _write_cache(
                 node.render(frame_range=frame_range_tuple)
             else:
                 node.render()
-    except hou.OperationFailed as e:
-        status = f"error: {e}"
-    except Exception as e:
-        status = f"error: {e}"
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        failure = e
 
     # Determine what frame range was used
     actual_range = frame_range
@@ -354,10 +366,23 @@ def _write_cache(
             with contextlib.suppress(Exception):
                 actual_range = [f1_parm.eval(), f2_parm.eval()]
 
+    verdict = (
+        failure_verdict(node, before, failure, action="Cache write")
+        if failure is not None
+        else write_verdict(node, before, action="Cache write")
+    )
     return {
         "node_path": node_path,
         "frame_range": actual_range,
-        "status": status,
+        "method": method,
+        # Kept so existing callers reading `status` still work, but derived from
+        # the same evidence as `success` rather than from an unconditional string.
+        "status": (
+            "success"
+            if verdict["success"]
+            else "error: " + ("; ".join(verdict.get("errors", [])) or verdict["message"])
+        ),
+        **verdict,
     }
 
 

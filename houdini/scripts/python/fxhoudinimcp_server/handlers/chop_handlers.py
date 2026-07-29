@@ -15,6 +15,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -156,7 +157,7 @@ def _create_chop_node(
         node = parent.createNode(chop_type, node_name=name)
     except hou.OperationFailed as e:
         raise ValueError(
-            f"Failed to create CHOP node of type '{chop_type}' inside '{parent_path}': {e}"
+            f"Failed to create CHOP node of type '{chop_type}' inside '{parent_path}': {readable_message(e)}"
         ) from e
 
     node.moveToGoodPosition()

@@ -14,6 +14,7 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,28 @@ logger = logging.getLogger(__name__)
 
 
 def _get_top_node(node_path: str) -> hou.Node:
-    """Return a TOP node or raise if not found."""
+    """Return a TOP node or topnet, or say why the given node is neither.
+
+    This checked only existence despite its name. get_top_network_info on a box SOP
+    returned success with top_node_count 0 and cook_state "unknown", which reads as
+    "this TOP network is empty" -- so a caller starts adding work items to a box
+    instead of being told it picked the wrong node.
+    """
     node = hou.node(node_path)
     if node is None:
         raise ValueError(f"Node not found: {node_path}")
-    return node
+    category = node.type().category().name()
+    if category == "Top":
+        return node
+    # A topnet is an Object whose children are TOPs; every network-level command
+    # here is meant to take one.
+    children = node.childTypeCategory()
+    if children is not None and children.name() == "Top":
+        return node
+    raise ValueError(
+        f"{node_path} is a {category} node ({node.type().name()}), not a TOP node "
+        f"or a topnet. PDG tools work on a topnet or the TOP nodes inside one."
+    )
 
 
 def _get_pdg_node(node: hou.Node):
@@ -305,7 +323,7 @@ def cook_top_node(
         try:
             node.executeGraph(False, False)
         except Exception as e:
-            raise ValueError(f"Failed to start non-blocking cook: {e}") from e
+            raise ValueError(f"Failed to start non-blocking cook: {readable_message(e)}") from e
 
     # Gather result info
     result = {
@@ -348,7 +366,7 @@ def cancel_top_cook(node_path: str) -> dict:
         ctx = _get_graph_context(node)
         ctx.cancelCook()
     except Exception as e:
-        raise ValueError(f"Failed to cancel cook: {e}") from e
+        raise ValueError(f"Failed to cancel cook: {readable_message(e)}") from e
 
     return {
         "success": True,
@@ -372,7 +390,7 @@ def pause_top_cook(node_path: str) -> dict:
         ctx = _get_graph_context(node)
         ctx.pauseCook()
     except Exception as e:
-        raise ValueError(f"Failed to pause cook: {e}") from e
+        raise ValueError(f"Failed to pause cook: {readable_message(e)}") from e
 
     return {
         "success": True,
@@ -439,7 +457,7 @@ def get_work_item_states(node_path: str) -> dict:
             state_counts[state_name] = state_counts.get(state_name, 0) + 1
             total += 1
     except Exception as e:
-        raise ValueError(f"Failed to read work items: {e}") from e
+        raise ValueError(f"Failed to read work items: {readable_message(e)}") from e
 
     return {
         "node_path": node.path(),
@@ -464,7 +482,7 @@ def get_work_item_info(node_path: str, work_item_index: int) -> dict:
     try:
         work_items = list(pdg_node.workItems)
     except Exception as e:
-        raise ValueError(f"Failed to read work items: {e}") from e
+        raise ValueError(f"Failed to read work items: {readable_message(e)}") from e
 
     if work_item_index < 0 or work_item_index >= len(work_items):
         raise ValueError(
@@ -567,7 +585,7 @@ def generate_static_items(node_path: str) -> dict:
             pdg_node = _get_pdg_node(node)
             pdg_node.generateStaticItems()
         except Exception as e:
-            raise ValueError(f"Failed to generate static items: {e}") from e
+            raise ValueError(f"Failed to generate static items: {readable_message(e)}") from e
 
     # Gather generated item info
     generated_count = 0

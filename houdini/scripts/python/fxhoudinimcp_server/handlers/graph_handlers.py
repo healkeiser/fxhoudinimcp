@@ -25,6 +25,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -161,16 +162,28 @@ def build_network(
     parent = hou.node(parent_path)
     errors: list[str] = []
     if parent is None:
-        return {"valid": False, "errors": [f"Parent not found: {parent_path}"]}
+        return {
+            "success": False,
+            "valid": False,
+            "errors": [f"Parent not found: {parent_path}"],
+            # Every other command reports a single message; carry one here too so a
+            # caller does not have to know that this one answers in a list.
+            "message": f"Parent not found: {parent_path}",
+        }
     category = parent.childTypeCategory()
     if category is None:
         return {
+            "success": False,
             "valid": False,
             "errors": [f"{parent_path} cannot contain child nodes"],
         }
 
     if not isinstance(nodes, list) or not nodes:
-        return {"valid": False, "errors": ["'nodes' must be a non-empty list"]}
+        return {
+            "success": False,
+            "valid": False,
+            "errors": ["'nodes' must be a non-empty list"],
+        }
 
     ###### Phase 1: validate everything before touching the scene
 
@@ -262,9 +275,10 @@ def build_network(
                 )
 
     if errors:
-        return {"valid": False, "errors": errors, "created": []}
+        return {"success": False, "valid": False, "errors": errors, "created": []}
     if dry_run:
         return {
+            "success": True,
             "valid": True,
             "dry_run": True,
             "validated_nodes": len(nodes),
@@ -284,7 +298,9 @@ def build_network(
                 try:
                     _apply_parm(node, parm_name, value)
                 except Exception as exc:
-                    raise RuntimeError(f"{node.path()} parm '{parm_name}': {exc}") from exc
+                    raise RuntimeError(
+                        f"{node.path()} parm '{parm_name}': {readable_message(exc)}"
+                    ) from exc
             for input_index, entry in enumerate(spec.get("inputs") or []):
                 if isinstance(entry, dict):
                     source_name = entry.get("source")
@@ -317,8 +333,9 @@ def build_network(
             with contextlib.suppress(Exception):
                 node.destroy()
         return {
+            "success": False,
             "valid": False,
-            "errors": [f"build failed and was rolled back: {exc}"],
+            "errors": [f"build failed and was rolled back: {readable_message(exc)}"],
             "created": [],
         }
 
@@ -336,6 +353,7 @@ def build_network(
     reports = [_node_report(node) for node in created.values()]
     error_nodes = [r["path"] for r in reports if r["errors"]]
     return {
+        "success": True,
         "valid": True,
         "created": reports,
         "display_node": display.path() if display is not None else None,
@@ -815,3 +833,48 @@ def cook_frame_range(
 
 
 register_handler("graph.cook_frame_range", cook_frame_range)
+
+
+###### graph.get_cook_status
+
+
+def get_cook_status(node_path: str = "/obj", **_: Any) -> dict:
+    """Whether a node has cooked, how often, and whether it changes per frame.
+
+    Read the limitation first: every command runs on Houdini's main thread, so a
+    long cook BLOCKS the bridge and cannot be polled from outside while it runs.
+    A recorded session ended up watching the Houdini process's CPU from
+    PowerShell for exactly that reason, and no tool can change that shape. What
+    this answers is the after-the-fact question -- did the thing actually recook,
+    is it time dependent, did it end up in error. For genuinely asynchronous
+    work, use a ROP's background execution and poll get_render_progress.
+
+    Args:
+        node_path: Node to report on.
+    """
+    node = hou.node(node_path)
+    if node is None:
+        raise hou.OperationFailed(f"Node not found: {node_path}")
+
+    result: dict[str, Any] = {
+        "node_path": node.path(),
+        "type": node.type().name(),
+        "frame": hou.frame(),
+    }
+    for key, method in (
+        ("cook_count", "cookCount"),
+        ("is_time_dependent", "isTimeDependent"),
+    ):
+        with contextlib.suppress(Exception):
+            result[key] = getattr(node, method)()
+    with contextlib.suppress(Exception):
+        result["errors"] = [e.splitlines()[0][:200] for e in node.errors()]
+        result["warnings"] = [w.splitlines()[0][:200] for w in node.warnings()]
+    with contextlib.suppress(Exception):
+        result["unsaved_changes"] = hou.hipFile.hasUnsavedChanges()
+    with contextlib.suppress(Exception):
+        result["hip_file"] = hou.hipFile.path()
+    return result
+
+
+register_handler("graph.get_cook_status", get_cook_status)

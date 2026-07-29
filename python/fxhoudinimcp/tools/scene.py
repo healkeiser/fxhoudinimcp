@@ -176,11 +176,18 @@ async def export_file(
     file_path: str,
     frame_range: list[float] | None = None,
 ) -> dict:
-    """Export a node's output to a file on disk.
+    """Export a node's output to a file on disk, and report whether it landed.
+
+    SOPs are saved directly, LOPs export their USD stage, and a /out ROP is
+    pointed at file_path and executed (its own output path is restored
+    afterwards). Reports `wrote_files`, so `success: True` means a file appeared
+    or changed -- not merely that the call returned. A frame_range writes
+    `name.0001.ext` per frame and leaves the playbar where it was.
 
     Args:
         node_path: Path to the node to export.
-        file_path: Destination file path.
+        file_path: Destination file path. For a ROP this overrides its output
+            parameter for the duration of the export.
         frame_range: Frame range as [start, end] or [start, end, step].
     """
     bridge = _get_bridge(ctx)

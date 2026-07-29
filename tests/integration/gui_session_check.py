@@ -112,9 +112,119 @@ async def main() -> int:
         ###### Viewport control
         panes = await call("viewport.list_panes")
         record("PASS", "list_panes", str(panes)[:90])
-        await call("viewport.get_viewport_info", soft=True)
+        info = await call("viewport.get_viewport_info", soft=True)
+        if info is not None:
+            # These two fields are why this check exists: nothing used to report
+            # the active Hydra delegate or the path the viewport is really
+            # looking through, so a viewport that had reverted to GL on a free
+            # perspective looked identical to a framed Karma preview.
+            record(
+                "PASS",
+                "get_viewport_info reports state",
+                f"renderer={info.get('renderer')} camera_path={info.get('camera_path')}",
+            )
         await call("viewport.set_viewport_display", display_mode="smooth", soft=True)
         await call("viewport.frame_all", soft=True)
+
+        ###### Renderer and camera: the tools must report reality, not intent
+        #
+        # Both reported success without checking anything, and a session building
+        # an ocean in Solaris paid for it: nine execute_python calls, and a
+        # delivered shot with the wrong framing and no Karma shading.
+        #
+        # Semicolons rather than newlines in these snippets: the code travels as a
+        # JSON string, and embedded newlines are one escaping layer too many.
+        async def set_viewer_context(path: str, current: str | None = None) -> None:
+            """Point the viewer at a network, using the tool that now exists.
+
+            This used to need execute_python, which is what the tool was added
+            for; using it here means the gate also covers it.
+            """
+            params = {"network_path": path}
+            if current:
+                params["current_node"] = current
+            await call("viewport.set_viewer_context", soft=True, **params)
+
+        # Hydra delegates only exist for a scene graph view, so an object-level
+        # viewport must refuse the request rather than call it unverifiable.
+        await set_viewer_context("/obj")
+        obj_renderer = await call("viewport.set_viewport_renderer", renderer="Karma CPU", soft=True)
+        if obj_renderer is None:
+            record("PASS", "set_viewport_renderer refuses a non-Solaris viewport")
+        else:
+            record(
+                "FAIL", "set_viewport_renderer claimed a delegate in /obj", str(obj_renderer)[:90]
+            )
+
+        # OBJ camera, verified against viewport.camera(), which returns the node.
+        obj_cam = await call(
+            "nodes.create_node", parent_path="/obj", node_type="cam", name="mcp_gui_cam"
+        )
+        bound = await call(
+            "viewport.set_viewport_camera", camera_path=obj_cam["node_path"], soft=True
+        )
+        if bound is not None and bound.get("camera_path") == obj_cam["node_path"]:
+            record("PASS", "set_viewport_camera (OBJ) verified", bound["camera_path"])
+        else:
+            record("FAIL", "set_viewport_camera (OBJ)", str(bound)[:100])
+
+        ###### Solaris: the case that could not be done at all before
+        stage_built = await call(
+            "graph.build_network",
+            parent_path="/stage",
+            nodes=[
+                {"type": "sphere", "name": "mcp_gui_geo"},
+                {
+                    "type": "camera",
+                    "name": "mcp_gui_lopcam",
+                    "inputs": ["mcp_gui_geo"],
+                    "flags": {"display": True},
+                },
+            ],
+            soft=True,
+        )
+        if stage_built is not None and stage_built.get("valid"):
+            await set_viewer_context("/stage", "/stage/mcp_gui_lopcam")
+
+            solaris = await call("viewport.set_viewport_renderer", renderer="Storm", soft=True)
+            after = await call("viewport.get_viewport_info", soft=True) or {}
+            if (
+                solaris is not None
+                and solaris.get("verified")
+                and after.get("renderer") == solaris.get("renderer")
+            ):
+                record(
+                    "PASS",
+                    "set_viewport_renderer verified in Solaris",
+                    f"{solaris.get('previous_renderer')} -> {solaris['renderer']}",
+                )
+            else:
+                record("FAIL", "set_viewport_renderer in Solaris", str(solaris)[:110])
+
+            # A USD camera prim is not a hou.node, so this was impossible before.
+            prim_bound = await call(
+                "viewport.set_viewport_camera", camera_path="/cameras/mcp_gui_lopcam", soft=True
+            )
+            if prim_bound is not None and prim_bound.get("prim_type") == "Camera":
+                record("PASS", "set_viewport_camera (USD prim) verified", prim_bound["camera_path"])
+            else:
+                record("FAIL", "set_viewport_camera (USD prim)", str(prim_bound)[:110])
+
+            # cameraPath() echoes whatever it is given, so a nonexistent prim has
+            # to be caught by a stage lookup, not by comparing the echo.
+            for bad, label in (
+                ("/cameras/does_not_exist", "missing prim"),
+                ("/mcp_gui_geo", "non-camera prim"),
+            ):
+                rejected = await call("viewport.set_viewport_camera", camera_path=bad, soft=True)
+                if rejected is None:
+                    record("PASS", f"set_viewport_camera rejects a {label}")
+                else:
+                    record("FAIL", f"set_viewport_camera accepted a {label}", str(rejected)[:80])
+
+            for path in ("/stage/mcp_gui_lopcam", "/stage/mcp_gui_geo"):
+                await call("nodes.delete_node", node_path=path, soft=True)
+            await set_viewer_context("/obj")
 
         ###### Real captures
         viewport_png = str(out_dir / "viewport.png").replace("\\", "/")

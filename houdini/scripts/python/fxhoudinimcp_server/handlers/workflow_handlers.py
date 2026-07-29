@@ -16,6 +16,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
+from fxhoudinimcp_server.errors import readable_message
 
 ###### Helpers
 
@@ -78,7 +79,9 @@ def _set_parm_safe(node: hou.Node, parm_name: str, value: Any) -> bool:
             parm.set(value)
             return True
         except Exception as e:
-            print(f"[workflow] Warning: could not set {parm_name}={value} on {node.path()}: {e}")
+            print(
+                f"[workflow] Warning: could not set {parm_name}={value} on {node.path()}: {readable_message(e)}"
+            )
             return False
     return False
 
@@ -100,6 +103,41 @@ def _create_first_available(
     raise hou.OperationFailed(
         f"None of these node types exist in {parent.path()}: {', '.join(type_names)}"
     )
+
+
+def _source_status(objmerge: hou.Node, source_geo: str, what: str) -> dict[str, Any]:
+    """Whether the source geometry a sim was pointed at actually exists.
+
+    Building the network with a placeholder source is legitimate -- the path is a
+    parameter, fixable later -- but reporting success: True and nothing else means a
+    caller walks away with a sim that will never produce anything, and no reason to
+    look. setup_pyro_sim said so; setup_flip_sim, setup_rbd_sim and
+    setup_vellum_sim did not, which is the kind of inconsistency that makes a
+    server's answers untrustworthy in aggregate.
+
+    Args:
+        objmerge: The Object Merge SOP holding the reference.
+        source_geo: The path it was pointed at.
+        what: Sim name for the description ("FLIP", "RBD", "Vellum").
+    """
+    found = hou.node(source_geo) is not None
+    return {
+        "objmerge_path": objmerge.path(),
+        "source_geo": source_geo,
+        "source_geo_found": found,
+        "network_description": (
+            f"The {what} network is wired. Source geometry is referenced via the "
+            f"Object Merge SOP at {objmerge.path()} (parameter 'objpath1' = "
+            f"'{source_geo}'). "
+            + (
+                "The source geometry was found and connected successfully."
+                if found
+                else f"WARNING: source geometry '{source_geo}' was NOT found, so this "
+                f"sim will simulate nothing until the 'objpath1' parameter on "
+                f"{objmerge.path()} points at a real SOP."
+            )
+        ),
+    }
 
 
 ###### workflow.setup_pyro_sim
@@ -261,7 +299,7 @@ def _setup_pyro_sim_dop(
         pyrosolver.setInput(0, merge_dop, 0)
         all_nodes.append(merge_dop.path())
     except Exception as e:
-        print(f"[workflow] Warning: merge DOP failed, wiring directly: {e}")
+        print(f"[workflow] Warning: merge DOP failed, wiring directly: {readable_message(e)}")
         pyrosolver.setInput(0, smokeobj, 0)
 
     # -- DOP Import SOP
@@ -317,12 +355,22 @@ def _setup_pyro_sim(
 
     Args:
         source_geo: Path to the source geometry SOP to drive the simulation.
-        container: Container type hint (reserved for future use).
+        container: Container shape. Only "box" is implemented; anything else is
+            rejected rather than silently ignored.
         res_scale: Resolution scale multiplier for the simulation.
         substeps: Number of DOP substeps or solver substeps.
         name: Name for the top-level geometry node.
     """
     obj = _ensure_obj_context()
+    # A parameter that is accepted and ignored is worse than one that is missing:
+    # it reads as functional, so asking for something else returns a box and
+    # reports success. Only "box" is built, so say so.
+    if container != "box":
+        raise ValueError(
+            f"Unsupported container '{container}'. Only 'box' is implemented; the "
+            f"other shapes are not built yet."
+        )
+
     all_nodes: list[str] = []
 
     # -- Create top-level geo container
@@ -428,6 +476,17 @@ def _setup_rbd_sim(
     # one-input choice whose outputs (geometry/constraints/proxy) feed the
     # Bullet solver directly. Plain voronoifracture REQUIRES cell points
     # on its second input — wiring it alone leaves an uncookable network.
+    # Only "voronoi" ever did anything; every other string silently skipped
+    # fracturing and still reported success, so a typo returned an unfractured sim
+    # that looks like a working one. Not fracturing is a legitimate request, so it
+    # gets a name rather than being what happens when you misspell the other one.
+    valid_pieces = ("voronoi", "none")
+    if pieces_type not in valid_pieces:
+        raise ValueError(
+            f"Invalid pieces_type '{pieces_type}'. Must be one of: {valid_pieces}. "
+            f"Use 'none' to simulate the geometry unfractured."
+        )
+
     fracture = None
     if pieces_type == "voronoi":
         try:
@@ -530,6 +589,7 @@ def _setup_rbd_sim(
         "solver_path": solver_path,
         "cache_path": filecache.path(),
         "all_nodes": all_nodes,
+        **_source_status(objmerge, geo_path, "RBD"),
     }
 
 
@@ -550,11 +610,21 @@ def _setup_flip_sim(
 
     Args:
         source_geo: Path to the source geometry SOP.
-        domain: Domain type hint (reserved for future use).
+        domain: Domain shape. Only "box" is implemented; anything else is
+            rejected rather than silently ignored.
         particle_sep: Particle separation distance for the FLIP sim.
         name: Name for the top-level geometry node.
     """
     obj = _ensure_obj_context()
+    # A parameter that is accepted and ignored is worse than one that is missing:
+    # it reads as functional, so asking for something else returns a box and
+    # reports success. Only "box" is built, so say so.
+    if domain != "box":
+        raise ValueError(
+            f"Unsupported domain '{domain}'. Only 'box' is implemented; the "
+            f"other shapes are not built yet."
+        )
+
     all_nodes: list[str] = []
 
     # -- Step 1: Create geo container
@@ -628,7 +698,7 @@ def _setup_flip_sim(
             _set_parm_safe(fliptank, "sizez", 4.0)
             all_nodes.append(fliptank.path())
         except Exception as e:
-            print(f"[workflow] Warning: could not create domain: {e}")
+            print(f"[workflow] Warning: could not create domain: {readable_message(e)}")
             fliptank = None
 
     # -- Step 8: DOP Import
@@ -666,6 +736,7 @@ def _setup_flip_sim(
         "dop_path": dopnet.path(),
         "cache_path": filecache.path(),
         "all_nodes": all_nodes,
+        **_source_status(objmerge, source_geo, "FLIP"),
     }
 
 
@@ -793,6 +864,7 @@ def _setup_vellum_sim(
         "cache_path": filecache.path(),
         "sim_type": sim_type,
         "all_nodes": all_nodes,
+        **_source_status(objmerge, geo_path, "Vellum"),
     }
 
 
@@ -1010,7 +1082,7 @@ def _build_sop_chain(
             node = parent.createNode(node_type, node_name=node_name)
         except hou.OperationFailed as e:
             raise ValueError(
-                f"Failed to create node of type '{node_type}' at step {i + 1}: {e}"
+                f"Failed to create node of type '{node_type}' at step {i + 1}: {readable_message(e)}"
             ) from e
 
         # Wire to previous node
@@ -1018,7 +1090,9 @@ def _build_sop_chain(
             try:
                 node.setInput(0, prev_node, 0)
             except Exception as e:
-                print(f"[workflow] Warning: could not wire step {i + 1} to previous node: {e}")
+                print(
+                    f"[workflow] Warning: could not wire step {i + 1} to previous node: {readable_message(e)}"
+                )
 
         # Set parameters
         if params:

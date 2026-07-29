@@ -9,7 +9,7 @@
   <p align="center">
     The most comprehensive MCP server for SideFX Houdini.
     <br/>
-    183 tools across 22 categories, covering every major Houdini context.
+    188 tools across 23 categories, covering every major Houdini context.
     <br/><br/>
   </p>
 
@@ -53,14 +53,14 @@
 
 A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server for [SideFX Houdini](https://www.sidefx.com/). Connects AI assistants like Claude directly to Houdini's Python API, enabling natural language control over scene building, simulation setup, rendering, and more.
 
-**183 tools**, **8 resources**, and **9 prompts** serving **31 written workflow guides** out of the box.
+**188 tools**, **8 resources**, and **9 prompts** serving **31 written workflow guides** out of the box.
 
 <!-- FEATURES -->
 ## Features
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Graph Intelligence** | 5 | Atomic validated network building, network verification, node doc cards, cook profiling, frame-range cooking with per-frame evidence |
+| **Graph Intelligence** | 6 | Atomic validated network building, network verification, node doc cards, cook profiling, frame-range cooking with per-frame evidence, cook status |
 | **Documentation** | 2 | Full-text search + page retrieval over Houdini's own shipped manual (version-exact) |
 | **Scene Management** | 7 | Open, save, import/export, scene info |
 | **Node Operations** | 17 | Create, delete, copy, connect, layout, flags |
@@ -75,13 +75,14 @@ A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
 | **Rendering** | 9 | Viewport capture, render nodes, settings, render launch |
 | **VEX** | 5 | Create/edit wrangles, validate VEX code |
 | **Code Execution** | 4 | Python, HScript, expressions, env variables |
-| **Viewport/UI** | 13 | Pane management, screenshots, status messages, error detection |
+| **Viewport/UI** | 14 | Pane management, viewer context, verified camera and renderer state, screenshots, error detection |
 | **Scene Context** | 8 | Network overview, cook chain, selection, scene summary, error analysis |
 | **Workflows** | 8 | One-call Pyro/RBD/FLIP/Vellum setup, SOP chains, render config |
 | **Materials** | 5 | List, inspect, create materials and shader networks |
 | **CHOPs** | 4 | Channel data, CHOP nodes, export channels to parameters |
 | **Cache** | 4 | List, inspect, clear, write file caches |
 | **Takes** | 4 | List, create, switch takes with parameter overrides |
+| **Shelf Tools** | 3 | Find, read and run Houdini's own shelf tools (setups build_network cannot produce) |
 
 <!-- ARCHITECTURE -->
 ## Architecture
@@ -97,7 +98,7 @@ flowchart LR
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]
         direction TB
-        B1("🔧 183 tools")
+        B1("🔧 188 tools")
         B2("📦 8 Resources")
         B3("💬 9 Prompts")
     end
@@ -543,7 +544,7 @@ Set `HOUDINI_DISABLE_OPENFX_DEFAULT_PATH=1` when running any of the above.
 This is a Houdini/Universe conflict, not something this repo causes.
 
 Unit tests mock `hou` and run anywhere. The integration suite in
-`tests/integration/` executes all 183 commands against live Houdini via
+`tests/integration/` executes all 188 commands against live Houdini via
 `hython` — including end-to-end user scenarios (procedural modeling,
 simulation, animation, lookdev) — and prints per-command timing and
 coverage reports; it is skipped automatically when `hou` is not
@@ -556,7 +557,7 @@ server's own bridge).
 
 1. **Houdini Plugin** (`houdini/`): Runs inside Houdini's Python environment. Registers `@hwebserver.apiFunction` endpoints that receive JSON commands. Uses `hdefereval.executeInMainThreadWithResult()` to safely execute `hou.*` calls on the main thread.
 
-2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 183 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
+2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 188 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
 
 3. **Bridge** (`python/fxhoudinimcp/bridge.py`): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.
 

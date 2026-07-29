@@ -24,6 +24,8 @@ try:
 except ImportError:
     HAS_HDEFEREVAL = False
 
+from fxhoudinimcp_server.errors import readable_message
+
 logger = logging.getLogger(__name__)
 
 ###### Constants
@@ -47,6 +49,48 @@ def register_handler(command: str, handler: Callable) -> None:
 def list_commands() -> list[str]:
     """Return all registered command names."""
     return sorted(_handler_registry.keys())
+
+
+def _argument_error(command: str, handler: Callable, exc: TypeError) -> str | None:
+    """Restate a signature mismatch in terms of the command and its arguments.
+
+    Returns None when the TypeError came from inside the handler rather than from
+    calling it, in which case the original error is the honest one to report --
+    rewriting it would hide a genuine bug behind a message about arguments.
+    """
+    text = str(exc)
+    if not any(
+        marker in text
+        for marker in (
+            "required positional argument",
+            "unexpected keyword argument",
+            "required keyword-only argument",
+            "positional arguments but",
+        )
+    ):
+        return None
+    # The mismatch must be about THIS handler, not some function it called.
+    name = getattr(handler, "__name__", "")
+    if name and f"{name}()" not in text:
+        return None
+
+    import inspect
+
+    required: list[str] = []
+    optional: list[str] = []
+    try:
+        for parameter in inspect.signature(handler).parameters.values():
+            if parameter.kind in (parameter.VAR_KEYWORD, parameter.VAR_POSITIONAL):
+                continue
+            (required if parameter.default is parameter.empty else optional).append(parameter.name)
+    except (TypeError, ValueError):
+        return None
+
+    detail = text.split("() ", 1)[-1]
+    return (
+        f"{command} was called with the wrong arguments ({detail}). "
+        f"Required: {required or 'none'}. Optional: {optional or 'none'}."
+    )
 
 
 def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -80,12 +124,29 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
         try:
             result = handler(**params)
             return {"status": "success", "data": result}
+        except TypeError as e:
+            # A signature mismatch is Python talking about itself: "log_status()
+            # missing 1 required positional argument: 'message'" names an internal
+            # function, not the command, and does not say what the command accepts.
+            # The MCP tool schema catches this for compliant clients; anything
+            # reaching the HTTP bridge directly gets a usable answer instead.
+            argument_error = _argument_error(command, handler, e)
+            if argument_error is None:
+                raise
+            return {
+                "status": "error",
+                "error": {
+                    "code": "BAD_ARGUMENTS",
+                    "message": argument_error,
+                    "traceback": traceback.format_exc(),
+                },
+            }
         except Exception as e:
             return {
                 "status": "error",
                 "error": {
                     "code": type(e).__name__,
-                    "message": str(e),
+                    "message": readable_message(e),
                     "traceback": traceback.format_exc(),
                 },
             }

@@ -364,3 +364,31 @@ class TestNodeCardIntrospection:
             if parm.get("menu_truncated"):
                 assert parm["menu_count"] > len(parm["menu"])
                 break
+
+
+class TestCookStatus:
+    def test_reports_cook_count_and_time_dependency(self, call, geo):
+        node = hou.node(geo)
+        box = node.createNode("box")
+        box.setDisplayFlag(True)
+        box.cook(force=True)
+        result = call("graph.get_cook_status", node_path=box.path())
+        assert result["type"] == "box"
+        assert result["cook_count"] >= 1, result
+        assert result["is_time_dependent"] is False
+        assert result["errors"] == []
+
+    def test_time_dependency_is_visible(self, call, geo):
+        node = hou.node(geo)
+        box = node.createNode("box")
+        box.parm("tx").setExpression("$F")
+        box.setDisplayFlag(True)
+        box.cook(force=True)
+        result = call("graph.get_cook_status", node_path=box.path())
+        # A node driven by $F must report as time dependent, which is how a
+        # caller knows a single-frame check proves nothing.
+        assert result["is_time_dependent"] is True, result
+
+    def test_missing_node_is_a_clean_error(self, call):
+        error = call("graph.get_cook_status", node_path="/obj/nope", expect_error=True)
+        assert "not found" in error["message"].lower()

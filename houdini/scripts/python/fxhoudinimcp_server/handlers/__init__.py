@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _HANDLER_MODULES = [
     "scene_handlers",
+    "shelf_handlers",
     "node_handlers",
     "graph_handlers",
     "help_handlers",

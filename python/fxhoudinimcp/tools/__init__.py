@@ -53,6 +53,7 @@ from fxhoudinimcp.tools import (  # noqa: E402
     parameters,  # noqa: F401
     rendering,  # noqa: F401
     scene,  # noqa: F401
+    shelf,  # noqa: F401
     takes,  # noqa: F401
     tops,  # noqa: F401
     vex,  # noqa: F401

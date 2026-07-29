@@ -53,7 +53,9 @@ async def set_viewport_camera(
     """Set the viewport to look through a specific camera.
 
     Args:
-        camera_path: Camera node path.
+        camera_path: Camera node path, or a USD camera prim path for a
+            Solaris viewport. The result reports the camera the viewport is
+            actually looking through, and fails if it did not take.
         pane_name: Pane tab name.
     """
     bridge = _get_bridge(ctx)
@@ -95,6 +97,9 @@ async def set_viewport_renderer(
     viewport instead of writing full renders to disk.
 
     Args:
+        renderer: Renderer name. The result reports the delegate that is
+            actually active afterwards, read back from Houdini rather than
+            inferred from a setter not raising.
         renderer: Renderer name — "GL", "Storm", "Karma CPU", "Karma XPU", etc. Case-insensitive partial match.
         pane_name: Pane tab name.
     """
@@ -262,3 +267,35 @@ async def log_status(
         "viewport.log_status",
         {"message": message, "severity": severity},
     )
+
+
+@mcp.tool()
+async def set_viewer_context(
+    ctx: Context,
+    network_path: str,
+    current_node: str | None = None,
+    pane_name: str | None = None,
+) -> dict:
+    """Point the Scene Viewer at a network, and optionally a node inside it.
+
+    set_current_network moves the network EDITOR; this moves the VIEWER. That is
+    what decides whether a scene graph view exists, so it is the prerequisite for
+    previewing a USD stage or setting a Hydra delegate: call this with "/stage"
+    before set_viewport_renderer or before binding a USD camera prim.
+
+    The result reports is_scene_graph_view, which is the question you are usually
+    really asking.
+
+    Args:
+        network_path: Network for the viewer to display, e.g. "/stage".
+        current_node: Node inside it to make current, which selects the stage a
+            Solaris viewport shows.
+        pane_name: Pane tab name.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"network_path": network_path}
+    if current_node is not None:
+        params["current_node"] = current_node
+    if pane_name is not None:
+        params["pane_name"] = pane_name
+    return await bridge.execute("viewport.set_viewer_context", params)
