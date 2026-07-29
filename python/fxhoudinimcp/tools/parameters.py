@@ -286,3 +286,33 @@ async def create_spare_parameters(
         payload["folder_name"] = folder_name
         payload["folder_type"] = folder_type
     return await bridge.execute("parameters.create_spare_parameters", payload)
+
+
+@mcp.tool()
+async def get_parameters(
+    ctx: Context,
+    node_path: str,
+    patterns: list[str] | None = None,
+    include_defaults: bool = False,
+) -> dict:
+    """Read many parameter values at once, matched by name or label substring.
+
+    The batch counterpart of set_parameters. Several unrelated groups of
+    settings ("flame", "wind", "buoy") come back in one call instead of one call
+    each, and unlike get_node_card these are the live values on this node rather
+    than the defaults for its type.
+
+    Args:
+        node_path: Node to read.
+        patterns: Substrings matched against parameter name and label. Omit for
+            everything, up to the cap.
+        include_defaults: Also report whether each value is still the default.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {
+        "node_path": node_path,
+        "include_defaults": include_defaults,
+    }
+    if patterns is not None:
+        params["patterns"] = patterns
+    return await bridge.execute("parameters.get_parameters", params)

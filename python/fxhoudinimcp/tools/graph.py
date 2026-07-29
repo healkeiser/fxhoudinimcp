@@ -128,3 +128,49 @@ async def find_expensive_nodes(
     if frame is not None:
         params["frame"] = frame
     return await bridge.execute("graph.find_expensive_nodes", params)
+
+
+@mcp.tool()
+async def cook_frame_range(
+    ctx: Context,
+    node_path: str,
+    start: float | None = None,
+    end: float | None = None,
+    step: float = 1.0,
+    attribs: list[str] | None = None,
+    volumes: bool = False,
+) -> dict:
+    """Cook a node frame by frame and report what changed on each frame.
+
+    This is how you advance a sequential solver and how you prove a simulation
+    is doing something. Frames are cooked in order, so a SOP solver, a DOP
+    network or an animated chain all accumulate correctly, and per-frame cook
+    time, errors, counts and attribute aggregates come back in ONE round trip
+    instead of one per frame.
+
+    Prefer this over set_frame in a loop, and over stepping by hand: a 100-frame
+    check is one call rather than 100. The frame is left where the cook ended,
+    ready to screenshot.
+
+    Args:
+        node_path: Node to cook; its output is what gets measured.
+        start: First frame. Defaults to the playbar start.
+        end: Last frame, inclusive. Defaults to the playbar end.
+        step: Frame increment. Keep at 1.0 for any solver, since skipping frames
+            gives it a discontinuous time step and invalid results.
+        attribs: Point attributes to aggregate per frame (min/max/mean/sum).
+        volumes: Also report per-volume name, resolution and value range.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {
+        "node_path": node_path,
+        "step": step,
+        "volumes": volumes,
+    }
+    if start is not None:
+        params["start"] = start
+    if end is not None:
+        params["end"] = end
+    if attribs is not None:
+        params["attribs"] = attribs
+    return await bridge.execute("graph.cook_frame_range", params)

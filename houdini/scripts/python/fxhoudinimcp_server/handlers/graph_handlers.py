@@ -14,6 +14,7 @@ import contextlib
 import json
 import os
 import tempfile
+import time
 import zipfile
 from difflib import get_close_matches
 from typing import Any
@@ -26,6 +27,15 @@ from fxhoudinimcp_server.config import layout_if_enabled
 from fxhoudinimcp_server.dispatcher import register_handler
 
 ###### Helpers
+
+# Folder types whose contents are instance templates rather than parameters.
+# MultiparmBlock is the common one; the scroll and tab variants behave the same
+# way for naming purposes.
+_MULTIPARM_FOLDERS = tuple(
+    getattr(hou.folderType, name)
+    for name in ("MultiparmBlock", "ScrollingMultiparmBlock", "TabbedMultiparmBlock")
+    if hasattr(hou.folderType, name)
+)
 
 
 def _resolve_node_type(category: hou.NodeTypeCategory, type_name: str):
@@ -448,10 +458,10 @@ def get_node_card(
 
     parms: list[dict[str, Any]] = []
     _PARM_CAP = 80
+    _MENU_CAP = 15
     truncated = False
+    matched = 0
     for template in resolved.parmTemplateGroup().entriesWithoutFolders():
-        if template.isHidden():
-            continue
         name, label = template.name(), template.label()
         if (
             parm_filter
@@ -459,24 +469,71 @@ def get_node_card(
             and parm_filter.lower() not in label.lower()
         ):
             continue
+        matched += 1
         if len(parms) >= _PARM_CAP:
             truncated = True
-            break
+            continue
         entry: dict[str, Any] = {
             "name": name,
             "label": label,
             "type": template.type().name(),
             "size": template.numComponents(),
         }
+        # Hidden parameters are still settable, and skipping them silently made
+        # this card answer "that parameter does not exist" about parameters that
+        # do. Reported and flagged instead, so a caller can tell the difference
+        # between hidden and absent.
+        if template.isHidden():
+            entry["hidden"] = True
+        # A name containing '#' is a multiparm instance template, not a real
+        # parameter name: the live parameters are source_volume1, source_volume2
+        # and so on. Saying so here saves discovering it by trial and error.
+        if "#" in name:
+            entry["multiparm_instance"] = True
         with contextlib.suppress(Exception):
             entry["default"] = list(template.defaultValue())
-        try:
-            items = template.menuItems()
+        with contextlib.suppress(Exception):
+            items = list(template.menuItems())
             if items:
-                entry["menu"] = list(items)[:15]
-        except Exception:
-            pass
+                entry["menu"] = items[:_MENU_CAP]
+                if len(items) > _MENU_CAP:
+                    # Silent truncation reads as "these are all the options",
+                    # which is how a caller picks a token that is not in a menu
+                    # it never saw the rest of.
+                    entry["menu_truncated"] = True
+                    entry["menu_count"] = len(items)
         parms.append(entry)
+
+    # Multiparm blocks, which are the reason a parameter can be real and yet
+    # findable under no name the caller can guess: the folder's own name is the
+    # instance count parameter, and the contents are templates with '#' in them.
+    # Recursive, because a multiparm block is almost always nested inside a
+    # regular tab folder rather than sitting at the top level. Walking only the
+    # top level found none on any real node type.
+    multiparms: list[dict[str, Any]] = []
+
+    def _collect_multiparms(entries) -> None:
+        for folder in entries:
+            if not isinstance(folder, hou.FolderParmTemplate):
+                continue
+            with contextlib.suppress(Exception):
+                if folder.folderType() in _MULTIPARM_FOLDERS:
+                    multiparms.append(
+                        {
+                            "count_parm": folder.name(),
+                            "label": folder.label(),
+                            "folder_type": folder.folderType().name(),
+                            "instance_parms": [
+                                child.name()
+                                for child in folder.parmTemplates()
+                                if "#" in child.name()
+                            ][:_PARM_CAP],
+                        }
+                    )
+            with contextlib.suppress(Exception):
+                _collect_multiparms(folder.parmTemplates())
+
+    _collect_multiparms(resolved.parmTemplateGroup().entries())
 
     help_text = _help_text(resolved, context) if include_help else None
     if help_text and len(help_text) > 5000:
@@ -491,8 +548,10 @@ def get_node_card(
         "max_outputs": resolved.maxNumOutputs(),
         "is_generator": resolved.minNumInputs() == 0,
         "parm_count": len(parms),
+        "parms_matched": matched,
         "parms_truncated": truncated,
         "parms": parms,
+        "multiparms": multiparms,
         "help": help_text,
     }
 
@@ -599,3 +658,160 @@ register_handler("graph.build_network", build_network)
 register_handler("graph.verify_network", verify_network)
 register_handler("graph.get_node_card", get_node_card)
 register_handler("graph.find_expensive_nodes", find_expensive_nodes)
+
+
+###### graph.cook_frame_range
+
+# A sequential solver has to be cooked in order, one frame at a time, and the
+# only evidence that it is doing anything is how its output changes across those
+# frames. Doing that from the client costs one round trip per frame -- ~50ms
+# each before any work happens -- so a 100 frame check was 100 round trips, and
+# the alternative was execute_python. Six of thirteen execute_python calls in one
+# recorded session were this, every one of them explaining that no tool steps a
+# SOP-level solver. step_simulation does not: it requires a DOP network, never
+# cooks, and returns no measurements.
+_MAX_FRAMES = 480
+_FRAME_ATTRIB_CAP = 8
+
+
+def _frame_measurement(
+    node: hou.Node,
+    attribs: list[str] | None,
+    volumes: bool,
+) -> dict[str, Any]:
+    """What changed on this frame: counts, errors, and the asked-for aggregates."""
+    row: dict[str, Any] = {}
+    geo = node.geometry()
+    if geo is None:
+        row["points"] = row["prims"] = 0
+        return row
+    row["points"] = len(geo.iterPoints())
+    row["prims"] = len(geo.iterPrims())
+
+    if attribs:
+        from fxhoudinimcp_server.handlers.geometry_handlers import _get_attrib_stats
+
+        stats = _get_attrib_stats(
+            node_path=node.path(),
+            attribs=attribs[:_FRAME_ATTRIB_CAP],
+            attrib_class="point",
+        )
+        row["attribs"] = {
+            name: {k: v for k, v in entry.items() if k in ("min", "max", "mean", "sum")}
+            for name, entry in stats["stats"].items()
+        }
+        if stats["missing"]:
+            row["missing_attribs"] = stats["missing"]
+
+    if volumes:
+        from fxhoudinimcp_server.handlers.geometry_handlers import _get_volume_info
+
+        info = _get_volume_info(node_path=node.path())
+        row["volumes"] = [
+            {
+                k: v
+                for k, v in entry.items()
+                if k in ("name", "resolution", "active_voxels", "min_value", "max_value")
+            }
+            for entry in info["volumes"]
+        ]
+    return row
+
+
+def cook_frame_range(
+    node_path: str,
+    start: float | None = None,
+    end: float | None = None,
+    step: float = 1.0,
+    attribs: list[str] | str | None = None,
+    volumes: bool = False,
+    **_: Any,
+) -> dict[str, Any]:
+    """Cook a node frame by frame and report what changed on each frame.
+
+    This is the tool for proving a simulation is doing something, and the only
+    correct way to advance a sequential solver: frames are cooked in order, so a
+    SOP solver, a DOP network or a plain animated chain all accumulate properly.
+
+    The frame is left at the last one cooked, because that is what stepping a
+    solver means; the caller usually wants to screenshot or read it afterwards.
+
+    Args:
+        node_path: Node to cook. Its output is what gets measured.
+        start: First frame. Defaults to the playbar start.
+        end: Last frame, inclusive. Defaults to the playbar end.
+        step: Frame increment. 1.0 for a sequential solver -- skipping frames
+            gives a solver a discontinuous time step and invalid results.
+        attribs: Point attributes to aggregate per frame (min/max/mean/sum).
+        volumes: Also report per-volume name, resolution and value range.
+    """
+    node = hou.node(node_path)
+    if node is None:
+        raise hou.OperationFailed(f"Node not found: {node_path}")
+
+    playbar_start, playbar_end = hou.playbar.frameRange()
+    start = float(playbar_start if start is None else start)
+    end = float(playbar_end if end is None else end)
+    if step <= 0:
+        raise ValueError("step must be greater than 0")
+    if end < start:
+        raise ValueError(f"end ({end}) is before start ({start})")
+
+    count = int((end - start) / step) + 1
+    if count > _MAX_FRAMES:
+        raise ValueError(
+            f"{count} frames requested; the cap is {_MAX_FRAMES}. Narrow the "
+            "range, or raise step if the node is not a sequential solver."
+        )
+
+    if isinstance(attribs, str):
+        attribs = [attribs]
+
+    frames: list[dict[str, Any]] = []
+    total_ms = 0.0
+    first_error_frame: float | None = None
+
+    for index in range(count):
+        frame = start + index * step
+        hou.setFrame(frame)
+        began = time.time()
+        try:
+            node.cook(force=False)
+            cook_error = None
+        except hou.OperationFailed as exc:
+            # A cook failure is data, not a reason to abandon the range: a solver
+            # that fails on one frame and recovers is exactly what the caller is
+            # trying to see.
+            cook_error = str(exc).splitlines()[0][:200]
+        elapsed_ms = round((time.time() - began) * 1000, 1)
+        total_ms += elapsed_ms
+
+        row: dict[str, Any] = {"frame": frame, "cook_ms": elapsed_ms}
+        if cook_error:
+            row["cook_error"] = cook_error
+        with contextlib.suppress(hou.OperationFailed):
+            row["errors"] = [e.splitlines()[0][:200] for e in node.errors()]
+            row["warnings"] = [w.splitlines()[0][:200] for w in node.warnings()]
+        if row.get("errors") and first_error_frame is None:
+            first_error_frame = frame
+        try:
+            row.update(_frame_measurement(node, attribs, volumes))
+        except hou.OperationFailed as exc:
+            row["measure_error"] = str(exc).splitlines()[0][:200]
+        frames.append(row)
+
+    return {
+        "node_path": node_path,
+        "start": start,
+        "end": end,
+        "step": step,
+        "frames_cooked": len(frames),
+        "total_cook_ms": round(total_ms, 1),
+        "mean_cook_ms": round(total_ms / len(frames), 1) if frames else 0.0,
+        "first_error_frame": first_error_frame,
+        "current_frame": hou.frame(),
+        "frames": frames,
+    }
+
+
+register_handler("graph.cook_frame_range", cook_frame_range)

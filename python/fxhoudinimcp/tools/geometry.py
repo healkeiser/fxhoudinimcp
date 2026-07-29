@@ -315,3 +315,53 @@ async def find_nearest_point(
             "max_results": max_results,
         },
     )
+
+
+@mcp.tool()
+async def get_attrib_stats(
+    ctx: Context,
+    node_path: str,
+    attribs: list[str] | None = None,
+    attrib_class: str = "point",
+) -> dict:
+    """Aggregate statistics for numeric attributes: min, max, mean, sum.
+
+    Use this to prove something is happening, rather than reading values.
+    get_geometry_info names the attributes; get_attrib_values returns every
+    value, which on a 60k-point cache tells you nothing you can read. Vector
+    attributes also report per-component ranges, so a velocity field's per-axis
+    extremes come back in the same call.
+
+    Args:
+        node_path: SOP node path.
+        attribs: Attribute names. Omit for every attribute of the class.
+        attrib_class: "point", "prim" or "detail".
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"node_path": node_path, "attrib_class": attrib_class}
+    if attribs is not None:
+        params["attribs"] = attribs
+    return await bridge.execute("geometry.get_attrib_stats", params)
+
+
+@mcp.tool()
+async def get_volume_info(
+    ctx: Context,
+    node_path: str,
+    max_volumes: int = 24,
+) -> dict:
+    """Per-volume name, resolution, active voxel count and value range.
+
+    A primitive count cannot tell a correctly named non-empty density field from
+    an empty one, which is the question worth asking before wiring a solver's
+    sourcing. This is the SOP counterpart of get_cop_vdb.
+
+    Args:
+        node_path: SOP node path holding volume or VDB primitives.
+        max_volumes: Cap on volumes reported.
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute(
+        "geometry.get_volume_info",
+        {"node_path": node_path, "max_volumes": max_volumes},
+    )

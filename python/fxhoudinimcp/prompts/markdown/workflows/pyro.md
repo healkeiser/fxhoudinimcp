@@ -66,7 +66,7 @@ and smearing.
 
 1. Build and inspect the source. `get_geometry_info` on it before simulating: a sim of empty geometry wastes the whole cook.
 2. setup_pyro_sim, then set Voxel Size for the scale of the effect, coarse to begin with.
-3. Simulate a short range and LOOK at it with `capture_screenshot`. Bulk motion only, no shaping yet.
+3. `cook_frame_range(node_path, start, end, attribs=['density'], volumes=True)` over a short range. Read the per-frame active voxel counts and value ranges: that is how you know it is producing fire rather than cooking empty. Then `capture_screenshot` and LOOK. Bulk motion only, no shaping yet.
 4. Add shape operators one at a time, masked with control fields where they should be local.
 5. `get_sim_memory_usage` before committing to a longer or finer cook, and `reset_simulation` after changing anything fundamental.
 6. End in a cache. pyropostprocess shapes the look afterwards, and pyrobakevolume bakes the result for rendering.

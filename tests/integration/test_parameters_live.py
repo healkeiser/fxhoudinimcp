@@ -133,3 +133,63 @@ class TestSpareParameters:
         parm = hou.node(box).parm("my_amount")
         assert parm is not None
         assert parm.eval() == 0.75
+
+
+class TestGetParametersBulk:
+    """Reading was one parm per call while writing was already batch."""
+
+    def test_patterns_match_name_or_label(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="parms1")[
+            "node_path"
+        ]
+        box = hou.node(geo).createNode("box")
+        result = call("parameters.get_parameters", node_path=box.path(), patterns=["size", "t"])
+        names = set(result["parameters"])
+        assert "sizex" in names, names
+        assert result["matched"] >= len(names)
+
+    def test_omitting_patterns_returns_everything_up_to_the_cap(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="parms2")[
+            "node_path"
+        ]
+        box = hou.node(geo).createNode("box")
+        result = call("parameters.get_parameters", node_path=box.path())
+        assert result["returned"] > 5
+        assert result["patterns"] is None
+
+    def test_values_are_live_not_defaults(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="parms3")[
+            "node_path"
+        ]
+        box = hou.node(geo).createNode("box")
+        box.parm("sizex").set(7.5)
+        result = call(
+            "parameters.get_parameters",
+            node_path=box.path(),
+            patterns=["sizex"],
+            include_defaults=True,
+        )
+        entry = result["parameters"]["sizex"]
+        assert entry["value"] == pytest.approx(7.5)
+        assert entry["is_at_default"] is False
+
+
+class TestMultiparmInstanceDiscovery:
+    """The recorded failure case: naming a multiparm instance parameter.
+
+    A session spent three execute_python calls discovering that the pyro
+    solver's sourcing bindings are source_volume1..4. get_node_card cannot help,
+    because instance parameters exist on a node, not on its type.
+    """
+
+    def test_sourcing_bindings_are_findable_without_python(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="mp1")[
+            "node_path"
+        ]
+        solver = hou.node(geo).createNode("pyrosolver")
+        result = call("parameters.get_parameters", node_path=solver.path(), patterns=["source"])
+        names = set(result["parameters"])
+        assert "source_volume1" in names, sorted(names)[:12]
+        # The count parm that governs how many instances exist.
+        counts = call("parameters.get_parameters", node_path=solver.path(), patterns=["numsources"])
+        assert "numsources" in counts["parameters"]

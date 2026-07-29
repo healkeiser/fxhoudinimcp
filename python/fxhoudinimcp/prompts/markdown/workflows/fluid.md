@@ -55,7 +55,7 @@ the solver velocities:
 
 1. Build and inspect the source, then `get_geometry_info` on it.
 2. setup_flip_sim, coarse particle separation, clipping box tight to frame.
-3. Short sim, `capture_screenshot`, check bulk motion and collisions before anything else.
+3. `cook_frame_range(node_path, start, end, attribs=['v'])` over a short range, and read the per-frame velocity extremes before trusting anything. Then `capture_screenshot` to check bulk motion and collisions.
 4. Fix collisions and velocities before touching look parameters.
 5. `get_sim_memory_usage`, then cache the sim.
 6. Surface with particlefluidsurface, and add whitewater as its own stage downstream.
