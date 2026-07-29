@@ -46,3 +46,7 @@ Thumbs.db
 # Test artifact: a SOP ROP given the MPlay target "ip" writes a file of that
 # name into the working directory.
 /ip
+
+# Test artifact: scene.new_scene(save_current=True) on an unsaved scene writes
+# this into the working directory.
+/untitled.hip
