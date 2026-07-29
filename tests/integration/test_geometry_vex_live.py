@@ -142,3 +142,114 @@ class TestCode:
         hou.setFrame(42)
         data = call("code.evaluate_expression", expression="$F")
         assert "42" in str(data)
+
+
+class TestAttribStats:
+    """Aggregates instead of 60k raw values.
+
+    get_geometry_info named the attributes and get_attrib_values returned every
+    value, so proving a field had plausible magnitudes meant execute_python.
+    """
+
+    @pytest.fixture
+    def scattered(self, call) -> str:
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="stats1")[
+            "node_path"
+        ]
+        built = call(
+            "graph.build_network",
+            parent_path=geo,
+            nodes=[
+                {"type": "grid", "name": "g", "parms": {"rows": 20, "cols": 20}},
+                {"type": "scatter", "name": "s", "inputs": ["g"], "parms": {"npts": 500}},
+                {
+                    "type": "attribwrangle",
+                    "name": "vals",
+                    "inputs": ["s"],
+                    "parms": {
+                        "class": 2,
+                        "snippet": "@heat = @ptnum; v@vel = set(@ptnum, -@ptnum, 1.0);",
+                    },
+                    "flags": {"display": True},
+                },
+            ],
+        )
+        assert built["valid"], built
+        return f"{geo}/vals"
+
+    def test_scalar_min_max_mean_sum(self, call, scattered):
+        result = call("geometry.get_attrib_stats", node_path=scattered, attribs=["heat"])
+        heat = result["stats"]["heat"]
+        # @heat = @ptnum over 500 points: 0..499, summing to 499*500/2.
+        assert heat["min"] == 0.0
+        assert heat["max"] == 499.0
+        assert heat["sum"] == pytest.approx(499 * 500 / 2)
+        assert heat["mean"] == pytest.approx(249.5)
+
+    def test_vector_reports_per_component_ranges(self, call, scattered):
+        result = call("geometry.get_attrib_stats", node_path=scattered, attribs=["vel"])
+        vel = result["stats"]["vel"]
+        assert vel["size"] == 3
+        components = vel["per_component"]
+        assert components[0]["max"] == 499.0
+        # y is -ptnum, so its minimum is the negative extreme.
+        assert components[1]["min"] == -499.0
+        assert components[2]["min"] == components[2]["max"] == 1.0
+
+    def test_missing_attribute_is_named_not_raised(self, call, scattered):
+        result = call("geometry.get_attrib_stats", node_path=scattered, attribs=["heat", "nope"])
+        assert result["missing"] == ["nope"]
+        assert "heat" in result["stats"]
+
+    def test_string_attributes_are_skipped_not_crashed(self, call, scattered):
+        node = hou.node(scattered)
+        wrangle = node.createOutputNode("attribwrangle", "names")
+        wrangle.parm("class").set(2)
+        wrangle.parm("snippet").set('s@label = "x";')
+        wrangle.setDisplayFlag(True)
+        result = call("geometry.get_attrib_stats", node_path=wrangle.path(), attribs=["label"])
+        assert result["stats"]["label"] == {"skipped": "not numeric"}
+
+
+class TestVolumeInfo:
+    """Per-volume identity, not just a primitive count."""
+
+    @pytest.fixture
+    def volumes(self, call) -> str:
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="vol1")[
+            "node_path"
+        ]
+        built = call(
+            "graph.build_network",
+            parent_path=geo,
+            nodes=[
+                {"type": "sphere", "name": "s", "parms": {"type": "polymesh", "rows": 20}},
+                {
+                    "type": "vdbfrompolygons",
+                    "name": "vdb",
+                    "inputs": ["s"],
+                    "flags": {"display": True},
+                },
+            ],
+        )
+        assert built["valid"], built
+        return f"{geo}/vdb"
+
+    def test_names_resolution_and_voxel_counts(self, call, volumes):
+        result = call("geometry.get_volume_info", node_path=volumes)
+        assert result["volume_count"] >= 1
+        entry = result["volumes"][0]
+        assert entry["name"], entry
+        # A VDB built from a real sphere must have active voxels; zero here is
+        # exactly the empty-field bug this tool exists to catch.
+        assert entry["active_voxels"] > 0, entry
+
+    def test_no_volumes_is_an_empty_answer_not_an_error(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="novol")[
+            "node_path"
+        ]
+        box = hou.node(geo).createNode("box")
+        box.setDisplayFlag(True)
+        result = call("geometry.get_volume_info", node_path=box.path())
+        assert result["volume_count"] == 0
+        assert result["volumes"] == []

@@ -54,7 +54,7 @@ incoming sequence may already carry a surprising value.
 1. Validate the input sequence, before building anything.
 2. Drape or pre-roll with vellumdrape so cloth starts settled rather than snapping on frame 1.
 3. setup_vellum_sim, then sanity check pscale visually.
-4. Short sim, `capture_screenshot`. Fix stretch with iterations, penetration with substeps.
+4. `cook_frame_range(node_path, start, end)` over a short range, watching per-frame cook time and point counts, then `capture_screenshot`. Fix stretch with iterations, penetration with substeps.
 5. Cache with vellumio, not a bare filecache: a Vellum sim has geometry and constraint streams and a filecache on the first output silently drops the rest.
 
 ## Vellum node vocabulary

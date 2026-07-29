@@ -40,7 +40,7 @@ continuous emission.
 1. Build the source and colliders, then `get_geometry_info` to confirm they are not empty.
 2. mpmcontainer with a deliberately coarse Particle Separation.
 3. Set collider types before touching anything else. Animated (Rigid) where possible.
-4. Short sim, `capture_screenshot`. Fix penetration with the three-step escalation above, stepping with Global Substeps.
+4. `cook_frame_range(node_path, start, end)` over a short range, then `capture_screenshot`. Fix penetration with the three-step escalation above, stepping with Global Substeps.
 5. `get_sim_memory_usage`, then cache, then surface.
 
 ## MPM node vocabulary

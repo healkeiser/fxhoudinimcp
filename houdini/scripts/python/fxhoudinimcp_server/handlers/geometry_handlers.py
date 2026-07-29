@@ -7,6 +7,7 @@ All functions run on the main thread via the dispatcher.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import random
 from typing import Any
 
@@ -810,3 +811,201 @@ def _find_nearest_point(
 
 
 register_handler("geometry.find_nearest_point", _find_nearest_point)
+
+
+###### geometry.get_attrib_stats
+
+
+_STATS_ATTRIB_CAP = 12
+
+
+def _numeric_components(values: Any) -> list[float]:
+    """Flatten a scalar, vector or tuple attribute value to floats."""
+    if isinstance(values, (int, float)):
+        return [float(values)]
+    try:
+        return [float(v) for v in values]
+    except (TypeError, ValueError):
+        return []
+
+
+def _get_attrib_stats(
+    *,
+    node_path: str,
+    attribs: list[str] | str | None = None,
+    attrib_class: str = "point",
+) -> dict[str, Any]:
+    """Aggregate statistics for numeric attributes: min, max, mean, sum.
+
+    get_geometry_info names the attributes and get_attrib_values returns every
+    value, which on a 62k-point cache is unusable in a conversation. Proving a
+    simulation is doing something needs the aggregate, not the values, and that
+    is otherwise only reachable through execute_python.
+    """
+    geo = _get_sop_geo(node_path)
+
+    cls = attrib_class.lower()
+    listers = {
+        "point": (geo.pointAttribs, geo.points),
+        "prim": (geo.primAttribs, geo.prims),
+        "vertex": (geo.vertexAttribs, None),
+        "detail": (geo.globalAttribs, None),
+        "global": (geo.globalAttribs, None),
+    }
+    if cls not in listers:
+        raise ValueError(f"Invalid attrib_class: {attrib_class!r}")
+    lister, element_getter = listers[cls]
+
+    if isinstance(attribs, str):
+        attribs = [attribs]
+    available = {a.name(): a for a in lister()}
+    wanted = attribs or sorted(available)
+
+    missing = [name for name in wanted if name not in available]
+    wanted = [name for name in wanted if name in available][:_STATS_ATTRIB_CAP]
+
+    if cls in ("detail", "global"):
+        # A detail attribute is a single value, so "statistics" is the value.
+        stats = {name: {"value": _vec_to_list(geo.attribValue(available[name]))} for name in wanted}
+        return {
+            "node_path": node_path,
+            "attrib_class": attrib_class,
+            "element_count": 1,
+            "stats": stats,
+            "missing": missing,
+        }
+
+    if element_getter is None:
+        raise ValueError(
+            f"attrib_class {attrib_class!r} has no per-element statistics; "
+            "use point, prim or detail"
+        )
+
+    elements = element_getter()
+    stats: dict[str, Any] = {}
+    for name in wanted:
+        attrib = available[name]
+        if attrib.isArrayType() or attrib.dataType() == hou.attribData.String:
+            stats[name] = {"skipped": "not numeric"}
+            continue
+        # attribValues() is a single C++ call for the whole array, where a Python
+        # loop over 62k elements would be thousands of times slower.
+        try:
+            flat = list(geo.pointFloatAttribValues(name)) if cls == "point" else None
+        except (AttributeError, hou.OperationFailed):
+            flat = None
+        if flat is None:
+            flat = []
+            for element in elements:
+                flat.extend(_numeric_components(element.attribValue(attrib)))
+        if not flat:
+            stats[name] = {"count": 0}
+            continue
+        size = attrib.size()
+        entry: dict[str, Any] = {
+            "count": len(elements),
+            "size": size,
+            "min": min(flat),
+            "max": max(flat),
+            "sum": sum(flat),
+            "mean": sum(flat) / len(flat),
+        }
+        if size > 1:
+            # Per-component ranges, because a velocity field's interesting number
+            # is usually the per-axis extreme rather than the flattened one.
+            entry["per_component"] = [
+                {
+                    "min": min(flat[i::size]),
+                    "max": max(flat[i::size]),
+                    "mean": sum(flat[i::size]) / len(flat[i::size]),
+                }
+                for i in range(size)
+            ]
+        stats[name] = entry
+
+    return {
+        "node_path": node_path,
+        "attrib_class": attrib_class,
+        "element_count": len(elements),
+        "stats": stats,
+        "missing": missing,
+        "truncated": bool(attribs is None and len(available) > _STATS_ATTRIB_CAP),
+    }
+
+
+register_handler("geometry.get_attrib_stats", _get_attrib_stats)
+
+
+###### geometry.get_volume_info
+
+
+# Volume statistics come from intrinsics, which is the only route that works for
+# both types: hou.VDB has activeVoxelCount() but no minValue()/maxValue(), and
+# hou.Volume has neither. The intrinsics below are present on both.
+#
+# NEVER read the "voxeldata" intrinsic here: it returns every voxel value, so on
+# a real sim field it is millions of floats through the bridge. The whole point
+# of this handler is to answer the question without moving the data.
+_VOLUME_INTRINSICS = (
+    ("min_value", "volumeminvalue"),
+    ("max_value", "volumemaxvalue"),
+    ("mean_value", "volumeavgvalue"),
+    ("active_voxels", "activevoxelcount"),
+    ("voxel_size", "voxelsize"),
+)
+
+
+def _volume_entry(prim: Any) -> dict[str, Any]:
+    """Name, resolution, voxel counts and value range for one volume prim."""
+    entry: dict[str, Any] = {"prim_number": prim.number(), "kind": type(prim).__name__}
+    with contextlib.suppress(Exception):
+        entry["name"] = prim.attribValue("name")
+    with contextlib.suppress(Exception):
+        entry["resolution"] = list(prim.resolution())
+
+    available = set()
+    with contextlib.suppress(Exception):
+        available = set(prim.intrinsicNames())
+    for key, intrinsic in _VOLUME_INTRINSICS:
+        if intrinsic not in available:
+            continue
+        with contextlib.suppress(Exception):
+            value = prim.intrinsicValue(intrinsic)
+            entry[key] = list(value) if isinstance(value, tuple) else value
+
+    # A dense volume has no active-voxel concept, so report the grid total under
+    # its own name rather than pretending the two numbers mean the same thing.
+    if "active_voxels" not in entry and entry.get("resolution"):
+        res = entry["resolution"]
+        entry["total_voxels"] = res[0] * res[1] * res[2]
+
+    with contextlib.suppress(Exception):
+        bbox = prim.boundingBox()
+        entry["bbox_min"] = list(bbox.minvec())
+        entry["bbox_max"] = list(bbox.maxvec())
+    return entry
+
+
+def _get_volume_info(*, node_path: str, max_volumes: int = 24) -> dict[str, Any]:
+    """Per-volume names, resolution, active voxels and value ranges.
+
+    get_geometry_info reports a primitive count, which cannot distinguish a
+    correctly named non-empty density field from an empty one. get_cop_vdb
+    covers Copernicus; this is the SOP side of the same question.
+    """
+    geo = _get_sop_geo(node_path)
+    volumes = [
+        prim
+        for prim in geo.prims()
+        if isinstance(prim, (hou.Volume, hou.VDB)) or type(prim).__name__ in ("Volume", "VDB")
+    ]
+    shown = volumes[:max_volumes]
+    return {
+        "node_path": node_path,
+        "volume_count": len(volumes),
+        "volumes": [_volume_entry(prim) for prim in shown],
+        "truncated": len(volumes) > len(shown),
+    }
+
+
+register_handler("geometry.get_volume_info", _get_volume_info)

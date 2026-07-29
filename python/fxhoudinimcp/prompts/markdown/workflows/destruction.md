@@ -51,7 +51,7 @@ one you followed.
 1. Inspect the input geometry. Fracture on bad topology produces bad pieces.
 2. Fracture with rbdmaterialfracture, deliberately coarse, and look at it with rbdexplodedview.
 3. Constraints: what the fracture gave you, then add what the shot needs.
-4. setup_rbd_sim, short range, `capture_screenshot`. Check that pieces are held and released as intended before tuning anything.
+4. setup_rbd_sim, then `cook_frame_range(node_path, start, end)` over a short range and `capture_screenshot`. Check that pieces are held and released as intended before tuning anything.
 5. Add rbdinteriordetail and raise piece count once the motion is approved.
 6. Cache with rbdio.
 

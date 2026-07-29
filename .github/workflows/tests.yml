@@ -105,9 +105,15 @@ jobs:
           templates = asyncio.run(mcp.list_resource_templates())
           print(f"mcp {m.version('mcp')}: {len(tools)} tools, {len(prompts)} prompts, "
                 f"{len(resources) + len(templates)} resources")
-          assert len(tools) == 179, len(tools)
-          assert len(prompts) == 9, len(prompts)
-          assert len(resources) + len(templates) == 8
+          # Deliberately not exact counts. This job's question is "does the server
+          # start and register on this mcp version", and the exact tool count is
+          # already pinned against the instructions by
+          # test_prompts_resources.py::test_header_matches_registered_tools.
+          # Duplicating the number here just meant adding a tool broke CI in a
+          # place that had nothing to do with the change.
+          assert len(tools) > 150, len(tools)
+          assert len(prompts) >= 9, len(prompts)
+          assert len(resources) + len(templates) >= 8
           PY
 
   generated:

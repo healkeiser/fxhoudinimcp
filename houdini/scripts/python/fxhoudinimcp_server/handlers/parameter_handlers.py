@@ -633,3 +633,70 @@ def _create_spare_parameters(
 
 
 register_handler("parameters.create_spare_parameters", _create_spare_parameters)
+
+
+###### parameters.get_parameters
+
+_GET_PARMS_CAP = 60
+
+
+def _get_parameters(
+    node_path: str,
+    patterns: list[str] | str | None = None,
+    include_defaults: bool = False,
+    **_: Any,
+) -> dict[str, Any]:
+    """Current values for every parameter matching any of several patterns.
+
+    set_parameters has been batch from the start while reading stayed one parm
+    per call, so checking five unrelated groups of settings cost five round
+    trips. get_node_card reports names and defaults for a node *type*; this
+    reports the live values on a specific node.
+
+    Args:
+        node_path: Node to read.
+        patterns: Substrings matched against parameter name and label. Omit for
+            every non-hidden parameter, up to the cap.
+        include_defaults: Also report whether each value is still the default.
+    """
+    node = hou.node(node_path)
+    if node is None:
+        raise hou.OperationFailed(f"Node not found: {node_path}")
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    lowered = [p.lower() for p in patterns] if patterns else None
+
+    values: dict[str, Any] = {}
+    matched = 0
+    for parm in node.parms():
+        name = parm.name()
+        if lowered is not None:
+            label = parm.parmTemplate().label().lower()
+            if not any(p in name.lower() or p in label for p in lowered):
+                continue
+        matched += 1
+        if len(values) >= _GET_PARMS_CAP:
+            continue
+        entry: dict[str, Any] = {"value": _serialize_value(parm.eval())}
+        raw = parm.rawValue()
+        # Only worth reporting when it differs: an expression is the thing a
+        # caller most often needs to see and a literal is just noise.
+        if isinstance(raw, str) and raw != str(entry["value"]):
+            entry["raw_value"] = raw
+        if include_defaults:
+            entry["is_at_default"] = parm.isAtDefault()
+        values[name] = entry
+
+    return {
+        "node_path": node_path,
+        "node_type": node.type().name(),
+        "patterns": patterns,
+        "matched": matched,
+        "returned": len(values),
+        "truncated": matched > len(values),
+        "parameters": values,
+    }
+
+
+register_handler("parameters.get_parameters", _get_parameters)
