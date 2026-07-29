@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-# Third-party
-from mcp.server.fastmcp import Context
-
 # Internal
-from fxhoudinimcp.server import _get_bridge, mcp
+from fxhoudinimcp.server import current_bridge, mcp
 
 
 @mcp.resource("houdini://usd/{node_path}/stage")
-async def usd_stage(node_path: str, ctx: Context) -> dict:
+async def usd_stage(node_path: str) -> dict:
     """USD stage information for a LOP node."""
-    bridge = _get_bridge(ctx)
+    bridge = current_bridge()
     return await bridge.execute("lops.get_stage_info", {"node_path": f"/{node_path}"})

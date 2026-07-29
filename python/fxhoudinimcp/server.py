@@ -1,4 +1,9 @@
-"""FastMCP server definition for FXHoudini-MCP."""
+"""MCP server definition for FXHoudini-MCP.
+
+The SDK class is imported from ``_sdk`` rather than from mcp directly:
+mcp 2.0 renamed it and moved it, and that shim is the single place
+that knows.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +12,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-# Third-party
-from mcp.server.fastmcp import FastMCP
-
 from fxhoudinimcp._loader import load_markdown
+
+# Third-party
+from fxhoudinimcp._sdk import Server, build_server
 from fxhoudinimcp._version import __version__
 
 # Internal
@@ -26,8 +31,28 @@ def _get_bridge(ctx) -> HoudiniBridge:
     return ctx.request_context.lifespan_context["bridge"]
 
 
+# The lifespan bridge, also reachable without a request context.
+#
+# mcp 2.0 refuses to inject Context into a resource whose URI has no template
+# variables ("Context injection for static resources is not supported"), and
+# houdini://scene/info and friends are exactly that. The bridge is one per
+# process, created once in lifespan, so a resource does not need the request to
+# find it. Tools keep taking Context, which 2.0 still allows.
+_bridge: HoudiniBridge | None = None
+
+
+def current_bridge() -> HoudiniBridge:
+    """The process's HoudiniBridge, for callers with no request context."""
+    if _bridge is None:
+        raise RuntimeError(
+            "No Houdini bridge yet. Resources are readable only once the "
+            "server has started and its lifespan has run."
+        )
+    return _bridge
+
+
 @asynccontextmanager
-async def lifespan(server: FastMCP):
+async def lifespan(server: Server):
     """Manage the Houdini bridge connection lifecycle."""
     host = os.getenv("HOUDINI_HOST", "localhost")
     pinned = os.getenv("HOUDINI_PORT")
@@ -82,15 +107,18 @@ async def lifespan(server: FastMCP):
         logger.warning("Cannot reach Houdini at startup: %s", e)
         logger.warning("Tools will attempt to connect on first use.")
 
+    global _bridge
+    _bridge = bridge
     try:
         yield {"bridge": bridge}
     finally:
+        _bridge = None
         await bridge.close()
 
 
-mcp = FastMCP(
+mcp = build_server(
     name="FXHoudini",
     instructions=load_markdown("instructions/server_instructions.md"),
     lifespan=lifespan,
+    version=__version__,
 )
-mcp._mcp_server.version = __version__

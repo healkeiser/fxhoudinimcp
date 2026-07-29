@@ -156,11 +156,14 @@ class TestDegradation:
 class TestInstructionAnnotationsSurvive:
     """The generated node block must keep its version markers.
 
-    tools/gen_node_domains.py emits bare names and tools/gen_node_versions.py
-    annotates them in a second pass, so running the first without the second
-    silently strips every "(21.0+)" and "(20.5-21.0)" from the instructions. The
-    names stay correct, which is why nothing else catches it, but a 20.5 user is
-    then told about nodes that only exist in 22.0.
+    tools/gen_node_domains.py emits the markers itself now, so a single run
+    leaves a correct file. It used to emit bare names and depend on
+    tools/gen_node_versions.py running afterwards, and running the first alone
+    stripped every "(21.0+)" and "(20.5-21.0)": names stayed correct, so nothing
+    caught it, while a 20.5 user was told about nodes that only exist in 22.0.
+
+    This guards the fix rather than the old hazard. Losing the annotations again
+    would be silent in exactly the same way.
     """
 
     _MARKER = re.compile(r"\(\d+\.\d+(?:\+|-\d+\.\d+)\)")

@@ -9,9 +9,10 @@ from __future__ import annotations
 # Built-in
 from typing import Any
 
-# Third-party
-from mcp.server.fastmcp import Context
 from mcp.types import ImageContent, TextContent
+
+# Third-party
+from fxhoudinimcp._sdk import Context
 
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp

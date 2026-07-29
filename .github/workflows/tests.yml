@@ -63,6 +63,53 @@ jobs:
       - name: Unit tests
         run: pytest tests -m "not integration" -q
 
+  sdk-range:
+    name: mcp ${{ matrix.mcp }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The ends of the declared range, plus the newest 1.x. A plain install
+        # resolves to the newest allowed version, so without a floor leg nothing
+        # would notice the declared minimum drifting out of support -- which is
+        # exactly what happened: >=1.8.0 was declared for months while 1.8
+        # through 1.13 could not register a single tool.
+        mcp: ["1.14.0", "1.29.0", "2.0.0"]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Pin mcp ${{ matrix.mcp }}
+        run: pip install "mcp==${{ matrix.mcp }}"
+
+      - name: Unit tests
+        run: pytest tests -m "not integration" -q
+
+      - name: Server actually starts
+        run: |
+          python - <<'PY'
+          import asyncio, importlib.metadata as m
+          import fxhoudinimcp.tools, fxhoudinimcp.prompts.workflows, fxhoudinimcp.resources
+          from fxhoudinimcp.server import mcp
+          tools = asyncio.run(mcp.list_tools())
+          prompts = asyncio.run(mcp.list_prompts())
+          resources = asyncio.run(mcp.list_resources())
+          templates = asyncio.run(mcp.list_resource_templates())
+          print(f"mcp {m.version('mcp')}: {len(tools)} tools, {len(prompts)} prompts, "
+                f"{len(resources) + len(templates)} resources")
+          assert len(tools) == 179, len(tools)
+          assert len(prompts) == 9, len(prompts)
+          assert len(resources) + len(templates) == 8
+          PY
+
   generated:
     name: Generated content up to date
     runs-on: ubuntu-latest

@@ -22,11 +22,18 @@ classifiers = [
     "Topic :: Multimedia :: Graphics :: 3D Modeling",
 ]
 dependencies = [
-    # Capped below 2.0: mcp 2.0.0 removed mcp.server.fastmcp, which every tool,
-    # resource and prompt in this package imports, so an uncapped floor resolves
-    # to a version where the server cannot import at all. Lifting the cap means
-    # porting to whatever replaced FastMCP in 2.x, not just widening the range.
-    "mcp>=1.8.0,<2",
+    # Floor is 1.14.0, not 1.8.0. Every module here uses
+    # `from __future__ import annotations`, so parameter annotations are strings,
+    # and FastMCP could not resolve them until 1.14: earlier versions die with
+    # "TypeError: issubclass() arg 1 must be a class" while registering a tool.
+    # The old >=1.8.0 was therefore a floor the package never actually supported.
+    #
+    # 2.x works too. mcp 2.0 renamed the server class out of mcp.server.fastmcp,
+    # made Tool.inputSchema into input_schema and stopped injecting Context into
+    # static resources; fxhoudinimcp._sdk is the single import site that knows.
+    # Capped below 3 so the next such change fails at install time with a
+    # resolver message rather than at import time with a traceback.
+    "mcp>=1.14.0,<3",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
 ]

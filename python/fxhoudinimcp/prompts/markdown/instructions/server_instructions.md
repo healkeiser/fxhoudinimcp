@@ -144,25 +144,25 @@ version before relying on an annotated name.
 
 The old name still works when creating a node, because Houdini keeps
 the alias so old scenes load, but prefer the current name:
-*   Lop: instancer is now copytopoints
-*   Lop: layout is now paintinstances
-*   Sop: mlattribgenerate is now ml_attribgenerate
-*   Sop: mlexample is now ml_example
-*   Sop: mlexamplecreatecore is now ml_examplecreatecore
-*   Sop: mlexampledecompose is now ml_exampledecompose
-*   Sop: mlexampledecomposecore is now ml_exampledecomposecore
-*   Sop: mlexampleimport is now ml_exampleimport
-*   Sop: mlexampleoutput is now ml_exampleoutput
-*   Sop: mlexamplepartition is now ml_examplepartition
-*   Sop: mlextractexample is now ml_extractexample
-*   Sop: mlextractexamplecore is now ml_extractexamplecore
-*   Sop: mlposegenerate is now ml_posegenerate
-*   Sop: mlposeserialize is now ml_poseserialize
-*   Sop: mlregressioninference is now ml_regressioninference
-*   Sop: mlregressioninferencecore is now ml_regressioninferencecore
-*   Sop: mlregressionproximity is now ml_regressionproximity
-*   Sop: mlregressionproximitycore is now ml_regressionproximitycore
-*   Top: mlregressiontrain is now ml_trainregression
+*   Lop: instancer (20.5-21.0) is now copytopoints (22.0+)
+*   Lop: layout (20.5-21.0) is now paintinstances (22.0+)
+*   Sop: mlattribgenerate (20.5-20.5) is now ml_attribgenerate (21.0+)
+*   Sop: mlexample (20.5-20.5) is now ml_example (21.0+)
+*   Sop: mlexamplecreatecore (20.5-20.5) is now ml_examplecreatecore (21.0+)
+*   Sop: mlexampledecompose (20.5-20.5) is now ml_exampledecompose (21.0+)
+*   Sop: mlexampledecomposecore (20.5-20.5) is now ml_exampledecomposecore (21.0+)
+*   Sop: mlexampleimport (20.5-20.5) is now ml_exampleimport (21.0+)
+*   Sop: mlexampleoutput (20.5-20.5) is now ml_exampleoutput (21.0+)
+*   Sop: mlexamplepartition (20.5-20.5) is now ml_examplepartition (21.0+)
+*   Sop: mlextractexample (20.5-20.5) is now ml_extractexample (21.0+)
+*   Sop: mlextractexamplecore is now ml_extractexamplecore (21.0+)
+*   Sop: mlposegenerate (20.5-20.5) is now ml_posegenerate (21.0+)
+*   Sop: mlposeserialize (20.5-20.5) is now ml_poseserialize (21.0+)
+*   Sop: mlregressioninference (20.5-20.5) is now ml_regressioninference (21.0+)
+*   Sop: mlregressioninferencecore (20.5-20.5) is now ml_regressioninferencecore (21.0+)
+*   Sop: mlregressionproximity (20.5-20.5) is now ml_regressionproximity (21.0+)
+*   Sop: mlregressionproximitycore (20.5-20.5) is now ml_regressionproximitycore (21.0+)
+*   Top: mlregressiontrain (20.5-20.5) is now ml_trainregression (21.0+)
 <!-- END GENERATED: node domains -->
 
 ## WORKFLOW GUIDES — ask for one before designing a setup you have not built before
