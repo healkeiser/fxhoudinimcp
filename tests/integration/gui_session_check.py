@@ -112,9 +112,58 @@ async def main() -> int:
         ###### Viewport control
         panes = await call("viewport.list_panes")
         record("PASS", "list_panes", str(panes)[:90])
-        await call("viewport.get_viewport_info", soft=True)
+        info = await call("viewport.get_viewport_info", soft=True)
+        if info is not None:
+            # These two fields are why this check exists: nothing used to report
+            # the active Hydra delegate or the path the viewport is really
+            # looking through, so a viewport that had reverted to GL on a free
+            # perspective looked identical to a framed Karma preview.
+            record(
+                "PASS",
+                "get_viewport_info reports state",
+                f"renderer={info.get('renderer')} camera_path={info.get('camera_path')}",
+            )
         await call("viewport.set_viewport_display", display_mode="smooth", soft=True)
         await call("viewport.frame_all", soft=True)
+
+        ###### Renderer readback: the tool must report what is actually active
+        applied = await call("viewport.set_viewport_renderer", renderer="Houdini GL", soft=True)
+        if applied is not None:
+            after = await call("viewport.get_viewport_info", soft=True) or {}
+            claimed = applied.get("renderer")
+            actual = after.get("renderer")
+            if applied.get("verified") and claimed and actual and claimed == actual:
+                record("PASS", "set_viewport_renderer verified", f"{claimed}")
+            elif applied.get("verified") is False:
+                record("SOFT", "set_viewport_renderer unverifiable", str(applied.get("note"))[:80])
+            else:
+                record(
+                    "FAIL",
+                    "set_viewport_renderer lied",
+                    f"claimed {claimed}, viewport reports {actual}",
+                )
+
+        ###### Camera binding, including a USD prim in Solaris
+        obj_cam = await call(
+            "nodes.create_node", parent_path="/obj", node_type="cam", name="mcp_gui_cam"
+        )
+        bound = await call(
+            "viewport.set_viewport_camera", camera_path=obj_cam["node_path"], soft=True
+        )
+        if bound is not None:
+            if bound.get("camera_path") == obj_cam["node_path"]:
+                record("PASS", "set_viewport_camera (OBJ) verified", bound["camera_path"])
+            else:
+                record("FAIL", "set_viewport_camera (OBJ)", str(bound)[:100])
+        missing = await call(
+            "viewport.set_viewport_camera", camera_path="/stage/nope_not_a_prim", soft=True
+        )
+        if missing is None:
+            # soft=True records a SOFT line on failure, which is the correct
+            # outcome: an unbindable camera must raise, not report success.
+            record("PASS", "set_viewport_camera rejects a bad path")
+        else:
+            record("FAIL", "set_viewport_camera accepted a bad path", str(missing)[:100])
 
         ###### Real captures
         viewport_png = str(out_dir / "viewport.png").replace("\\", "/")

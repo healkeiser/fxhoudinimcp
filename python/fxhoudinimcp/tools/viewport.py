@@ -53,7 +53,9 @@ async def set_viewport_camera(
     """Set the viewport to look through a specific camera.
 
     Args:
-        camera_path: Camera node path.
+        camera_path: Camera node path, or a USD camera prim path for a
+            Solaris viewport. The result reports the camera the viewport is
+            actually looking through, and fails if it did not take.
         pane_name: Pane tab name.
     """
     bridge = _get_bridge(ctx)
@@ -95,6 +97,9 @@ async def set_viewport_renderer(
     viewport instead of writing full renders to disk.
 
     Args:
+        renderer: Renderer name. The result reports the delegate that is
+            actually active afterwards, read back from Houdini rather than
+            inferred from a setter not raising.
         renderer: Renderer name — "GL", "Storm", "Karma CPU", "Karma XPU", etc. Case-insensitive partial match.
         pane_name: Pane tab name.
     """

@@ -134,10 +134,18 @@ async def start_render(
     node_path: str,
     frame_range: list[float] | None = None,
 ) -> dict:
-    """Render a ROP node.
+    """Execute any node that renders or writes files.
+
+    Not just /out ROPs: a LOP usdrender_rop (which is how Solaris renders), a
+    SOP ROP Geometry, or a File Cache's Save to Disk all work, because what
+    matters is whether the node can be executed rather than its category.
+
+    The result reports the output path it wrote to and whether anything is
+    actually on disk there, so a render that succeeds and writes nowhere is
+    visible instead of silent.
 
     Args:
-        node_path: ROP node path.
+        node_path: Any node with a render() or an 'execute' button.
         frame_range: [start, end] or [start, end, increment].
     """
     bridge = _get_bridge(ctx)

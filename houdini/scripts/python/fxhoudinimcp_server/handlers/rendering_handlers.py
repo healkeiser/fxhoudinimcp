@@ -7,6 +7,7 @@ operations including Karma, OpenGL, and other Houdini renderers.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import logging
 import os
 
@@ -439,6 +440,61 @@ def create_render_node(
 
 ###### rendering.start_render
 
+# Where different ROPs keep their output path. A render that reports success and
+# writes nowhere is indistinguishable from one that worked, which is why a
+# recorded session resorted to PowerShell to stat the output directory.
+_OUTPUT_PARMS = (
+    "sopoutput",
+    "lopoutput",
+    "picture",
+    "outputimage",
+    "file",
+    "dopoutput",
+    "copoutput",
+)
+
+# Where they keep their frame range.
+_RANGE_PARMS = ("f1", "f2", "f3")
+
+
+def _apply_frame_range_parms(node: hou.Node, frame_range: list) -> None:
+    """Set trange/f1..f3 on a node whose execution is a button press."""
+    trange = node.parm("trange")
+    if trange is not None:
+        # 1 is "Render Frame Range" on every stock ROP-style node.
+        trange.set(1)
+    values = [float(frame_range[0]), float(frame_range[1])]
+    values.append(float(frame_range[2]) if len(frame_range) > 2 else 1.0)
+    for name, value in zip(_RANGE_PARMS, values, strict=False):
+        parm = node.parm(name)
+        if parm is not None:
+            parm.set(value)
+
+
+def _reported_outputs(node: hou.Node) -> list[dict]:
+    """The node's output path(s) and whether anything is on disk there."""
+    found: list[dict] = []
+    for name in _OUTPUT_PARMS:
+        parm = node.parm(name)
+        if parm is None:
+            continue
+        try:
+            path = parm.eval()
+        except hou.OperationFailed:
+            continue
+        if not path:
+            # An empty output path is the quiet failure worth naming: the render
+            # ran and wrote nothing.
+            found.append({"parm": name, "path": None, "exists": False, "empty": True})
+            continue
+        entry: dict = {"parm": name, "path": path}
+        with contextlib.suppress(Exception):
+            entry["exists"] = os.path.exists(path)
+            if entry["exists"]:
+                entry["size_bytes"] = os.path.getsize(path)
+        found.append(entry)
+    return found
+
 
 def start_render(
     node_path: str,
@@ -447,47 +503,72 @@ def start_render(
     """Begin rendering a ROP node.
 
     Args:
-        node_path: Path to the ROP/Driver node.
-        frame_range: Optional [start, end] frame range. If not provided,
-            renders with the node's own frame range settings.
+        node_path: Path to any node that renders or writes: a /out ROP, a
+            LOP usdrender_rop, a SOP ROP Geometry or File Cache, and so on.
+        frame_range: Optional [start, end] or [start, end, increment]. If not
+            provided, the node's own frame range settings are used.
     """
     node = hou.node(node_path)
     if node is None:
         raise ValueError(f"Node not found: {node_path}")
 
-    if node.type().category().name() != "Driver":
+    # Category is the wrong test. It rejected the LOP usdrender_rop, which is how
+    # Solaris renders, along with SOP ROPs and a File Cache's Save to Disk -- so a
+    # recorded session pressed all of those by hand through execute_python ten
+    # times. What matters is whether the node can be executed at all.
+    category = node.type().category().name()
+    execute_parm = node.parm("execute")
+    can_render = hasattr(node, "render")
+    if not can_render and execute_parm is None:
+        buttons = [
+            p.name() for p in node.parms() if p.parmTemplate().type() == hou.parmTemplateType.Button
+        ]
         raise ValueError(
-            f"Node {node_path} is not a ROP/Driver node "
-            f"(category: {node.type().category().name()})."
+            f"{node_path} ({category}) has neither render() nor an 'execute' "
+            f"button, so there is nothing to trigger."
+            + (f" Buttons it does have: {buttons[:6]}" if buttons else "")
         )
 
+    if frame_range is not None and len(frame_range) < 2:
+        raise ValueError("frame_range must have at least [start, end].")
+
+    method = None
     try:
-        if frame_range is not None:
-            if len(frame_range) < 2:
-                raise ValueError("frame_range must have at least [start, end].")
-            start = float(frame_range[0])
-            end = float(frame_range[1])
-            inc = float(frame_range[2]) if len(frame_range) > 2 else 1.0
-            # RopNode.render takes the increment as the third element of
-            # frame_range; there is no frame_increment keyword.
-            node.render(
-                frame_range=(start, end, inc),
-                output_progress=True,
-            )
+        if can_render:
+            method = "render()"
+            if frame_range is not None:
+                start = float(frame_range[0])
+                end = float(frame_range[1])
+                inc = float(frame_range[2]) if len(frame_range) > 2 else 1.0
+                # RopNode.render takes the increment as the third element of
+                # frame_range; there is no frame_increment keyword.
+                node.render(frame_range=(start, end, inc), output_progress=True)
+            else:
+                node.render(output_progress=True)
         else:
-            node.render(output_progress=True)
+            # A File Cache SOP has no render(); its Save to Disk is a button, and
+            # its range lives on trange/f rather than in a render() argument.
+            method = "execute button"
+            if frame_range is not None:
+                _apply_frame_range_parms(node, frame_range)
+            execute_parm.pressButton()
     except hou.OperationFailed as e:
         return {
             "success": False,
             "node_path": node_path,
+            "category": category,
+            "method": method,
             "error": str(e),
         }
 
     return {
         "success": True,
         "node_path": node_path,
+        "category": category,
+        "method": method,
         "frame_range": frame_range,
         "message": "Render completed.",
+        "outputs": _reported_outputs(node),
     }
 
 

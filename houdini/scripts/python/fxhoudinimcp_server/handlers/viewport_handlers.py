@@ -9,6 +9,7 @@ from __future__ import annotations
 
 # Built-in
 import base64
+import contextlib
 import logging
 import os
 
@@ -218,6 +219,22 @@ def get_viewport_info(pane_name: str = None) -> dict:
         logger.debug("Could not read viewport camera: %s", e)
         info["camera"] = None
 
+    # camera() returns a hou.Node, so it is None for a USD camera prim even when
+    # the viewport is looking through one. cameraPath() answers for both, and
+    # without it there was no way to ask "what am I actually looking through".
+    info["camera_path"] = None
+    with contextlib.suppress(Exception):
+        info["camera_path"] = viewport.cameraPath() or None
+
+    # The active Hydra delegate. Nothing reported this before, so a viewport that
+    # had silently reverted to GL looked identical to one rendering in Karma
+    # until someone eyeballed a screenshot.
+    info["renderer"] = None
+    with contextlib.suppress(Exception):
+        info["renderer"] = scene_viewer.currentHydraRenderer()
+    with contextlib.suppress(Exception):
+        info["available_renderers"] = list(scene_viewer.hydraRenderers())
+
     # Display mode / shading
     try:
         settings = viewport.settings()
@@ -258,17 +275,57 @@ def set_viewport_camera(
         camera_path: Path to the camera node (e.g. '/obj/cam1').
         pane_name: Optional pane tab name.
     """
-    cam_node = hou.node(camera_path)
-    if cam_node is None:
-        raise ValueError(f"Camera node not found: {camera_path}")
-
     scene_viewer = _find_scene_viewer(pane_name)
     viewport = scene_viewer.curViewport()
-    viewport.setCamera(cam_node)
+
+    # A USD camera prim is not a hou.node, so resolving through hou.node() alone
+    # made every Solaris shot unframeable: the tool raised "Camera node not
+    # found" for a path that is perfectly valid on the stage. A recorded session
+    # lost nine execute_python calls to this and still shipped the wrong framing.
+    cam_node = hou.node(camera_path)
+    attempts: list[str] = []
+    for label, apply in (
+        ("node", (lambda: viewport.setCamera(cam_node)) if cam_node else None),
+        # In a Solaris viewport setCamera also takes the prim path as a string.
+        ("prim path", lambda: viewport.setCamera(camera_path)),
+    ):
+        if apply is None:
+            continue
+        try:
+            apply()
+        except Exception as exc:  # noqa: BLE001 - both routes are best-effort
+            attempts.append(f"{label}: {type(exc).__name__}")
+            continue
+        attempts.append(f"{label}: no error")
+        break
+
+    # cameraPath() is the viewport's own answer, and the only thing worth
+    # reporting. setCamera can return without error and leave the viewport on
+    # free perspective, which is what made the old success flag meaningless.
+    active = None
+    with contextlib.suppress(Exception):
+        active = viewport.cameraPath() or None
+
+    wanted = camera_path.rstrip("/")
+    if active is None:
+        raise RuntimeError(
+            f"Could not confirm the viewport camera. Tried: {'; '.join(attempts) or 'nothing'}. "
+            f"This Houdini exposes no cameraPath() readback."
+        )
+    if active.rstrip("/") != wanted:
+        raise RuntimeError(
+            f"Asked to look through '{camera_path}' but the viewport is on "
+            f"'{active}'. Tried: {'; '.join(attempts)}. In Solaris the camera "
+            f"must be a prim on the current stage, and the viewer must be in the "
+            f"Solaris context."
+        )
 
     return {
         "success": True,
-        "camera_path": cam_node.path(),
+        "verified": True,
+        "camera_path": active,
+        "is_usd_prim": cam_node is None,
+        "attempts": attempts,
         "pane_name": scene_viewer.name(),
         "viewport_name": viewport.name(),
     }
@@ -382,105 +439,94 @@ def set_viewport_renderer(
         pane_name: Optional pane tab name.
     """
     scene_viewer = _find_scene_viewer(pane_name)
-
-    # Try the Houdini 20+ API first: curViewport().settings().setRenderer()
-    # Fall back to scene_viewer-level methods if they exist.
     viewport = scene_viewer.curViewport()
 
-    # Discover available renderers
-    available = []
-    matched_name = None
-
-    # Method 1: hou.GeometryViewportSettings (Houdini 20+)
-    try:
-        settings = viewport.settings()
-        if hasattr(settings, "rendererNames"):
-            available = list(settings.rendererNames())
-        elif hasattr(settings, "availableRenderers"):
-            available = list(settings.availableRenderers())
-    except Exception:
-        pass
-
-    # Method 2: hou.lop module renderer list
+    # hou.SceneViewer.hydraRenderers/setHydraRenderer/currentHydraRenderer is the
+    # documented pair for this. The previous implementation went through
+    # viewport.settings().setRenderer() with an hscript fallback and, crucially,
+    # never read the renderer back: it returned success whenever a setter did not
+    # raise. A recorded session spent nine execute_python calls discovering that
+    # the viewport was still on GL while this tool reported Karma, and every
+    # screenshot it verified against was therefore the wrong image.
+    available: list[str] = []
+    with contextlib.suppress(Exception):
+        available = list(scene_viewer.hydraRenderers())
     if not available:
-        try:
-            import hou.lop as lop_module
+        with contextlib.suppress(Exception):
+            settings = viewport.settings()
+            if hasattr(settings, "rendererNames"):
+                available = list(settings.rendererNames())
 
-            if hasattr(lop_module, "availableRenderers"):
-                available = list(lop_module.availableRenderers())
-        except Exception:
-            pass
-
-    # Method 3: hou.SceneViewer-level
-    if not available:
-        try:
-            if hasattr(scene_viewer, "availableRenderers"):
-                available = list(scene_viewer.availableRenderers())
-        except Exception:
-            pass
-
-    # Match the requested renderer (case-insensitive, partial match)
     target = renderer.strip().lower()
-    for name in available:
-        if name.lower() == target:
-            matched_name = name
-            break
+    matched_name = next((n for n in available if n.lower() == target), None)
     if matched_name is None:
-        for name in available:
-            if target in name.lower():
-                matched_name = name
-                break
-
+        matched_name = next((n for n in available if target in n.lower()), None)
     if matched_name is None and not available:
-        # No discovery method worked — try to set directly and let Houdini
-        # resolve (may fail, but gives a useful error)
         matched_name = renderer
-
     if matched_name is None:
         raise ValueError(f"Renderer '{renderer}' not found. Available renderers: {available}")
 
-    # Apply the renderer
-    applied = False
+    def _current() -> str | None:
+        with contextlib.suppress(Exception):
+            return scene_viewer.currentHydraRenderer()
+        return None
 
-    # Try viewport settings
-    try:
-        settings = viewport.settings()
-        if hasattr(settings, "setRenderer"):
-            settings.setRenderer(matched_name)
-            applied = True
-        elif hasattr(settings, "setDefaultRenderer"):
-            settings.setDefaultRenderer(matched_name)
-            applied = True
-    except Exception:
-        pass
-
-    # Try scene viewer level
-    if not applied:
+    before = _current()
+    attempts: list[str] = []
+    for label, apply in (
+        ("setHydraRenderer", lambda: scene_viewer.setHydraRenderer(matched_name)),
+        (
+            "settings.setRenderer",
+            lambda: viewport.settings().setRenderer(matched_name),
+        ),
+        (
+            "hscript viewdisplay",
+            lambda: hou.hscript(f'viewdisplay -R "{matched_name}" {viewport.name()}'),
+        ),
+    ):
         try:
-            if hasattr(scene_viewer, "setRenderer"):
-                scene_viewer.setRenderer(matched_name)
-                applied = True
-        except Exception:
-            pass
+            apply()
+        except Exception as exc:  # noqa: BLE001 - each route is best-effort
+            attempts.append(f"{label}: {type(exc).__name__}")
+            continue
+        attempts.append(f"{label}: no error")
+        if (_current() or "").lower() == matched_name.lower():
+            break
 
-    # Last resort: execute hscript or hou.hscript
-    if not applied:
-        try:
-            hou.hscript(f'viewdisplay -R "{matched_name}" {viewport.name()}')
-            applied = True
-        except Exception:
-            pass
-
+    active = _current()
+    # The renderer Houdini reports is the answer. Anything else is a guess about
+    # whether a setter worked.
+    applied = active is not None and active.lower() == matched_name.lower()
+    if not applied and active is None:
+        # No readback on this build, so honesty means saying the state is unknown
+        # rather than claiming the requested renderer is live.
+        return {
+            "success": True,
+            "verified": False,
+            "requested": matched_name,
+            "renderer": None,
+            "note": (
+                "This Houdini exposes no currentHydraRenderer(), so the active "
+                "renderer could not be confirmed. Capture a screenshot before "
+                "trusting the viewport."
+            ),
+            "available_renderers": available,
+            "attempts": attempts,
+            "pane_name": scene_viewer.name(),
+            "viewport_name": viewport.name(),
+        }
     if not applied:
         raise RuntimeError(
-            f"Could not set renderer to '{matched_name}'. "
-            f"This may require a newer Houdini version. "
+            f"Asked for renderer '{matched_name}' but the viewport is still on "
+            f"'{active}' (was '{before}'). Tried: {'; '.join(attempts)}. "
             f"Available renderers: {available}"
         )
 
     return {
         "success": True,
-        "renderer": matched_name,
+        "verified": True,
+        "renderer": active,
+        "previous_renderer": before,
         "available_renderers": available,
         "pane_name": scene_viewer.name(),
         "viewport_name": viewport.name(),
