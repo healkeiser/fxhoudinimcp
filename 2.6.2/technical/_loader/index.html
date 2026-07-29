@@ -812,6 +812,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._loader.markdown_exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;markdown_exists
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2231,6 +2242,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._loader.markdown_exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;markdown_exists
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2355,6 +2377,15 @@
     <div class="doc doc-contents first">
 
         <p>Utility for loading markdown prompt files with disk-read caching.</p>
+<p>Layout of <code>prompts/markdown/</code>:</p>
+<ul>
+<li><code>instructions/</code> -- what the server tells every client at connect time.</li>
+<li><code>workflows/</code>    -- one file per subject, named after the SideFX help scope
+  it draws on, served by the MCP prompts.</li>
+<li><code>shared/</code>       -- fragments injected into the above, never served alone.</li>
+</ul>
+<p>Callers pass the path relative to <code>markdown/</code>, e.g. <code>workflows/pyro.md</code>, so
+which of the three kinds a file is stays visible at every call site.</p>
 
 
 
@@ -2381,6 +2412,19 @@
               <td>
                 <div class="doc-md-description">
                   <p>Load a markdown prompt file, optionally formatting placeholders.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;markdown_exists&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-cached&quot;&gt;&lt;code&gt;cached&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp._loader.markdown_exists&lt;/code&gt;)" href="#fxhoudinimcp._loader.markdown_exists">markdown_exists</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>Whether a markdown prompt file ships under <code>markdown/</code>.</p>
                 </div>
               </td>
             </tr>
@@ -2440,7 +2484,8 @@ at runtime, so this avoids repeated disk I/O on every prompt invocation.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Filename (with .md extension) inside the <code>markdown/</code> directory.</p>
+                <p>Path relative to the <code>markdown/</code> directory, including the
+subdirectory, e.g. <code>workflows/pyro.md</code>.</p>
               </div>
             </td>
             <td>
@@ -2458,8 +2503,8 @@ at runtime, so this avoids repeated disk I/O on every prompt invocation.</p>
               <div class="doc-md-description">
                 <p>Values to substitute into <code>{placeholder}</code> tokens in the
 markdown text.  The special keys <code>network_housekeeping</code> and
-<code>layout_guidance</code> are automatically populated if not explicitly
-provided.</p>
+<code>layout_guidance</code> are automatically populated from
+<code>shared/</code> if not explicitly provided.</p>
               </div>
             </td>
             <td>
@@ -2497,6 +2542,33 @@ provided.</p>
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp._loader.markdown_exists" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">markdown_exists</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+  </span>
+
+<a href="#fxhoudinimcp._loader.markdown_exists" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">markdown_exists</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp._loader.markdown_exists(name)">name</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether a markdown prompt file ships under <code>markdown/</code>.</p>
+<p>Lets a prompt dispatch to a specialised file and fall back to a generic
+one, which is how simulation_setup serves a deep pyro guide without
+needing a separate MCP prompt per solver.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -2526,7 +2598,7 @@ provided.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2026 10:10:51 UTC">July 28, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 08:06:44 UTC">July 29, 2026</span>
   </span>
 
     
@@ -2536,7 +2608,7 @@ provided.</p>
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2026 10:10:51 UTC">July 28, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 08:06:44 UTC">July 29, 2026</span>
   </span>
 
     
