@@ -73,7 +73,10 @@ async def run_shelf_tool(
     Args:
         tool_name: Internal tool name, from list_shelf_tools.
         kwargs: Overrides merged into the synthetic kwargs the script reads.
-        parent_path: Network to watch for new nodes. Defaults to /obj.
+        parent_path: An extra network to watch for new nodes. /obj, /stage,
+            /out, /mat and /img are always watched, because a shelf tool is
+            free to build in more than one of them: largeOcean creates both
+            a geo in /obj and a LOP in /stage.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"tool_name": tool_name}

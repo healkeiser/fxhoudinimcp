@@ -471,6 +471,12 @@ def _apply_frame_range_parms(node: hou.Node, frame_range: list) -> None:
             parm.set(value)
 
 
+# Output values that are not files. "__render__.usd" is the in-memory stage a LOP
+# ROP feeds to husk, and ip/md are MPlay targets, so reporting them as missing
+# files would be noise that trains a caller to ignore this field.
+_NON_FILE_OUTPUTS = frozenset({"__render__.usd", "ip", "md"})
+
+
 def _reported_outputs(node: hou.Node) -> list[dict]:
     """The node's output path(s) and whether anything is on disk there."""
     found: list[dict] = []
@@ -487,13 +493,38 @@ def _reported_outputs(node: hou.Node) -> list[dict]:
             # ran and wrote nothing.
             found.append({"parm": name, "path": None, "exists": False, "empty": True})
             continue
+        if path in _NON_FILE_OUTPUTS:
+            found.append({"parm": name, "path": path, "is_file_output": False})
+            continue
         entry: dict = {"parm": name, "path": path}
         with contextlib.suppress(Exception):
             entry["exists"] = os.path.exists(path)
             if entry["exists"]:
                 entry["size_bytes"] = os.path.getsize(path)
+                entry["mtime"] = os.path.getmtime(path)
         found.append(entry)
     return found
+
+
+def _wrote_anything(before: list[dict], after: list[dict]) -> bool:
+    """Whether any file output appeared or changed across the render.
+
+    Existence alone is not evidence: re-rendering over yesterday's frame would
+    look like success even if nothing ran, which is the mistake this whole branch
+    exists to stop making.
+    """
+    prior = {entry.get("path"): entry for entry in before}
+    for entry in after:
+        if not entry.get("exists") or entry.get("is_file_output") is False:
+            continue
+        was = prior.get(entry.get("path"))
+        if was is None or not was.get("exists"):
+            return True
+        if entry.get("mtime") and was.get("mtime") and entry["mtime"] > was["mtime"]:
+            return True
+        if entry.get("size_bytes") != was.get("size_bytes"):
+            return True
+    return False
 
 
 def start_render(
@@ -532,6 +563,10 @@ def start_render(
     if frame_range is not None and len(frame_range) < 2:
         raise ValueError("frame_range must have at least [start, end].")
 
+    # Snapshot the outputs so "did this write anything" is answerable afterwards
+    # rather than inferred from a call that did not raise.
+    before = _reported_outputs(node)
+
     method = None
     try:
         if can_render:
@@ -553,23 +588,60 @@ def start_render(
                 _apply_frame_range_parms(node, frame_range)
             execute_parm.pressButton()
     except hou.OperationFailed as e:
+        # Same shape as the non-raising path, so a caller never has to branch on
+        # which kind of failure it was to find out whether anything was written.
+        failed_outputs = _reported_outputs(node)
         return {
             "success": False,
             "node_path": node_path,
             "category": category,
             "method": method,
             "error": str(e),
+            "errors": [str(e)[:400]],
+            "wrote_files": _wrote_anything(before, failed_outputs),
+            "outputs": failed_outputs,
+            "message": "Render raised before completing; nothing was verified.",
         }
 
-    return {
-        "success": True,
+    # render() returning without raising is NOT evidence that a render happened.
+    # A LOP usdrender_rop shells out to husk, and when husk exits non-zero -- no
+    # license, bad scene, missing camera -- the ROP records the error and render()
+    # still returns normally. Reporting that as success is how a caller ends up
+    # verifying a screenshot of an image that was never written, so read the
+    # node's own errors and whether the files moved.
+    errors: list[str] = []
+    warnings: list[str] = []
+    with contextlib.suppress(Exception):
+        errors = [e.strip()[:400] for e in node.errors()]
+        warnings = [w.strip()[:400] for w in node.warnings()]
+
+    after = _reported_outputs(node)
+    wrote = _wrote_anything(before, after)
+
+    result = {
+        "success": not errors,
         "node_path": node_path,
         "category": category,
         "method": method,
         "frame_range": frame_range,
-        "message": "Render completed.",
-        "outputs": _reported_outputs(node),
+        "wrote_files": wrote,
+        "outputs": after,
     }
+    if errors:
+        result["errors"] = errors
+        result["message"] = f"Render reported {len(errors)} error(s); nothing was verified."
+    elif not wrote:
+        # No error and no file: legitimate for an MPlay target, suspicious for
+        # anything else, and worth saying rather than implying completion.
+        result["message"] = (
+            "The node reported no errors, but no output file appeared or changed. "
+            "Check the output path, or whether this ROP renders to MPlay."
+        )
+    else:
+        result["message"] = "Render completed and wrote output."
+    if warnings:
+        result["warnings"] = warnings
+    return result
 
 
 ###### rendering.render_node_network

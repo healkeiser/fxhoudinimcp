@@ -30,6 +30,9 @@ from fxhoudinimcp_server.dispatcher import register_handler
 _LIST_CAP = 60
 _SCRIPT_CAP = 20_000
 
+# Top-level networks a shelf tool might build in.
+_WATCHED_NETWORKS = ("/obj", "/stage", "/out", "/mat", "/img")
+
 # What a shelf tool script expects to find in `kwargs`. Houdini populates these
 # from the click that invoked the tool; a programmatic call has to supply them.
 _DEFAULT_KWARGS: dict[str, Any] = {
@@ -175,7 +178,8 @@ def run_shelf_tool(
         tool_name: Internal tool name, as returned by list_shelf_tools.
         kwargs: Overrides merged into the synthetic kwargs dict the script
             reads. Pass e.g. {"nodetypename": "..."} when a tool expects it.
-        parent_path: Network to watch for new nodes. Defaults to /obj.
+        parent_path: An extra network to watch. /obj, /stage, /out, /mat and
+            /img are always watched.
     """
     tools = hou.shelves.tools()
     tool = tools.get(tool_name)
@@ -186,16 +190,24 @@ def run_shelf_tool(
     if not script.strip():
         raise ValueError(f"Shelf tool '{tool_name}' has an empty script.")
 
-    watch = hou.node(parent_path or "/obj")
-    if watch is None:
-        raise ValueError(f"parent_path not found: {parent_path}")
+    # Watch every top-level network, not just one. largeOcean creates a geo and a
+    # procedural in /obj AND a LOP in /stage, and watching only the given parent
+    # reported 2 of the 3 -- which left nodes behind that the caller did not know
+    # existed. A shelf tool is free to build anywhere.
+    watched = [node for node in (hou.node(path) for path in _WATCHED_NETWORKS) if node is not None]
+    if parent_path:
+        explicit = hou.node(parent_path)
+        if explicit is None:
+            raise ValueError(f"parent_path not found: {parent_path}")
+        if explicit not in watched:
+            watched.append(explicit)
 
     call_kwargs = dict(_DEFAULT_KWARGS)
     call_kwargs["toolname"] = tool.name()
     if kwargs:
         call_kwargs.update(kwargs)
 
-    before = {child.path() for child in watch.children()}
+    before = {child.path() for node in watched for child in node.children()}
     namespace: dict[str, Any] = {"kwargs": call_kwargs, "hou": hou}
     try:
         exec(script, namespace)  # noqa: S102 - running SideFX's own tool script
@@ -213,16 +225,17 @@ def run_shelf_tool(
             f"Shelf tool '{tool_name}' failed: {type(exc).__name__}: {str(exc)[:200]}"
         ) from exc
 
-    after = {child.path(): child for child in watch.children()}
+    after = {child.path(): child for node in watched for child in node.children()}
     created = sorted(set(after) - before)
     return {
         "tool_name": tool.name(),
         "label": call_kwargs.get("toolname"),
-        "watched": watch.path(),
+        "watched": [node.path() for node in watched],
         "created": [
             {"path": path, "type": after[path].type().name()} for path in created[:_LIST_CAP]
         ],
         "created_count": len(created),
+        "truncated": len(created) > _LIST_CAP,
         "kwargs_used": sorted(call_kwargs),
     }
 
