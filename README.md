@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fhealkeiser%2Ffxhoudinimcp.svg)](https://mcptoplist.com/server/glama%2Fhealkeiser%2Ffxhoudinimcp)
+
 <div align="center">
 
   <img src="https://cdn.simpleicons.org/houdini/FF4713" alt="Houdini" width="80">
