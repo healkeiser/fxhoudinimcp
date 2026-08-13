@@ -23,7 +23,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_nodes
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 
@@ -156,8 +156,10 @@ def build_network(
             flags (dict): display/render/bypass/template booleans.
             color (list[3]) and comment (str): network annotations.
         dry_run: Validate only; never mutates the scene.
-        layout: Lay out the parent network afterwards (respects the
-            FXHOUDINIMCP_AUTO_LAYOUT toggle).
+        layout: Position the nodes created by this call, each relative to its
+            inputs (default). Nodes that already existed are never moved. With
+            FXHOUDINIMCP_AUTO_LAYOUT enabled the whole parent network is laid
+            out on top of that.
     """
     parent = hou.node(parent_path)
     errors: list[str] = []
@@ -340,6 +342,13 @@ def build_network(
         }
 
     if layout:
+        # The caller asked for a layout, so place what THIS call created --
+        # each node relative to its inputs. Not gated by the auto-layout flag:
+        # with the flag off, layout=True used to be a silent no-op and the whole
+        # network was left stacked at the origin. Nodes that already existed are
+        # never moved, so building into a hand-arranged network stays safe.
+        place_new_nodes(created.values())
+        # And when auto-layout is enabled, the parent is rearranged as before.
         layout_if_enabled(parent)
 
     ###### Phase 3: verify — cook and report evidence

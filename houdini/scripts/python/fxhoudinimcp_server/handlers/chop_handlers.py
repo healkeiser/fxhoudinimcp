@@ -13,7 +13,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 
@@ -160,7 +160,7 @@ def _create_chop_node(
             f"Failed to create CHOP node of type '{chop_type}' inside '{parent_path}': {readable_message(e)}"
         ) from e
 
-    node.moveToGoodPosition()
+    place_new_node(node)
     _focus_network_editor(node)
 
     return {
