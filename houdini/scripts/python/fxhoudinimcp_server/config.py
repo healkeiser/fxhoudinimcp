@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import os
 
 # Third-party
@@ -26,9 +27,19 @@ def auto_layout_enabled() -> bool:
 
 
 def layout_if_enabled(node: hou.Node) -> None:
-    """Lay out *node*'s children unless auto-layout is disabled."""
+    """Lay out *node*'s children unless auto-layout is disabled.
+
+    Also the placement floor for every creation path: each handler already
+    funnels through here (directly or via its ``_focus_network_editor``), so a
+    freshly created child must not be left at ``(0, 0)`` no matter what
+    ``FXHOUDINIMCP_AUTO_LAYOUT`` says. With auto-layout on, ``layoutChildren``
+    positions everything anyway; with it off, only the children still stacked
+    at the origin are placed, and nothing that already had a position moves.
+    """
     if auto_layout_enabled():
         node.layoutChildren()
+    else:
+        place_new_nodes(_children_stacked_at_origin(node))
 
 
 ###### Placement of freshly created nodes
@@ -57,10 +68,9 @@ def place_new_node(node: hou.Node) -> None:
     a node without inputs takes a free column beside the network, and nodes
     that already existed never move.
     """
-    try:
+    # Placement is cosmetic -- never fail a create because of it.
+    with contextlib.suppress(Exception):
         node.moveToGoodPosition(**_PLACE_KWARGS)
-    except Exception:
-        pass  # placement is cosmetic -- never fail a create because of it
 
 
 def place_new_nodes(nodes) -> None:
@@ -72,3 +82,17 @@ def place_new_nodes(nodes) -> None:
     for node in nodes:
         if node is not None:
             place_new_node(node)
+
+
+def _children_stacked_at_origin(parent: hou.Node) -> list:
+    """Children still parked at ``(0, 0)`` -- Houdini's mark of the unplaced.
+
+    A node nothing has positioned sits exactly at the origin, so this is how
+    the placement floor recognises fresh nodes without tracking every
+    ``createNode`` call. The cost: a node someone deliberately parked at
+    exactly ``(0, 0)`` gets nudged once. ``children()`` returns creation
+    order, which is what ``relative_to_inputs`` placement needs.
+    """
+    with contextlib.suppress(Exception):
+        return [child for child in parent.children() if tuple(child.position()) == (0.0, 0.0)]
+    return []

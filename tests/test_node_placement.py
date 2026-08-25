@@ -46,11 +46,13 @@ _HANDLER_DIR = (
 class _FakeNode:
     """Records placement attempts instead of talking to Houdini."""
 
-    def __init__(self, path="/obj/geo1/box1", raises=False):
+    def __init__(self, path="/obj/geo1/box1", raises=False, pos=(0.0, 0.0)):
         self._path = path
         self.raises = raises
+        self.pos = pos
         self.placements = []
         self.positions = []
+        self.layouts = []
 
     def moveToGoodPosition(self, **kwargs):
         if self.raises:
@@ -61,7 +63,13 @@ class _FakeNode:
         self.positions.append(vector)
 
     def position(self):
-        return (0.0, 0.0)
+        return self.pos
+
+    def layoutChildren(self):
+        self.layouts.append(True)
+
+    def children(self):
+        return ()
 
     def path(self):
         return self._path
@@ -146,6 +154,55 @@ class TestCreateNodePlacement:
         assert node.placements == []  # the caller's position is not second-guessed
 
 
+class TestLayoutIfEnabledChokepoint:
+    """Every creation path already ends in layout_if_enabled -- directly or
+    via each handler's _focus_network_editor -- so the placement floor lives
+    there: with auto-layout off, children still stacked at the origin are
+    placed, and children that already have a position never move."""
+
+    def _parent(self, children):
+        parent = _FakeNode("/obj/geo1")
+        parent.children = lambda: tuple(children)
+        return parent
+
+    def test_flag_off_places_only_the_origin_children(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        fresh = _FakeNode("/obj/geo1/box1")
+        arranged = _FakeNode("/obj/geo1/sphere1", pos=(3.25, -1.5))
+        parent = self._parent([arranged, fresh])
+        config.layout_if_enabled(parent)
+        assert fresh.placements  # the unplaced node got a position
+        assert arranged.placements == []  # the hand-placed one never moved
+        assert parent.layouts == []  # and no layout ran with the flag off
+
+    def test_flag_on_lays_out_as_before(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: True)
+        parent = self._parent([_FakeNode()])
+        config.layout_if_enabled(parent)
+        assert parent.layouts == [True]
+
+    def test_origin_children_are_placed_in_creation_order(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        order = []
+        made = []
+        for i in range(3):
+            node = _FakeNode(f"/obj/geo1/n{i}")
+            node.moveToGoodPosition = lambda _n=node, **kw: order.append(_n.name())
+            made.append(node)
+        config.layout_if_enabled(self._parent(made))
+        assert order == ["n0", "n1", "n2"]
+
+    def test_children_failure_never_breaks_the_call(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        parent = _FakeNode("/obj/geo1")
+
+        def _boom():
+            raise RuntimeError("parent vanished")
+
+        parent.children = _boom
+        config.layout_if_enabled(parent)  # must not raise
+
+
 class TestHandlerSourceGuard:
     def test_no_bare_move_to_good_position_in_handlers(self):
         """Regression guard: a bare call takes the dangerous defaults, so every
@@ -155,4 +212,18 @@ class TestHandlerSourceGuard:
             for path in sorted(_HANDLER_DIR.glob("*.py"))
             if "moveToGoodPosition" in path.read_text(encoding="utf-8")
         ]
+        assert offenders == []
+
+    def test_every_creating_handler_reaches_a_placement_route(self):
+        """A handler that calls createNode must reach the placement floor
+        somehow: place_new_node directly, or layout_if_enabled (usually via
+        its _focus_network_editor). Guards the next handler someone adds --
+        the bare-call guard above passes trivially for a file that never
+        positions anything at all."""
+        routes = ("place_new_node", "layout_if_enabled", "_focus_network_editor")
+        offenders = []
+        for path in sorted(_HANDLER_DIR.glob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            if "createNode(" in text and not any(route in text for route in routes):
+                offenders.append(path.name)
         assert offenders == []

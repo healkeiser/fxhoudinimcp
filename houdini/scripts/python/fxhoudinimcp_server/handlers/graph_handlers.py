@@ -341,14 +341,16 @@ def build_network(
             "created": [],
         }
 
+    # Placement is a floor, not a layout option: whatever `layout` says and
+    # whatever the auto-layout flag says, a node THIS call created must not be
+    # left stacked at the origin. Each lands relative to its inputs, in
+    # creation order; nodes that already existed are never moved, so building
+    # into a hand-arranged network stays safe.
+    place_new_nodes(created.values())
+
     if layout:
-        # The caller asked for a layout, so place what THIS call created --
-        # each node relative to its inputs. Not gated by the auto-layout flag:
-        # with the flag off, layout=True used to be a silent no-op and the whole
-        # network was left stacked at the origin. Nodes that already existed are
-        # never moved, so building into a hand-arranged network stays safe.
-        place_new_nodes(created.values())
-        # And when auto-layout is enabled, the parent is rearranged as before.
+        # The caller also asked for a layout of the parent, which stays gated
+        # by the auto-layout flag as before.
         layout_if_enabled(parent)
 
     ###### Phase 3: verify — cook and report evidence
