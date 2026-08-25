@@ -35,7 +35,14 @@ def layout_if_enabled(node: hou.Node) -> None:
     ``FXHOUDINIMCP_AUTO_LAYOUT`` says. With auto-layout on, ``layoutChildren``
     positions everything anyway; with it off, only the children still stacked
     at the origin are placed, and nothing that already had a position moves.
+
+    The floor covers *node* itself too: the workflow handlers call this on a
+    container they just created (``layout_if_enabled(geo)``), and nothing else
+    ever positions that container, so back-to-back ``setup_*_sim`` calls used
+    to pile their containers at ``/obj``'s origin. ``layoutChildren`` never
+    moves the parent, so this half is not gated by the flag.
     """
+    _place_if_unplaced(node)
     if auto_layout_enabled():
         node.layoutChildren()
     else:
@@ -96,3 +103,22 @@ def _children_stacked_at_origin(parent: hou.Node) -> list:
     with contextlib.suppress(Exception):
         return [child for child in parent.children() if tuple(child.position()) == (0.0, 0.0)]
     return []
+
+
+def _place_if_unplaced(node: hou.Node) -> None:
+    """Place *node* itself if it is still parked at the origin.
+
+    Guarded against top-level managers: ``moveToGoodPosition`` on ``/obj``
+    happily relocates it inside the root network (measured on 22.0.368), so a
+    node whose parent is the root -- ``/obj``, ``/out``, ``/mat``, ... -- is
+    left alone. Those are exactly the nodes that legitimately live at their
+    default positions forever.
+    """
+    with contextlib.suppress(Exception):
+        parent = node.parent()
+        if (
+            parent is not None
+            and parent.parent() is not None
+            and tuple(node.position()) == (0.0, 0.0)
+        ):
+            place_new_node(node)

@@ -46,13 +46,17 @@ _HANDLER_DIR = (
 class _FakeNode:
     """Records placement attempts instead of talking to Houdini."""
 
-    def __init__(self, path="/obj/geo1/box1", raises=False, pos=(0.0, 0.0)):
+    def __init__(self, path="/obj/geo1/box1", raises=False, pos=(0.0, 0.0), parent=None):
         self._path = path
         self.raises = raises
         self.pos = pos
+        self._parent = parent
         self.placements = []
         self.positions = []
         self.layouts = []
+
+    def parent(self):
+        return self._parent
 
     def moveToGoodPosition(self, **kwargs):
         if self.raises:
@@ -201,6 +205,45 @@ class TestLayoutIfEnabledChokepoint:
 
         parent.children = _boom
         config.layout_if_enabled(parent)  # must not raise
+
+    def test_a_container_parked_at_the_origin_is_placed_too(self, monkeypatch):
+        """The workflow handlers call layout_if_enabled(geo) on a container
+        they just created and nothing else positions it -- so back-to-back
+        setup_*_sim calls piled their containers at /obj's origin."""
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        root = _FakeNode("/")
+        obj = _FakeNode("/obj", parent=root)
+        geo = _FakeNode("/obj/pyro_sim", parent=obj)
+        config.layout_if_enabled(geo)
+        assert geo.placements
+
+    def test_container_placement_is_not_gated_by_the_flag(self, monkeypatch):
+        """layoutChildren never moves the parent, so with auto-layout ON the
+        container still needs the floor."""
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: True)
+        root = _FakeNode("/")
+        obj = _FakeNode("/obj", parent=root)
+        geo = _FakeNode("/obj/pyro_sim", parent=obj)
+        config.layout_if_enabled(geo)
+        assert geo.placements
+        assert geo.layouts == [True]  # and the children still get their layout
+
+    def test_top_level_managers_are_never_moved(self, monkeypatch):
+        """moveToGoodPosition on /obj relocates it inside the root network
+        (measured on 22.0.368), so nodes sitting directly under the root are
+        exempt from the floor."""
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        obj = _FakeNode("/obj", parent=_FakeNode("/"))
+        config.layout_if_enabled(obj)
+        assert obj.placements == []
+
+    def test_an_already_positioned_container_is_left_alone(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        root = _FakeNode("/")
+        obj = _FakeNode("/obj", parent=root)
+        geo = _FakeNode("/obj/fixture", pos=(2.0, -1.0), parent=obj)
+        config.layout_if_enabled(geo)
+        assert geo.placements == []
 
 
 class TestHandlerSourceGuard:
