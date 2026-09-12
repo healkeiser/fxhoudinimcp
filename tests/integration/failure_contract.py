@@ -87,6 +87,7 @@ def assert_useful(command: str, message: str, must_mention: tuple[str, ...] = ()
 # exemption when one of them grows a parameter.
 NO_FAILURE_INPUT: dict[str, str] = {
     "animation.get_frame": "takes nothing; the current frame always exists",
+    "code.get_file_references": "only an optional filter flag; an empty scene is a valid answer",
     "context.get_scene_summary": "takes nothing; summarises whatever is loaded",
     "context.get_selection": "takes nothing; an empty selection is a valid answer",
     "cops.list_cop_node_types": "only an optional filter; matching nothing is valid",

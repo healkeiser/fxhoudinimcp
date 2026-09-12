@@ -81,6 +81,7 @@ STAND_INS: dict[str, object] = {
     "attr_name": "xformOp:translate",
     "group_name": "group1",
     "label": "Label",
+    "text": "a note",
     "type_name": "fxh::test::1.0",
     "new_name": "renamed",
     "name": "thing",

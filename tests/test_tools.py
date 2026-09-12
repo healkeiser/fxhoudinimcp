@@ -8,13 +8,14 @@ from support import tool_input_schema
 
 # Internal
 from fxhoudinimcp.errors import ConnectionError as HoudiniConnectionError
-from fxhoudinimcp.tools.code import execute_python
+from fxhoudinimcp.tools.code import execute_python, set_update_mode
 from fxhoudinimcp.tools.materials import list_materials
-from fxhoudinimcp.tools.nodes import create_node
+from fxhoudinimcp.tools.nodes import create_network_box, create_node, set_object_transform
 from fxhoudinimcp.tools.scene import (
     get_houdini_connection_status,
     get_scene_info,
     new_scene,
+    undo,
 )
 from fxhoudinimcp.tools.workflows import setup_pyro_sim
 
@@ -280,3 +281,31 @@ class TestEvidenceTools:
                 "patterns": ["flame", "wind"],
             },
         )
+
+
+class TestParityTools:
+    @pytest.mark.asyncio
+    async def test_undo_passes_steps(self, mock_ctx, mock_bridge):
+        await undo(mock_ctx, steps=3)
+        mock_bridge.execute.assert_called_once_with("scene.undo", {"steps": 3})
+
+    @pytest.mark.asyncio
+    async def test_set_object_transform_sends_only_what_was_given(self, mock_ctx, mock_bridge):
+        await set_object_transform(mock_ctx, "/obj/geo1", translate=[1, 2, 3], parent="")
+        mock_bridge.execute.assert_called_once_with(
+            "nodes.set_object_transform",
+            {"node_path": "/obj/geo1", "translate": [1, 2, 3], "parent": ""},
+        )
+
+    @pytest.mark.asyncio
+    async def test_network_box_omits_unset_options(self, mock_ctx, mock_bridge):
+        await create_network_box(mock_ctx, "/obj/geo1", node_paths=["/obj/geo1/box1"])
+        mock_bridge.execute.assert_called_once_with(
+            "nodes.create_network_box",
+            {"parent_path": "/obj/geo1", "node_paths": ["/obj/geo1/box1"]},
+        )
+
+    @pytest.mark.asyncio
+    async def test_set_update_mode_with_no_mode_reads(self, mock_ctx, mock_bridge):
+        await set_update_mode(mock_ctx)
+        mock_bridge.execute.assert_called_once_with("code.set_update_mode", {})

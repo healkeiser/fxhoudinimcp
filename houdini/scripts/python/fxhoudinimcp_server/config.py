@@ -26,6 +26,46 @@ def auto_layout_enabled() -> bool:
     return value.strip().lower() not in _FALSY
 
 
+###### Project root sandbox
+
+
+def project_root() -> str | None:
+    """The directory file operations are confined to, or None for no limit.
+
+    ``FXHOUDINIMCP_PROJECT_ROOT`` via ``hou.getenv`` first, then the process
+    environment, so it can live in houdini.env or be set at runtime.
+    """
+    value = hou.getenv("FXHOUDINIMCP_PROJECT_ROOT") or os.environ.get("FXHOUDINIMCP_PROJECT_ROOT")
+    if not value or not value.strip():
+        return None
+    return os.path.realpath(hou.text.expandString(value.strip()))
+
+
+def require_inside_project_root(file_path: str, what: str = "path") -> str:
+    """Raise unless *file_path* lies under the project root; return it unchanged.
+
+    Only the paths the handlers themselves open, save, load or install are
+    checked: hip files, imports, exports, HDA libraries. A file path written
+    into a parameter (a File SOP's ``file``, a ROP's output) is not, because
+    the node evaluates it later and the check here would have to inspect every
+    string parameter on every set. That gap is deliberate and documented.
+    """
+    root = project_root()
+    if root is None:
+        return file_path
+    real = os.path.realpath(hou.text.expandString(file_path))
+    try:
+        inside = os.path.commonpath([root, real]) == root
+    except ValueError:  # different drives on Windows
+        inside = False
+    if not inside:
+        raise PermissionError(
+            f"{what} '{file_path}' is outside FXHOUDINIMCP_PROJECT_ROOT ({root}). "
+            f"Use a path under that directory, or unset the variable."
+        )
+    return file_path
+
+
 def layout_if_enabled(node: hou.Node, place_unpositioned: bool = True) -> None:
     """Lay out *node*'s children unless auto-layout is disabled.
 

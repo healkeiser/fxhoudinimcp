@@ -99,3 +99,35 @@ async def get_env_variable(ctx: Context, var_name: str) -> dict:
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("code.get_env_variable", {"var_name": var_name})
+
+
+@mcp.tool()
+async def get_file_references(ctx: Context, include_missing_only: bool = False) -> dict:
+    """Every file path the scene references, with the parameter holding it and whether it exists.
+
+    Args:
+        ctx: MCP context.
+        include_missing_only: Only report paths that are missing on disk.
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute(
+        "code.get_file_references", {"include_missing_only": include_missing_only}
+    )
+
+
+@mcp.tool()
+async def set_update_mode(ctx: Context, mode: str | None = None) -> dict:
+    """Set Houdini's cook update mode, or read it when called with no mode.
+
+    "manual" before a long build stops every parameter change from re-cooking;
+    set "auto" back afterwards.
+
+    Args:
+        ctx: MCP context.
+        mode: "auto", "on_mouse_up" or "manual". Omit to read.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict = {}
+    if mode is not None:
+        params["mode"] = mode
+    return await bridge.execute("code.set_update_mode", params)

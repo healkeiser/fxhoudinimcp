@@ -797,8 +797,137 @@ def set_node_color(node_path: str, r: float, g: float, b: float) -> dict:
     }
 
 
+###### nodes.create_network_box
+
+
+def create_network_box(
+    parent_path: str,
+    node_paths: list[str] | None = None,
+    comment: str | None = None,
+    color: list[float] | None = None,
+) -> dict:
+    """Draw a network box around nodes, so a built graph explains itself.
+
+    Args:
+        parent_path: Network the box lives in.
+        node_paths: Nodes to put inside; the box shrinks to fit them.
+        comment: Title shown on the box.
+        color: RGB in 0..1.
+    """
+    parent = _get_node(parent_path)
+    box = parent.createNetworkBox()
+    for path in node_paths or []:
+        node = _get_node(path)
+        if node.parent() != parent:
+            raise ValueError(f"{path} is not a child of {parent_path}; a box only holds siblings.")
+        box.addItem(node)
+    if comment:
+        box.setComment(comment)
+    if color is not None:
+        box.setColor(hou.Color(*color))
+    if node_paths:
+        box.fitAroundContents()
+    return {
+        "success": True,
+        "name": box.name(),
+        "parent_path": parent.path(),
+        "contains": [n.path() for n in box.nodes()],
+    }
+
+
+###### nodes.create_sticky_note
+
+
+def create_sticky_note(
+    parent_path: str,
+    text: str,
+    position: list[float] | None = None,
+    size: list[float] | None = None,
+    color: list[float] | None = None,
+) -> dict:
+    """Leave a note in a network.
+
+    Args:
+        parent_path: Network the note lives in.
+        text: Note text.
+        position: [x, y] in network editor units.
+        size: [w, h] in network editor units.
+        color: RGB in 0..1.
+    """
+    parent = _get_node(parent_path)
+    note = parent.createStickyNote()
+    note.setText(text)
+    if position is not None:
+        note.setPosition(hou.Vector2(*position))
+    if size is not None:
+        note.setSize(hou.Vector2(*size))
+    if color is not None:
+        note.setColor(hou.Color(*color))
+    return {
+        "success": True,
+        "name": note.name(),
+        "parent_path": parent.path(),
+        "position": list(note.position()),
+    }
+
+
+###### nodes.set_object_transform
+
+_XFORM_PARMS = {"translate": "t", "rotate": "r", "scale": "s"}
+
+
+def set_object_transform(
+    node_path: str,
+    translate: list[float] | None = None,
+    rotate: list[float] | None = None,
+    scale: list[float] | None = None,
+    parent: str | None = None,
+) -> dict:
+    """Set an object's transform parameters and/or parent in one call.
+
+    Args:
+        node_path: Object-level node (/obj/...).
+        translate: [tx, ty, tz].
+        rotate: [rx, ry, rz] in degrees.
+        scale: [sx, sy, sz].
+        parent: Path of the object to parent under, or "" to unparent.
+    """
+    node = _get_node(node_path)
+    if node.type().category().name() != "Object":
+        raise ValueError(
+            f"{node_path} is a {node.type().category().name()} node; transforms live on "
+            f"object-level nodes under /obj."
+        )
+    applied: dict = {}
+    for key, values in (("translate", translate), ("rotate", rotate), ("scale", scale)):
+        prefix = _XFORM_PARMS[key]
+        if values is None:
+            continue
+        if len(values) != 3:
+            raise ValueError(f"{key} needs three values, got {len(values)}.")
+        tuple_parm = node.parmTuple(prefix)
+        if tuple_parm is None:
+            raise ValueError(f"{node_path} has no '{prefix}' parameter.")
+        tuple_parm.set([float(v) for v in values])
+        applied[key] = list(tuple_parm.eval())
+    if parent is not None:
+        if parent == "":
+            node.setInput(0, None)
+            applied["parent"] = None
+        else:
+            new_parent = _get_node(parent)
+            node.setInput(0, new_parent)
+            applied["parent"] = new_parent.path()
+    if not applied:
+        raise ValueError("Nothing to set: give translate, rotate, scale or parent.")
+    return {"success": True, "node_path": node.path(), **applied}
+
+
 ###### Registration
 
+register_handler("nodes.create_network_box", create_network_box)
+register_handler("nodes.create_sticky_note", create_sticky_note)
+register_handler("nodes.set_object_transform", set_object_transform)
 register_handler("nodes.create_node", create_node)
 register_handler("nodes.delete_node", delete_node)
 register_handler("nodes.rename_node", rename_node)

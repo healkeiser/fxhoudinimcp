@@ -1,4 +1,4 @@
-MCP server for SideFX Houdini with 188 tools across 23 categories.
+MCP server for SideFX Houdini with 198 tools across 23 categories.
 
 ## SENIOR ARTIST DISCIPLINE — work like a Houdini veteran, not a script kid
 
@@ -36,6 +36,8 @@ Producing geometry in a wrangle when native nodes exist is a failure, not a shor
 3.  Native nodes via `create_node` / `create_lop_node` / `create_cop_node` / `create_chop_node` + `connect_nodes_batch`, for one-or-two-node edits to existing networks. `set_parameters` (batch) sets multiple params in one call.
 4.  VEX wrangles via `create_wrangle` — ONLY when no built-in node can express the logic, and only after `list_node_types`.
 5.  `execute_python` — absolute last resort. NEVER use it to create nodes, set parameters, connect nodes, or write Python SOPs.
+
+A wrong step is one `undo` away: every tool call is a single undo step however many nodes it touched, so undo a bad `build_network` whole rather than deleting its nodes one by one. Before a long series of parameter edits on a heavy network, `set_update_mode(\"manual\")` stops every change re-cooking; set it back to `auto` when done.
 
 After EVERY create\_wrangle or set\_wrangle\_code, immediately call validate\_vex and do not proceed until it reports no errors.
 

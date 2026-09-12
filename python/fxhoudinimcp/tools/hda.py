@@ -208,3 +208,15 @@ async def set_hda_section_content(
             "content": content,
         },
     )
+
+
+@mcp.tool()
+async def list_hda_versions(ctx: Context, node_path: str) -> dict:
+    """Every installed definition of an HDA node's type: version, file, which is current.
+
+    Args:
+        ctx: MCP context.
+        node_path: An HDA instance.
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute("hda.list_hda_versions", {"node_path": node_path})

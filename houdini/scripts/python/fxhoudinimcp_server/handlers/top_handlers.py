@@ -720,8 +720,94 @@ def _build_scheduler_info(sched_node: hou.Node) -> dict:
     return info
 
 
+###### tops.get_failed_work_items
+
+
+def get_failed_work_items(node_path: str, limit: int = 50) -> dict:
+    """List the work items that failed on a TOP node, with what they were doing.
+
+    Args:
+        node_path: Path to the TOP node.
+        limit: Cap on the number of items returned.
+    """
+    node = _get_top_node(node_path)
+    pdg_node = _get_pdg_node(node)
+    failed = []
+    for wi in pdg_node.workItems:
+        if _work_item_state_name(wi.state) != "cooked_fail":
+            continue
+        info = _work_item_to_dict(wi)
+        info.pop("attributes", None)
+        with_log = _work_item_log(wi)
+        if with_log:
+            info["log_tail"] = with_log[-2000:]
+        failed.append(info)
+        if len(failed) >= limit:
+            break
+    return {"node_path": node.path(), "failed_count": len(failed), "failed": failed}
+
+
+def _work_item_log(work_item) -> str:
+    """Whatever the scheduler kept as this item's log, or empty."""
+    try:
+        text = work_item.node.scheduler.getLogURI(work_item) if work_item.node else ""
+    except Exception:
+        text = ""
+    if isinstance(text, str) and text.startswith("file:"):
+        path = text[len("file:") :].lstrip("/") if text.startswith("file:///") else text[5:]
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                return handle.read()
+        except OSError:
+            return ""
+    return text if isinstance(text, str) else ""
+
+
+###### tops.get_top_logs
+
+
+def get_top_logs(node_path: str, work_item_index: int | None = None, tail: int = 4000) -> dict:
+    """Return cook logs for a TOP node or one of its work items.
+
+    Node-level: the errors and warnings Houdini attached to the node. Item-level:
+    the scheduler's log for that work item, when one exists.
+
+    Args:
+        node_path: Path to the TOP node.
+        work_item_index: Index of a work item; omit for node-level messages.
+        tail: Maximum characters of log text returned (from the end).
+    """
+    node = _get_top_node(node_path)
+    result: dict = {"node_path": node.path()}
+    if work_item_index is None:
+        result["errors"] = list(node.errors())
+        result["warnings"] = list(node.warnings())
+        return result
+    pdg_node = _get_pdg_node(node)
+    items = list(pdg_node.workItems)
+    if not 0 <= work_item_index < len(items):
+        raise ValueError(
+            f"work_item_index {work_item_index} out of range: {node.path()} has "
+            f"{len(items)} work item(s)."
+        )
+    item = items[work_item_index]
+    log = _work_item_log(item)
+    result["work_item"] = {
+        "index": item.index,
+        "name": item.name,
+        "state": _work_item_state_name(item.state),
+    }
+    result["log"] = log[-tail:] if tail > 0 else log
+    result["truncated"] = tail > 0 and len(log) > tail
+    if not log:
+        result["message"] = "No log kept for this work item. In-process items produce none."
+    return result
+
+
 ###### Registration
 
+register_handler("tops.get_failed_work_items", get_failed_work_items)
+register_handler("tops.get_top_logs", get_top_logs)
 register_handler("tops.get_top_network_info", get_top_network_info)
 register_handler("tops.cook_top_node", cook_top_node)
 register_handler("tops.cancel_top_cook", cancel_top_cook)

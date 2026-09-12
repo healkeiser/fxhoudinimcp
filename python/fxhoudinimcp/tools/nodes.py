@@ -432,3 +432,96 @@ async def set_node_color(
             "b": b,
         },
     )
+
+
+@mcp.tool()
+async def create_network_box(
+    ctx: Context,
+    parent_path: str,
+    node_paths: list[str] | None = None,
+    comment: str | None = None,
+    color: list[float] | None = None,
+) -> dict:
+    """Draw a titled network box around nodes, to document a graph you built.
+
+    Args:
+        ctx: MCP context.
+        parent_path: Network the box lives in.
+        node_paths: Sibling nodes to enclose; the box fits around them.
+        comment: Title shown on the box.
+        color: RGB in 0..1.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"parent_path": parent_path}
+    if node_paths is not None:
+        params["node_paths"] = node_paths
+    if comment is not None:
+        params["comment"] = comment
+    if color is not None:
+        params["color"] = color
+    return await bridge.execute("nodes.create_network_box", params)
+
+
+@mcp.tool()
+async def create_sticky_note(
+    ctx: Context,
+    parent_path: str,
+    text: str,
+    position: list[float] | None = None,
+    size: list[float] | None = None,
+    color: list[float] | None = None,
+) -> dict:
+    """Leave a sticky note in a network.
+
+    Args:
+        ctx: MCP context.
+        parent_path: Network the note lives in.
+        text: Note text.
+        position: [x, y] in network editor units.
+        size: [width, height] in network editor units.
+        color: RGB in 0..1.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"parent_path": parent_path, "text": text}
+    if position is not None:
+        params["position"] = position
+    if size is not None:
+        params["size"] = size
+    if color is not None:
+        params["color"] = color
+    return await bridge.execute("nodes.create_sticky_note", params)
+
+
+@mcp.tool()
+async def set_object_transform(
+    ctx: Context,
+    node_path: str,
+    translate: list[float] | None = None,
+    rotate: list[float] | None = None,
+    scale: list[float] | None = None,
+    parent: str | None = None,
+) -> dict:
+    """Set an object's translate, rotate, scale and/or parent in one call.
+
+    Only the arguments you pass change. Object-level nodes under /obj only;
+    SOP transforms are a Transform SOP, not this.
+
+    Args:
+        ctx: MCP context.
+        node_path: Object node, e.g. "/obj/geo1".
+        translate: [tx, ty, tz].
+        rotate: [rx, ry, rz] in degrees.
+        scale: [sx, sy, sz].
+        parent: Object to parent under, or "" to unparent.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"node_path": node_path}
+    if translate is not None:
+        params["translate"] = translate
+    if rotate is not None:
+        params["rotate"] = rotate
+    if scale is not None:
+        params["scale"] = scale
+    if parent is not None:
+        params["parent"] = parent
+    return await bridge.execute("nodes.set_object_transform", params)

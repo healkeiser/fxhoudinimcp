@@ -14,7 +14,7 @@ import os
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, require_inside_project_root
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.outputs import (
     OUTPUT_PARMS,
@@ -127,8 +127,10 @@ def save_scene(file_path: str = None) -> dict:
         file_path: Destination path. If None, saves to the current hip path.
     """
     if file_path is not None:
+        require_inside_project_root(file_path, "hip file")
         hou.hipFile.save(file_name=file_path)
     else:
+        require_inside_project_root(hou.hipFile.path(), "hip file")
         hou.hipFile.save()
 
     return {
@@ -147,6 +149,7 @@ def load_scene(file_path: str, merge: bool = False) -> dict:
         file_path: Path to the .hip/.hipnc/.hiplc file.
         merge: If True, merge nodes into the current scene instead of replacing it.
     """
+    require_inside_project_root(file_path, "hip file")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -182,6 +185,7 @@ def import_file(
         parent_path: Network path under which to create the import node.
         node_name: Optional explicit node name.
     """
+    require_inside_project_root(file_path, "import file")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -270,6 +274,7 @@ def export_file(
     node = hou.node(node_path)
     if node is None:
         raise ValueError(f"Node not found: {node_path}")
+    require_inside_project_root(file_path, "export file")
 
     category = node.type().category().name()
 
@@ -434,8 +439,72 @@ def get_context_info(context: str) -> dict:
     }
 
 
+###### scene.undo / scene.redo
+
+
+def _undo_available() -> None:
+    if not hou.undos.areEnabled():
+        raise RuntimeError(
+            "Undo is not available in this session (hython and batch mode keep no "
+            "undo history). Undo needs a graphical Houdini."
+        )
+
+
+def undo(steps: int = 1) -> dict:
+    """Undo the most recent change(s).
+
+    Every MCP command is one undo step, so one call reverses one tool call
+    however many nodes it touched.
+
+    Args:
+        steps: How many steps to undo (default 1).
+    """
+    _undo_available()
+    steps = max(1, int(steps))
+    undone: list[str] = []
+    for _ in range(steps):
+        labels = hou.undos.undoLabels()
+        if not labels:
+            break
+        hou.undos.performUndo()
+        undone.append(labels[0])
+    if not undone:
+        return {"success": False, "undone": [], "message": "Nothing to undo."}
+    return {
+        "success": True,
+        "undone": undone,
+        "remaining": len(hou.undos.undoLabels()),
+    }
+
+
+def redo(steps: int = 1) -> dict:
+    """Redo the most recently undone change(s).
+
+    Args:
+        steps: How many steps to redo (default 1).
+    """
+    _undo_available()
+    steps = max(1, int(steps))
+    redone: list[str] = []
+    for _ in range(steps):
+        labels = hou.undos.redoLabels()
+        if not labels:
+            break
+        hou.undos.performRedo()
+        redone.append(labels[0])
+    if not redone:
+        return {"success": False, "redone": [], "message": "Nothing to redo."}
+    return {
+        "success": True,
+        "redone": redone,
+        "remaining": len(hou.undos.redoLabels()),
+    }
+
+
 ###### Registration
 
+register_handler("scene.undo", undo)
+register_handler("scene.redo", redo)
 register_handler("scene.get_scene_info", get_scene_info)
 register_handler("scene.new_scene", new_scene)
 register_handler("scene.save_scene", save_scene)

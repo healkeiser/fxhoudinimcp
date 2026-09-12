@@ -96,3 +96,48 @@ class TestHoudiniSideConfig:
         monkeypatch.setattr(houdini_config.hou, "getenv", lambda name: None)
         monkeypatch.setenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
         assert houdini_config.auto_layout_enabled() is False
+
+
+class TestProjectRootSandbox:
+    @pytest.fixture(autouse=True)
+    def plain_hou(self, monkeypatch):
+        monkeypatch.setattr(houdini_config.hou, "getenv", lambda name: None)
+        monkeypatch.setattr(houdini_config.hou.text, "expandString", lambda s: s)
+        monkeypatch.delenv("FXHOUDINIMCP_PROJECT_ROOT", raising=False)
+
+    def test_unset_means_no_limit(self, tmp_path):
+        assert houdini_config.project_root() is None
+        anywhere = str(tmp_path / "x.hip")
+        assert houdini_config.require_inside_project_root(anywhere) == anywhere
+
+    def test_inside_passes_and_outside_is_named(self, monkeypatch, tmp_path):
+        root = tmp_path / "proj"
+        root.mkdir()
+        monkeypatch.setenv("FXHOUDINIMCP_PROJECT_ROOT", str(root))
+        inside = str(root / "shots" / "a.hip")
+        assert houdini_config.require_inside_project_root(inside, "hip file") == inside
+        with pytest.raises(PermissionError) as excinfo:
+            houdini_config.require_inside_project_root(str(tmp_path / "b.hip"), "hip file")
+        message = str(excinfo.value)
+        assert "hip file" in message and "b.hip" in message and str(root.resolve()) in message
+
+    def test_dot_dot_does_not_escape(self, monkeypatch, tmp_path):
+        root = tmp_path / "proj"
+        root.mkdir()
+        monkeypatch.setenv("FXHOUDINIMCP_PROJECT_ROOT", str(root))
+        sneaky = str(root / "sub" / ".." / ".." / "escape.hip")
+        with pytest.raises(PermissionError):
+            houdini_config.require_inside_project_root(sneaky)
+
+    def test_prefix_of_the_root_name_is_not_inside(self, monkeypatch, tmp_path):
+        """/proj must not admit /proj_backup."""
+        root = tmp_path / "proj"
+        root.mkdir()
+        monkeypatch.setenv("FXHOUDINIMCP_PROJECT_ROOT", str(root))
+        with pytest.raises(PermissionError):
+            houdini_config.require_inside_project_root(str(tmp_path / "proj_backup" / "a.hip"))
+
+    def test_hou_getenv_wins_over_process_env(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(houdini_config.hou, "getenv", lambda name: str(tmp_path / "from_hou"))
+        monkeypatch.setenv("FXHOUDINIMCP_PROJECT_ROOT", str(tmp_path / "from_os"))
+        assert houdini_config.project_root() == os.path.realpath(str(tmp_path / "from_hou"))
