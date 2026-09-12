@@ -66,3 +66,27 @@ async def get_help_page(ctx: Context, path: str) -> dict:
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("help.get_help_page", {"path": path})
+
+
+@mcp.tool()
+async def get_workflow_guide(ctx: Context, topic: str, description: str = "") -> dict:
+    """The server's written guide for a subject: what to build, in what order,
+    which mistakes it exists to prevent, and the shipped help pages to read.
+
+    Call this BEFORE designing a setup you have not built this session, and
+    again the moment two attempts at the same symptom have failed. Each guide
+    is distilled from that subject's SideFX manual.
+
+    Args:
+        topic: Help scope name or common alias: pyro, fluid (flip, water,
+            whitewater), vellum (cloth), destruction (rbd), mpm (sand, snow),
+            ocean, solaris, tops, model, copy, render, shade, character,
+            crowds, heightfields, copernicus, assets, troubleshooting, dyno.
+        description: What you are trying to build, for the guide's framing.
+    """
+    # Internal
+    from fxhoudinimcp.prompts.workflows import workflow_guide_text
+
+    del ctx  # served from the package, no Houdini round trip
+    text = workflow_guide_text(topic, description)
+    return {"topic": topic, "guide": text}

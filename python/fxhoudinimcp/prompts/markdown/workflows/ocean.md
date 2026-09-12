@@ -23,6 +23,19 @@ Read the relevant page with get_help_page.
 Most ocean shots are a combination, and the combination is the setup. Decide which
 mechanism covers which part of frame before building any of them.
 
+## Blending a FLIP region into the spectral ocean
+
+This is the seam every boat shot has, and hand-lerping heights across a band is
+not how SideFX does it. Read `shelf/guidedoceanlayer` and `fluid/sopconfigocean`
+first; the mechanism has four parts, each with a node.
+
+- **A guided, thin layer, not a tank.** The Guided Ocean Layer shelf setup simulates a thin particle layer whose collision floor is the ocean surface at a chosen depth, and whose *boundary layer* of particles re-injects ocean velocities and keeps the water level matched to the spectrum. A plain flat tank drifts in level and reflects at its walls, which is what a hand-blended seam is trying to hide.
+- **The surface extends itself.** `particlefluidsurface` has a Flatten section: it flattens the meshed surface to the ocean height outside a box and *extrudes* it outward, so the simulated mesh already reaches into the spectral ocean at the right height.
+- **The spectrum knows where the sim is.** `particlefluidmask` builds a volume mask from the particles and composites it into `oceanspectrum` through its mask input, so `oceanevaluate` displaces the big surface only where no simulation exists.
+- **Same spectrum both sides.** The sim's `oceansource` and the far ocean evaluate the same spectrum node, so waves are continuous across the boundary; a second spectrum with matching numbers is not the same waves.
+
+Pages: `shelf/guidedoceanlayer`, `fluid/sopconfigocean`, `nodes/sop/particlefluidsurface`, `nodes/sop/particlefluidmask`, `nodes/sop/oceansource`.
+
 ## Judgement
 
 - Whitewater is a downstream consumer of a water simulation's velocity, so it is a separate stage over a cached sim, never part of the same solve.

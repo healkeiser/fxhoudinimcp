@@ -51,6 +51,13 @@ the solver velocities:
 - For prototyping at high resolution, slice the system and view a single slice rather than solving the whole thing.
 - Cache before surfacing. Surfacing is a separate, re-runnable stage and should never force a re-sim.
 
+## FLIP inside an ocean
+
+If the liquid sits in a spectral ocean (a boat, a splash at sea), the seam is a
+solved problem with its own toolset: `get_workflow_guide("ocean")` has the
+recipe (guided layer, surface flatten and extrude, spectrum mask) and the pages.
+Do not hand-blend heights across a band.
+
 ## Order of work
 
 1. Build and inspect the source, then `get_geometry_info` on it.
