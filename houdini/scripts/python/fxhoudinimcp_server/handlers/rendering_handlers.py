@@ -14,6 +14,7 @@ import os
 import hou
 
 # Internal
+from fxhoudinimcp_server.config import place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.outputs import (
@@ -444,7 +445,7 @@ def create_render_node(
                 parm.set(output_path)
                 break
 
-    node.moveToGoodPosition()
+    place_new_node(node)
 
     return {
         "success": True,

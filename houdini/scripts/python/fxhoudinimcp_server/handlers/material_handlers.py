@@ -15,7 +15,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import as_text, readable_message
 
@@ -241,7 +241,7 @@ def _create_material_network(
                 with contextlib.suppress(Exception):
                     parm.set(parm_value)
 
-    node.moveToGoodPosition()
+    place_new_node(node)
     _focus_network_editor(node)
 
     return {
@@ -305,7 +305,7 @@ def _assign_material(
     # Set display flag on the new material SOP
     mat_sop.setDisplayFlag(True)
     mat_sop.setRenderFlag(True)
-    mat_sop.moveToGoodPosition()
+    place_new_node(mat_sop)
     _focus_network_editor(mat_sop)
 
     return {

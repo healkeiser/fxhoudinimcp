@@ -13,7 +13,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 
 # USD modules -- may not be available in all Houdini configurations
@@ -479,7 +479,7 @@ def _create_lop_node(
         if parm is not None:
             parm.set(prim_path)
 
-    node.moveToGoodPosition()
+    place_new_node(node)
     _focus_network_editor(node)
 
     return {
@@ -537,7 +537,7 @@ else:
     raise RuntimeError("Prim not found: {prim_path}")
 """
     python_node.parm("python").set(snippet.strip())
-    python_node.moveToGoodPosition()
+    place_new_node(python_node)
     _focus_network_editor(python_node)
 
     # Cook to apply
@@ -897,7 +897,7 @@ def _create_light(
             if parm is not None:
                 parm.set(position[i])
 
-    node.moveToGoodPosition()
+    place_new_node(node)
     _focus_network_editor(node)
 
     # Determine the prim path
@@ -1049,7 +1049,7 @@ def _set_light_properties(
     python_node = parent.createNode("pythonscript", node_name="set_light_props_auto")
     python_node.setInput(0, node)
     python_node.parm("python").set(snippet)
-    python_node.moveToGoodPosition()
+    place_new_node(python_node)
     _focus_network_editor(python_node)
     python_node.cook(force=True)
 
@@ -1217,7 +1217,7 @@ def _create_light_rig(
                     if parm is not None:
                         parm.set(light_def[key])
 
-        node.moveToGoodPosition()
+        place_new_node(node)
         created_nodes.append(node.path())
 
     # Focus on the last created light to keep the editor alive

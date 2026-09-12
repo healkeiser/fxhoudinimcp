@@ -46,7 +46,11 @@ async def build_network(
         parent_path: Network to build inside (e.g. "/obj/geo1").
         nodes: Ordered node specs (see above).
         dry_run: Validate the whole spec without creating anything.
-        layout: Lay out the parent network afterwards.
+        layout: Also lay out the parent network afterwards (default True;
+            honoured only when auto-layout is enabled). The nodes this call
+            creates are always positioned, each relative to its inputs,
+            regardless of this flag; nodes that already existed keep their
+            exact positions, so building into a hand-arranged network is safe.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

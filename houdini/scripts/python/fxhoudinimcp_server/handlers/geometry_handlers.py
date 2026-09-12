@@ -15,6 +15,7 @@ from typing import Any
 import hou
 
 # Internal
+from fxhoudinimcp_server.config import place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 
 ###### Helpers
@@ -367,6 +368,7 @@ def _set_detail_attrib(
 
     attrib_node = node.parent().createNode("attribcreate", f"set_{attrib_name}")
     attrib_node.setInput(0, node)
+    place_new_node(attrib_node)
     attrib_node.parm("numattr").set(1)
     attrib_node.parm("class1").set("detail")
     attrib_node.parm("name1").set(attrib_name)

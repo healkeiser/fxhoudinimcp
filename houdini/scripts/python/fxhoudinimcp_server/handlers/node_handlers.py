@@ -12,7 +12,7 @@ import contextlib
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import auto_layout_enabled, layout_if_enabled
+from fxhoudinimcp_server.config import auto_layout_enabled, layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.serialize import to_jsonable
@@ -83,6 +83,10 @@ def create_node(
 
     if position is not None and len(position) >= 2:
         node.setPosition(hou.Vector2(position[0], position[1]))
+    else:
+        # No position asked for: place it beside its inputs rather than leaving
+        # it at (0, 0) on top of whatever is already there.
+        place_new_node(node)
 
     _focus_network_editor(node)
 
