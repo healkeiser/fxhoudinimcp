@@ -162,6 +162,32 @@ def heightfield_terrain(
     )
 
 
+def workflow_guide_text(topic: str, description: str = "") -> str:
+    """The guide for `topic`, shared by the prompt and the tool.
+
+    Sim aliases ("flip", "rbd", "smoke") resolve to the corpus that documents
+    them, exactly as simulation_setup does, so one lookup serves both.
+    """
+    key = topic.strip().lower().replace("/", "")
+    # A subject with its own file wins over the sim alias table: "ocean" is
+    # both a guide and an alias for fluid, and the guide is what was asked for.
+    if not markdown_exists(f"workflows/{key}.md"):
+        key = _SIM_ALIASES.get(key, key)
+    candidate = f"workflows/{key}.md"
+    if not markdown_exists(candidate):
+        available = sorted(path.stem for path in (_MD_DIR / "workflows").glob("*.md"))
+        raise ValueError(
+            f"No workflow guide for '{topic}'. Available topics: {available}. "
+            "search_help(query) covers subjects with no guide."
+        )
+    return load_markdown(
+        candidate,
+        topic=topic,
+        sim_type=topic,
+        description=description or f"Work on {topic}",
+    )
+
+
 @mcp.prompt()
 def houdini_workflow(
     topic: str,
@@ -181,19 +207,7 @@ def houdini_workflow(
         topic: Help scope name for the subject, e.g. "character" or "render"
         description: What you are trying to build
     """
-    key = topic.strip().lower().replace("/", "")
-    candidate = f"workflows/{key}.md"
-    if not markdown_exists(candidate):
-        available = sorted(path.stem for path in (_MD_DIR / "workflows").glob("*.md"))
-        raise ValueError(
-            f"No workflow guide for '{topic}'. Available topics: {available}. "
-            "search_help(query) covers subjects with no guide."
-        )
-    return load_markdown(
-        candidate,
-        topic=topic,
-        description=description or f"Work on {topic}",
-    )
+    return workflow_guide_text(topic, description)
 
 
 @mcp.prompt()
