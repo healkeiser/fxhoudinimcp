@@ -1,4 +1,4 @@
-# :material-book-open-variant:{.scale-in-center} How-to
+# :material-book-open-variant: How-to
 
 Guides for using fxhoudinimcp with your AI assistant and Houdini.
 

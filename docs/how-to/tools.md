@@ -1,4 +1,4 @@
-# :material-wrench:{.scale-in-center} Tools
+# :material-wrench: Tools
 
 ## Overview
 
