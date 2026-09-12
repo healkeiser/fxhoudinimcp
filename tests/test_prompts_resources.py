@@ -189,3 +189,12 @@ class TestInstructionHeaderCounts:
             f"server_instructions.md claims {claimed_categories} categories but "
             f"fxhoudinimcp/tools has {len(modules)}: {sorted(modules)}"
         )
+
+
+def test_workflow_guide_text_prefers_a_subject_file_over_a_sim_alias():
+    """ "ocean" is both a guide and an alias for fluid; the guide wins."""
+    from fxhoudinimcp.prompts.workflows import workflow_guide_text
+
+    assert "Blending a FLIP region" in workflow_guide_text("ocean")
+    assert "Blending a FLIP region" not in workflow_guide_text("flip")
+    assert "FLIP inside an ocean" in workflow_guide_text("water")
