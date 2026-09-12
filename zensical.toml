@@ -31,8 +31,6 @@ nav = [
 
 ###### Custom ##################################################################
 
-extra_css = ["stylesheets/extra.css"]
-
 [project.extra.status]
 new = "Recently added"
 deprecated = "No longer supported"
@@ -45,8 +43,6 @@ alias = true
 ###### Theme ###################################################################
 
 [project.theme]
-# "classic" keeps the Material for MkDocs look the site had before the switch.
-variant = "classic"
 language = "en"
 favicon = "images/favicon.svg"
 logo = "images/logo.svg"
@@ -73,20 +69,21 @@ features = [
 repo = "material/github"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
 scheme = "default"
-primary = "black"
-accent = "custom"
-toggle.icon = "material/brightness-7"
+toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
-primary = "black"
-accent = "custom"
-toggle.icon = "material/brightness-4"
-toggle.name = "Switch to light mode"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
 
 ###### Markdown extensions #####################################################
 

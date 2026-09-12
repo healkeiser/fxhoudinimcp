@@ -1,4 +1,4 @@
-# :material-home:{.scale-in-center} Home
+# :material-home: Home
 
 ## fxhoudinimcp
 

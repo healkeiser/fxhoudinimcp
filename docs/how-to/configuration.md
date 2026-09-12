@@ -1,4 +1,4 @@
-# :material-cog:{.scale-in-center} Configuration
+# :material-cog: Configuration
 
 ## Environment Variables
 

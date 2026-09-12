@@ -1,4 +1,4 @@
-# :material-download:{.scale-in-center} Installation
+# :material-download: Installation
 
 --8<-- "README.md:installation"
 
