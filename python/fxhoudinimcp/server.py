@@ -79,7 +79,16 @@ async def lifespan(server: Server):
             elif port != 8100:
                 logger.info("Found Houdini on port %d", port)
 
-    bridge = HoudiniBridge(host=host, port=port)
+    # The plugin gives a command FXHOUDINIMCP_TIMEOUT seconds (120 by default)
+    # and this client used to give up at a hard-coded 60. A cache launch that
+    # took 70 seconds then read as "timed out" here while Houdini finished the
+    # job, and the agent had to poll the disk to learn that. The client waits
+    # for the plugin's own deadline plus a margin unless HOUDINI_TIMEOUT says
+    # otherwise; a per-command FXHOUDINIMCP_TIMEOUT_<COMMAND> raised on the
+    # Houdini side needs HOUDINI_TIMEOUT raised here to match.
+    plugin_timeout = float(os.getenv("FXHOUDINIMCP_TIMEOUT", "120"))
+    timeout = float(os.getenv("HOUDINI_TIMEOUT", str(plugin_timeout + 15)))
+    bridge = HoudiniBridge(host=host, port=port, timeout=timeout)
 
     try:
         info = await bridge.health_check()
