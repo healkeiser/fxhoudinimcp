@@ -9,14 +9,11 @@ from __future__ import annotations
 # Built-in
 from typing import Any
 
-from mcp.types import ImageContent, TextContent
-
 # Third-party
 from fxhoudinimcp._sdk import Context
 
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp
-from fxhoudinimcp.tools import result_with_image
 
 
 @mcp.tool()
@@ -25,7 +22,7 @@ async def render_viewport(
     output_path: str,
     resolution: list[int] | None = None,
     camera: str | None = None,
-) -> list[TextContent | ImageContent]:
+) -> dict:
     """Capture the current 3D viewport to an image file.
 
     Args:
@@ -39,8 +36,7 @@ async def render_viewport(
         params["resolution"] = resolution
     if camera is not None:
         params["camera"] = camera
-    result = await bridge.execute("rendering.render_viewport", params)
-    return result_with_image(result)
+    return await bridge.execute("rendering.render_viewport", params)
 
 
 @mcp.tool()

@@ -6,36 +6,8 @@ Each submodule uses the `@mcp.tool()` decorator at import time.
 
 from __future__ import annotations
 
-# Built-in
-import json
-
-# Third-party
-from mcp.types import ImageContent, TextContent
-
-
-def result_with_image(result: dict) -> list[TextContent | ImageContent]:
-    """Convert a handler result dict into MCP content blocks.
-
-    If the result contains ``image_base64``, an ``ImageContent`` block is
-    appended so that MCP clients (e.g. Claude Desktop) can display the
-    image inline.  The base64 key is removed from the metadata text.
-    """
-    image_data = result.pop("image_base64", None)
-    mime_type = result.pop("mime_type", "image/png")
-
-    content: list[TextContent | ImageContent] = [
-        TextContent(type="text", text=json.dumps(result)),
-    ]
-
-    if image_data:
-        content.append(ImageContent(type="image", data=image_data, mimeType=mime_type))
-
-    return content
-
-
-# Internal. Imported below the helper above on purpose: importing a tool
-# module registers its tools on mcp, and they need the helper to exist.
-from fxhoudinimcp.tools import (  # noqa: E402
+# Internal. Importing a tool module registers its tools on mcp.
+from fxhoudinimcp.tools import (
     animation,  # noqa: F401
     cache,  # noqa: F401
     chops,  # noqa: F401

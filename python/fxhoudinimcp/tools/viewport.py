@@ -10,14 +10,11 @@ from __future__ import annotations
 # Built-in
 from typing import Any
 
-from mcp.types import ImageContent, TextContent
-
 # Third-party
 from fxhoudinimcp._sdk import Context
 
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp
-from fxhoudinimcp.tools import result_with_image
 
 
 @mcp.tool()
@@ -168,12 +165,12 @@ async def capture_screenshot(
     ctx: Context,
     output_path: str,
     pane_name: str | None = None,
-) -> list[TextContent | ImageContent]:
+) -> dict:
     """Capture a screenshot of the viewport or a specific pane tab.
 
-    Screenshots consume significant context tokens. Only take one when visual
-    confirmation is genuinely needed — prefer get_geometry_info, get_node_info,
-    or get_scene_summary for most inspection tasks.
+    The image is written to disk only; open ``output_path`` with your file
+    reader to look at it. Prefer get_geometry_info, get_node_info or
+    get_scene_summary unless visual confirmation is genuinely needed.
 
     Args:
         output_path: Image file path.
@@ -183,8 +180,7 @@ async def capture_screenshot(
     params: dict[str, Any] = {"output_path": output_path}
     if pane_name is not None:
         params["pane_name"] = pane_name
-    result = await bridge.execute("viewport.capture_screenshot", params)
-    return result_with_image(result)
+    return await bridge.execute("viewport.capture_screenshot", params)
 
 
 @mcp.tool()
@@ -192,12 +188,12 @@ async def capture_network_editor(
     ctx: Context,
     output_path: str,
     node_path: str | None = None,
-) -> list[TextContent | ImageContent]:
+) -> dict:
     """Capture a screenshot of the network editor.
 
-    Screenshots consume significant context tokens. Only take one when visual
-    confirmation of wiring is genuinely needed — prefer get_node_info or
-    list_children for inspecting node connections.
+    The image is written to disk only; open ``output_path`` with your file
+    reader to look at it. Prefer get_node_info or list_children for inspecting
+    node connections unless visual confirmation of wiring is genuinely needed.
 
     Args:
         output_path: Image file path.
@@ -207,8 +203,7 @@ async def capture_network_editor(
     params: dict[str, Any] = {"output_path": output_path}
     if node_path is not None:
         params["node_path"] = node_path
-    result = await bridge.execute("viewport.capture_network_editor", params)
-    return result_with_image(result)
+    return await bridge.execute("viewport.capture_network_editor", params)
 
 
 @mcp.tool()

@@ -120,14 +120,6 @@ def render_viewport(
     # Handle frame number that flipbook may insert into the filename
     actual_path = _find_flipbook_output(output_path, cur_frame)
 
-    # Downscale + JPEG-compress before base64 to avoid token bloat.
-    image_base64 = None
-    mime_type = "image/jpeg"
-    if os.path.isfile(actual_path):
-        from fxhoudinimcp_server.handlers.viewport_handlers import _downscale_and_encode
-
-        image_base64, mime_type = _downscale_and_encode(actual_path)
-
     return {
         "success": True,
         "output_path": actual_path,
@@ -135,8 +127,6 @@ def render_viewport(
         "resolution": resolution,
         "camera": camera,
         "frame": cur_frame,
-        "image_base64": image_base64,
-        "mime_type": mime_type,
     }
 
 
@@ -603,24 +593,15 @@ def render_node_network(
     network_editor.homeToSelection()
 
     # Capture the network editor as an image via Qt widget grab
-    from fxhoudinimcp_server.handlers.viewport_handlers import (
-        _capture_pane_tab_qt,
-        _downscale_and_encode,
-    )
+    from fxhoudinimcp_server.handlers.viewport_handlers import _capture_pane_tab_qt
 
     _capture_pane_tab_qt(network_editor, output_path)
-
-    image_base64 = None
-    mime_type = "image/jpeg"
-    if os.path.isfile(output_path):
-        image_base64, mime_type = _downscale_and_encode(output_path)
 
     return {
         "success": True,
         "node_path": node_path,
         "output_path": output_path,
-        "image_base64": image_base64,
-        "mime_type": mime_type,
+        "file_exists": os.path.isfile(output_path),
     }
 
 

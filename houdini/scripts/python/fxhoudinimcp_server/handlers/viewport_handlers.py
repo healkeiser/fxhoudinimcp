@@ -8,7 +8,6 @@ screenshot capture of various pane types.
 from __future__ import annotations
 
 # Built-in
-import base64
 import contextlib
 import logging
 import os
@@ -21,92 +20,6 @@ from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.ui import require_ui
 
 logger = logging.getLogger(__name__)
-
-# Maximum image dimension (width or height) before automatic downscaling.
-# Keep this low — a 1024px JPEG base64-encodes to ~100-300 KB of ASCII text,
-# which costs tens of thousands of LLM tokens per screenshot.
-_MAX_IMAGE_DIM = 512
-_JPEG_QUALITY = 60
-# Hard cap on the base64 payload in bytes. If the compressed JPEG still
-# exceeds this, re-encode at lower quality until it fits.
-_MAX_BASE64_BYTES = 80_000  # ~80 KB → ~20 K tokens
-
-
-def _downscale_and_encode(file_path: str) -> tuple[str | None, str]:
-    """Read an image file, downscale if too large, JPEG-compress, and return
-    (base64_data, mime_type).
-
-    Returns (None, mime_type) if the file cannot be read or cannot be
-    compressed (avoids returning a raw multi-MB PNG that would blow the
-    LLM context).
-    """
-    mime_type = "image/jpeg"
-
-    try:
-        from PySide2.QtCore import QBuffer, QIODevice, Qt
-        from PySide2.QtGui import QImage
-    except ImportError:
-        try:
-            from PySide6.QtCore import QBuffer, QIODevice, Qt
-            from PySide6.QtGui import QImage
-        except ImportError:
-            # Qt not available — try Pillow before giving up.
-            try:
-                import io as _io
-
-                from PIL import Image as PilImage
-
-                with PilImage.open(file_path) as img:
-                    img = img.convert("RGB")
-                    w, h = img.size
-                    if w > _MAX_IMAGE_DIM or h > _MAX_IMAGE_DIM:
-                        img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), PilImage.LANCZOS)
-                    quality = _JPEG_QUALITY
-                    for _ in range(4):
-                        buf = _io.BytesIO()
-                        img.save(buf, format="JPEG", quality=quality)
-                        data = buf.getvalue()
-                        if len(base64.b64encode(data)) <= _MAX_BASE64_BYTES:
-                            break
-                        quality = max(quality - 15, 20)
-                    return base64.b64encode(data).decode("ascii"), mime_type
-            except Exception:
-                pass
-            # Cannot compress — skip the image rather than returning raw PNG.
-            logger.warning("Neither Qt nor Pillow available; skipping image for %s", file_path)
-            return None, mime_type
-
-    try:
-        img = QImage(file_path)
-        if img.isNull():
-            return None, mime_type
-
-        # Downscale if either dimension exceeds the cap
-        w, h = img.width(), img.height()
-        if w > _MAX_IMAGE_DIM or h > _MAX_IMAGE_DIM:
-            img = img.scaled(
-                _MAX_IMAGE_DIM,
-                _MAX_IMAGE_DIM,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
-            )
-
-        # Encode to JPEG in-memory; if still too large, reduce quality.
-        quality = _JPEG_QUALITY
-        for _ in range(4):
-            buf = QBuffer()
-            buf.open(QIODevice.WriteOnly)
-            img.save(buf, "JPEG", quality)
-            buf.close()
-            data = buf.data().data()
-            if len(base64.b64encode(data)) <= _MAX_BASE64_BYTES:
-                break
-            quality = max(quality - 15, 20)
-
-        return base64.b64encode(data).decode("ascii"), mime_type
-    except Exception as exc:
-        logger.warning("Image downscale/encode failed: %s", exc)
-        return None, mime_type
 
 
 def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
@@ -709,19 +622,11 @@ def capture_screenshot(
         # For other pane types, use Qt widget grab
         _capture_pane_tab_qt(pane_tab, output_path)
 
-    # Downscale + JPEG-compress before base64 to avoid token bloat.
-    image_base64 = None
-    mime_type = "image/jpeg"
-    if os.path.isfile(actual_path):
-        image_base64, mime_type = _downscale_and_encode(actual_path)
-
     return {
         "success": True,
         "pane_name": pane_tab.name(),
         "output_path": actual_path,
         "file_exists": os.path.isfile(actual_path),
-        "image_base64": image_base64,
-        "mime_type": mime_type,
     }
 
 
@@ -765,17 +670,11 @@ def capture_network_editor(
     # Capture the network editor via Qt widget grab
     _capture_pane_tab_qt(network_editor, output_path)
 
-    image_base64 = None
-    mime_type = "image/jpeg"
-    if os.path.isfile(output_path):
-        image_base64, mime_type = _downscale_and_encode(output_path)
-
     return {
         "success": True,
         "output_path": output_path,
         "node_path": node_path,
-        "image_base64": image_base64,
-        "mime_type": mime_type,
+        "file_exists": os.path.isfile(output_path),
     }
 
 
