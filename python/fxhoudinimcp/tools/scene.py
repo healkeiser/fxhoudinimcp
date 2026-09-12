@@ -209,3 +209,31 @@ async def get_context_info(ctx: Context, context: str) -> dict:
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("scene.get_context_info", {"context": context})
+
+
+@mcp.tool()
+async def undo(ctx: Context, steps: int = 1) -> dict:
+    """Undo the last change(s) made in Houdini.
+
+    Every tool call is one undo step, however many nodes it touched, so one
+    undo reverses one build_network or set_parameters call. Needs a graphical
+    Houdini: hython keeps no undo history.
+
+    Args:
+        ctx: MCP context.
+        steps: How many steps to undo (default 1).
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute("scene.undo", {"steps": steps})
+
+
+@mcp.tool()
+async def redo(ctx: Context, steps: int = 1) -> dict:
+    """Redo the last undone change(s) in Houdini.
+
+    Args:
+        ctx: MCP context.
+        steps: How many steps to redo (default 1).
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute("scene.redo", {"steps": steps})

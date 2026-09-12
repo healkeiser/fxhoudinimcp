@@ -168,3 +168,40 @@ async def get_top_scheduler_info(ctx: Context, node_path: str) -> dict:
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("tops.get_top_scheduler_info", {"node_path": node_path})
+
+
+@mcp.tool()
+async def get_failed_work_items(ctx: Context, node_path: str, limit: int = 50) -> dict:
+    """List the work items that failed on a TOP node, with the tail of each log.
+
+    Args:
+        ctx: MCP context.
+        node_path: TOP node path.
+        limit: Maximum items returned.
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute(
+        "tops.get_failed_work_items", {"node_path": node_path, "limit": limit}
+    )
+
+
+@mcp.tool()
+async def get_top_logs(
+    ctx: Context,
+    node_path: str,
+    work_item_index: int | None = None,
+    tail: int = 4000,
+) -> dict:
+    """Cook logs for a TOP node, or the scheduler log of one work item.
+
+    Args:
+        ctx: MCP context.
+        node_path: TOP node path.
+        work_item_index: Work item index; omit for the node's own errors and warnings.
+        tail: Maximum characters of log text, taken from the end.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict = {"node_path": node_path, "tail": tail}
+    if work_item_index is not None:
+        params["work_item_index"] = work_item_index
+    return await bridge.execute("tops.get_top_logs", params)

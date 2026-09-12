@@ -9,7 +9,9 @@ to the main thread and block until they complete.
 from __future__ import annotations
 
 # Built-in
+import contextlib
 import logging
+import os
 import threading
 import time
 import traceback
@@ -31,6 +33,61 @@ logger = logging.getLogger(__name__)
 ###### Constants
 
 _COMMAND_TIMEOUT = 120  # seconds
+
+# Commands that must not run inside an undo group: they *are* the undo.
+_NO_UNDO_GROUP = frozenset({"scene.undo", "scene.redo"})
+
+
+def command_timeout(command: str) -> float:
+    """Seconds a command may take before dispatch gives up on it.
+
+    ``FXHOUDINIMCP_TIMEOUT_<COMMAND>`` wins (the dotted name uppercased with
+    dots as underscores, so ``tops.cook_top_node`` reads
+    ``FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE``), then ``FXHOUDINIMCP_TIMEOUT``
+    for every command, then the built-in default. Read from the process
+    environment on purpose: this runs on an hwebserver worker thread, where
+    ``hou.getenv`` is not safe to call.
+    """
+    specific = "FXHOUDINIMCP_TIMEOUT_" + command.upper().replace(".", "_")
+    for name in (specific, "FXHOUDINIMCP_TIMEOUT"):
+        raw = os.environ.get(name, "").strip()
+        if not raw:
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            logger.warning("Ignoring %s=%r: not a number of seconds", name, raw)
+            continue
+        if value > 0:
+            return value
+        logger.warning("Ignoring %s=%r: must be positive", name, raw)
+    return _COMMAND_TIMEOUT
+
+
+@contextlib.contextmanager
+def _undo_group(command: str):
+    """Make one command one undo step.
+
+    A build_network or set_parameters call touches many nodes; without this
+    each touch is its own entry and ``undo`` peels them off one at a time.
+    Houdini discards a block that recorded nothing, so wrapping a read-only
+    command costs no undo-stack entry. Anything that stops the group from
+    opening (hython, undos disabled) degrades to running the handler bare.
+    """
+    group = None
+    if command not in _NO_UNDO_GROUP:
+        try:
+            import hou
+
+            group = hou.undos.group(f"MCP {command}")
+        except Exception:
+            group = None
+    if group is None:
+        yield
+        return
+    with group:
+        yield
+
 
 # Registry of command name -> handler function
 _handler_registry: dict[str, Callable] = {}
@@ -122,7 +179,8 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
 
     def _execute():
         try:
-            result = handler(**params)
+            with _undo_group(command):
+                result = handler(**params)
             return {"status": "success", "data": result}
         except TypeError as e:
             # A signature mismatch is Python talking about itself: "log_status()
@@ -151,6 +209,7 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
                 },
             }
 
+    timeout = command_timeout(command)
     try:
         if HAS_HDEFEREVAL:
             # Run hdefereval call in a worker thread so we can enforce a timeout
@@ -165,17 +224,19 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
 
             worker = threading.Thread(target=_run, daemon=True)
             worker.start()
-            worker.join(timeout=_COMMAND_TIMEOUT)
+            worker.join(timeout=timeout)
 
             if worker.is_alive():
-                logger.error("Command '%s' timed out after %s seconds", command, _COMMAND_TIMEOUT)
+                logger.error("Command '%s' timed out after %s seconds", command, timeout)
+                variable = "FXHOUDINIMCP_TIMEOUT_" + command.upper().replace(".", "_")
                 result = {
                     "status": "error",
                     "error": {
                         "code": "TIMEOUT",
                         "message": (
-                            f"Command '{command}' did not complete within "
-                            f"{_COMMAND_TIMEOUT} seconds."
+                            f"Command '{command}' did not complete within {timeout:g} "
+                            f"seconds. Raise {variable} (or FXHOUDINIMCP_TIMEOUT for "
+                            f"every command) if it legitimately needs longer."
                         ),
                     },
                 }

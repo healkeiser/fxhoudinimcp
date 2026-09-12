@@ -73,6 +73,58 @@ def _json_response(payload: dict) -> hwebserver.Response:
     return hwebserver.Response(body.encode("utf-8"), 200, "application/json")
 
 
+###### Request origin guard
+
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
+
+
+def _bare_host(host: str) -> str:
+    """Strip a trailing :port from a Host value, IPv6 brackets included."""
+    if host.startswith("["):
+        return host.split("]", 1)[0] + "]"
+    if host.count(":") == 1:
+        return host.rsplit(":", 1)[0]
+    return host
+
+
+def _foreign_request_reason(request) -> str | None:
+    """Why *request* must not reach the dispatcher, or None if it may.
+
+    Binding to loopback keeps the LAN out but not the browser: a page you have
+    open can POST a form-encoded body to 127.0.0.1 without any CORS preflight,
+    and this endpoint runs arbitrary Python. Browsers always send ``Origin`` on
+    a cross-origin POST and the MCP bridge never does, so the header alone is
+    the tell. The ``Host`` check closes DNS rebinding, where a hostname the
+    attacker controls resolves to 127.0.0.1: unless FXHOUDINIMCP_BIND was
+    widened on purpose, only a loopback host name is served.
+    """
+    try:
+        headers = {str(k).lower(): str(v) for k, v in dict(request.headers()).items()}
+    except Exception:
+        headers = {}
+    if "origin" in headers:
+        return (
+            f"request carries an Origin header ({headers['origin']}); "
+            f"browsers are not clients of this endpoint"
+        )
+
+    if os.environ.get("FXHOUDINIMCP_BIND", "127.0.0.1") != "127.0.0.1":
+        return None
+    try:
+        host = str(request.host())
+    except Exception:
+        host = headers.get("host", "")
+    bare = _bare_host(host).lower()
+    if bare and bare not in _LOOPBACK_HOSTS:
+        return f"Host header '{host}' is not loopback"
+    return None
+
+
+def _forbidden(reason: str) -> hwebserver.Response:
+    body = json.dumps({"status": "error", "error": {"code": "FORBIDDEN_ORIGIN", "message": reason}})
+    return hwebserver.Response(body.encode("utf-8"), 403, "application/json")
+
+
 ###### Endpoints
 
 
@@ -86,6 +138,9 @@ def execute(request, command="", params=None, request_id=""):
         params: Tool-specific parameters dict.
         request_id: Correlation ID echoed back in the response.
     """
+    reason = _foreign_request_reason(request)
+    if reason is not None:
+        return _forbidden(reason)
     if params is None:
         params = {}
 

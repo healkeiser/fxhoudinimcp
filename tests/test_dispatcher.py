@@ -7,6 +7,9 @@ import os
 import sys
 from unittest.mock import MagicMock
 
+# Third-party
+import pytest
+
 # Mock Houdini modules before importing dispatcher
 sys.modules.setdefault("hou", MagicMock())
 sys.modules.setdefault("hdefereval", MagicMock())
@@ -95,3 +98,83 @@ class TestDispatch:
         result = dispatch("test.simple", {})
         assert result["status"] == "success"
         assert result["data"]["ok"] is True
+
+
+class TestCommandTimeout:
+    """FXHOUDINIMCP_TIMEOUT_<COMMAND>, then FXHOUDINIMCP_TIMEOUT, then the default."""
+
+    def test_default(self, monkeypatch):
+        monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT", raising=False)
+        monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE", raising=False)
+        assert _disp.command_timeout("tops.cook_top_node") == _disp._COMMAND_TIMEOUT
+
+    def test_global_override(self, monkeypatch):
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT", "5")
+        assert _disp.command_timeout("nodes.create_node") == 5.0
+
+    def test_per_command_wins_over_global(self, monkeypatch):
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT", "5")
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE", "900")
+        assert _disp.command_timeout("tops.cook_top_node") == 900.0
+        assert _disp.command_timeout("nodes.create_node") == 5.0
+
+    @pytest.mark.parametrize("bad", ["soon", "0", "-3", " "])
+    def test_garbage_falls_through(self, monkeypatch, bad):
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT_NODES_CREATE_NODE", bad)
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT", "7")
+        assert _disp.command_timeout("nodes.create_node") == 7.0
+
+    def test_timeout_message_names_the_variable(self, monkeypatch):
+        """A caller who hits the wall must be told which knob to turn."""
+        import threading
+
+        monkeypatch.setattr(_disp, "HAS_DEFEREVAL", True, raising=False)
+        monkeypatch.setattr(_disp, "HAS_HDEFEREVAL", True)
+        monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT_SLOW_CMD", "0.05")
+        release = threading.Event()
+        fake = MagicMock()
+        fake.executeInMainThreadWithResult = lambda fn: (release.wait(2), fn())[1]
+        monkeypatch.setattr(_disp, "hdefereval", fake)
+        _handler_registry.clear()
+        register_handler("slow.cmd", lambda: {"ok": True})
+        try:
+            result = dispatch("slow.cmd", {})
+        finally:
+            release.set()
+        assert result["status"] == "error"
+        assert result["error"]["code"] == "TIMEOUT"
+        assert "FXHOUDINIMCP_TIMEOUT_SLOW_CMD" in result["error"]["message"]
+
+
+class TestUndoGroup:
+    """One dispatched command is one undo step."""
+
+    def setup_method(self):
+        _handler_registry.clear()
+
+    def test_handler_runs_inside_a_group_named_for_the_command(self, monkeypatch):
+        hou = sys.modules["hou"]
+        group = MagicMock()
+        group.__enter__ = MagicMock(return_value=None)
+        group.__exit__ = MagicMock(return_value=False)
+        hou.undos.group = MagicMock(return_value=group)
+        seen = []
+        register_handler("nodes.create_node", lambda: seen.append(group.__enter__.called) or {})
+        dispatch("nodes.create_node", {})
+        hou.undos.group.assert_called_once_with("MCP nodes.create_node")
+        assert seen == [True], "handler ran before the undo group opened"
+        assert group.__exit__.called
+
+    @pytest.mark.parametrize("command", ["scene.undo", "scene.redo"])
+    def test_undo_itself_is_not_grouped(self, monkeypatch, command):
+        hou = sys.modules["hou"]
+        hou.undos.group = MagicMock()
+        register_handler(command, lambda: {})
+        dispatch(command, {})
+        hou.undos.group.assert_not_called()
+
+    def test_a_group_that_cannot_open_does_not_block_the_command(self):
+        hou = sys.modules["hou"]
+        hou.undos.group = MagicMock(side_effect=RuntimeError("no undo here"))
+        register_handler("x.cmd", lambda: {"ran": True})
+        assert dispatch("x.cmd", {})["data"] == {"ran": True}

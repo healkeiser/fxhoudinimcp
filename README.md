@@ -9,7 +9,7 @@
   <p align="center">
     The most comprehensive MCP server for SideFX Houdini.
     <br/>
-    188 tools across 23 categories, covering every major Houdini context.
+    198 tools across 23 categories, covering every major Houdini context.
     <br/><br/>
   </p>
 
@@ -45,6 +45,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Environment Variables](#environment-variables)
+- [Security](#security)
 - [Development](#development)
 - [Contact](#contact)
 
@@ -53,7 +54,7 @@
 
 A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server for [SideFX Houdini](https://www.sidefx.com/). Connects AI assistants like Claude directly to Houdini's Python API, enabling natural language control over scene building, simulation setup, rendering, and more.
 
-**188 tools**, **8 resources**, and **9 prompts** serving **31 written workflow guides** out of the box.
+**198 tools**, **8 resources**, and **9 prompts** serving **31 written workflow guides** out of the box.
 
 <!-- FEATURES -->
 ## Features
@@ -62,23 +63,23 @@ A comprehensive [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
 |----------|-------|-------------|
 | **Graph Intelligence** | 6 | Atomic validated network building, network verification, node doc cards, cook profiling, frame-range cooking with per-frame evidence, cook status |
 | **Documentation** | 2 | Full-text search + page retrieval over Houdini's own shipped manual (version-exact) |
-| **Scene Management** | 7 | Open, save, import/export, scene info |
-| **Node Operations** | 17 | Create, delete, copy, connect, layout, flags |
+| **Scene Management** | 10 | Open, save, import/export, scene info, connection status, undo/redo |
+| **Node Operations** | 20 | Create, delete, copy, connect, layout, flags, network boxes, sticky notes, object transforms |
 | **Parameters** | 12 | Get/set values in bulk, expressions, keyframes, spare parameters |
 | **Geometry (SOPs)** | 14 | Points, prims, attributes, attribute statistics, volume inspection, groups, sampling, nearest-point search |
 | **LOPs/USD** | 18 | Stage inspection, prims, layers, composition, variants, lighting |
 | **DOPs** | 8 | Simulation info, DOP objects, step/reset, memory usage |
-| **PDG/TOPs** | 10 | Cook, work items, schedulers, dependency graphs |
+| **PDG/TOPs** | 12 | Cook, work items, failed items and logs, schedulers, dependency graphs |
 | **COPs (Copernicus)** | 7 | Image nodes, layers, VDB data |
-| **HDAs** | 10 | Create, install, manage Digital Assets and their sections |
+| **HDAs** | 11 | Create, install, manage Digital Assets, their versions and sections |
 | **Animation** | 9 | Keyframes, playbar control, frame range |
 | **Rendering** | 9 | Viewport capture, render nodes, settings, render launch |
 | **VEX** | 5 | Create/edit wrangles, validate VEX code |
-| **Code Execution** | 4 | Python, HScript, expressions, env variables |
+| **Code Execution** | 6 | Python, HScript, expressions, env variables, file references, update mode |
 | **Viewport/UI** | 14 | Pane management, viewer context, verified camera and renderer state, screenshots, error detection |
 | **Scene Context** | 8 | Network overview, cook chain, selection, scene summary, error analysis |
 | **Workflows** | 8 | One-call Pyro/RBD/FLIP/Vellum setup, SOP chains, render config |
-| **Materials** | 5 | List, inspect, create materials and shader networks |
+| **Materials** | 4 | List, inspect, create materials and shader networks |
 | **CHOPs** | 4 | Channel data, CHOP nodes, export channels to parameters |
 | **Cache** | 4 | List, inspect, clear, write file caches |
 | **Takes** | 4 | List, create, switch takes with parameter overrides |
@@ -98,7 +99,7 @@ flowchart LR
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]
         direction TB
-        B1("🔧 188 tools")
+        B1("🔧 198 tools")
         B2("📦 8 Resources")
         B3("💬 9 Prompts")
     end
@@ -247,8 +248,9 @@ you only want one Houdini cleaned.
 
 The package file `install` writes is also where the Houdini-side settings live.
 It ships every one of them at its default, so they are all visible in one place:
-`FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART` and
-`FXHOUDINIMCP_AUTO_LAYOUT` (see [Environment Variables](#environment-variables)
+`FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART`,
+`FXHOUDINIMCP_AUTO_LAYOUT`, `FXHOUDINIMCP_PROJECT_ROOT` and
+`FXHOUDINIMCP_TIMEOUT` (see [Environment Variables](#environment-variables)
 for what each does). Two things to know:
 
 - Because the package sets these explicitly, it **wins over the same variable
@@ -453,10 +455,46 @@ Once connected, your AI assistant can:
 | `HOUDINI_PORT` | `8100` | Houdini hwebserver port |
 | `FXHOUDINIMCP_PORT` | `8100` | Port for the Houdini plugin to listen on |
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Set to `0` to disable auto-start |
-| `FXHOUDINIMCP_AUTO_LAYOUT` | `1` | Set to `0` to disable automatic node layout (preserves manual layouts) |
+| `FXHOUDINIMCP_AUTO_LAYOUT` | `1` | Set to `0` to stop tools re-arranging existing nodes. Freshly created nodes are still placed next to their inputs instead of piling up at the origin, and an explicit `position` always wins |
 | `FXHOUDINIMCP_BIND` | `127.0.0.1` | Address the Houdini plugin binds. Loopback by default: the bridge runs arbitrary Python in your Houdini session and has no authentication, so only widen this on a network you trust |
+| `FXHOUDINIMCP_PROJECT_ROOT` | unset | When set, hip files, imports, exports and HDA libraries must live under this directory. See [Security](#security) for what it does not cover |
+| `FXHOUDINIMCP_TIMEOUT` | `120` | Seconds a command may run before the plugin reports a timeout |
+| `FXHOUDINIMCP_TIMEOUT_<COMMAND>` | unset | Per-command override, the dotted command name uppercased with dots as underscores: `FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900` |
 | `MCP_TRANSPORT` | `stdio` | MCP transport (`stdio` or `streamable-http`) |
 | `LOG_LEVEL` | `INFO` | Logging level |
+
+<!-- SECURITY -->
+## Security
+
+Treat a connection to this server as a shell inside your Houdini session.
+`execute_python` runs arbitrary code, and there is no authentication,
+authorization, per-tool permission model or audit log. The threat model is a
+single artist's workstation and an MCP client they trust.
+
+What the plugin does on its own:
+
+- **Binds to loopback.** Nothing on the network reaches the port unless you set
+  `FXHOUDINIMCP_BIND` to something wider on purpose.
+- **Refuses browsers.** A web page you have open is also on loopback, and it can
+  POST a form-encoded body to `127.0.0.1` without any CORS preflight. Any request
+  carrying an `Origin` header is refused with HTTP 403, and so is any `Host` that
+  is not a loopback name (DNS rebinding) while the bind is loopback.
+- **Confines file operations when asked.** With `FXHOUDINIMCP_PROJECT_ROOT` set,
+  the paths the handlers themselves open, save, load or install (hip files,
+  imports, exports, HDA libraries) must resolve under that directory.
+
+What it does not do, and you should know about:
+
+- The sandbox does not inspect parameter values. A file path written into a
+  File SOP or a ROP output parameter with `set_parameter` is evaluated later by
+  the node, not by the plugin. Checking it would mean inspecting every string
+  parameter on every set, and the gap is left open rather than half-closed.
+- `execute_python` and `execute_hscript` are not sandboxed at all.
+- One undo step per tool call is the recovery path for a bad change; there is
+  no confirmation flow before one.
+
+If those limits do not fit your situation, run the plugin only on disposable
+scenes, or do not run it.
 
 <!-- DEVELOPMENT -->
 ## Development
@@ -544,7 +582,7 @@ Set `HOUDINI_DISABLE_OPENFX_DEFAULT_PATH=1` when running any of the above.
 This is a Houdini/Universe conflict, not something this repo causes.
 
 Unit tests mock `hou` and run anywhere. The integration suite in
-`tests/integration/` executes all 188 commands against live Houdini via
+`tests/integration/` executes all 198 commands against live Houdini via
 `hython` — including end-to-end user scenarios (procedural modeling,
 simulation, animation, lookdev) — and prints per-command timing and
 coverage reports; it is skipped automatically when `hou` is not
@@ -557,7 +595,7 @@ server's own bridge).
 
 1. **Houdini Plugin** (`houdini/`): Runs inside Houdini's Python environment. Registers `@hwebserver.apiFunction` endpoints that receive JSON commands. Uses `hdefereval.executeInMainThreadWithResult()` to safely execute `hou.*` calls on the main thread.
 
-2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 188 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
+2. **MCP Server** (`python/fxhoudinimcp/`): A standalone Python process using FastMCP. Exposes 198 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.
 
 3. **Bridge** (`python/fxhoudinimcp/bridge.py`): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.
 

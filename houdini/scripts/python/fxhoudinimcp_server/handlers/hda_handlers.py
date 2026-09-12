@@ -14,6 +14,7 @@ import os
 import hou
 
 # Internal
+from fxhoudinimcp_server.config import require_inside_project_root
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import as_text, readable_message
 
@@ -267,6 +268,7 @@ def install_hda(file_path: str, force: bool = False) -> dict:
 
     Args:
         file_path: Path to the HDA file to install.
+    require_inside_project_root(file_path, "HDA file")
         force: If True, force reinstall even if already loaded.
     """
     if not os.path.isfile(file_path):
@@ -314,6 +316,7 @@ def uninstall_hda(file_path: str) -> dict:
     # anything wrong, which tells a caller nothing about what to do next. The
     # overwhelmingly likely cause is that this file was never installed, so say so
     # and name what IS installed.
+    require_inside_project_root(file_path, "HDA file")
     installed: list[str] = []
     with contextlib.suppress(Exception):  # only used to improve the message
         installed = list(hou.hda.loadedFiles())
@@ -346,6 +349,7 @@ def reload_hda(file_path: str) -> dict:
     Args:
         file_path: Path to the HDA file to reload.
     """
+    require_inside_project_root(file_path, "HDA file")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"HDA file not found: {file_path}")
 
@@ -384,6 +388,7 @@ def create_hda(
         label: Human-readable label for the HDA.
         version: Version string (default "1.0").
     """
+    require_inside_project_root(hda_file, "HDA file")
     node = _get_node(node_path)
 
     # Verify the node is a subnet
@@ -542,8 +547,39 @@ def set_hda_section_content(
     }
 
 
+###### hda.list_hda_versions
+
+
+def list_hda_versions(node_path: str) -> dict:
+    """Every installed definition of a node's HDA type, across versions and files.
+
+    Args:
+        node_path: An HDA instance.
+    """
+    node = _get_node(node_path)
+    current = _get_definition(node)
+    node_type = node.type()
+    versions = []
+    for definition in node_type.allInstalledDefinitions():
+        versions.append(
+            {
+                "version": definition.version() or None,
+                "library_file": definition.libraryFilePath(),
+                "is_current": definition.isCurrent(),
+                "is_preferred": definition.isPreferred(),
+            }
+        )
+    return {
+        "node_path": node.path(),
+        "type_name": node_type.name(),
+        "current_version": current.version() or None,
+        "versions": versions,
+    }
+
+
 ###### Registration
 
+register_handler("hda.list_hda_versions", list_hda_versions)
 register_handler("hda.list_installed_hdas", list_installed_hdas)
 register_handler("hda.get_hda_info", get_hda_info)
 register_handler("hda.install_hda", install_hda)

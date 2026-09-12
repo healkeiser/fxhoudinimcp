@@ -8,6 +8,7 @@ from __future__ import annotations
 
 # Built-in
 import io
+import os
 import sys
 import traceback
 from typing import Any
@@ -193,3 +194,67 @@ def _get_env_variable(var_name: str, **_: Any) -> dict[str, Any]:
 
 
 register_handler("code.get_env_variable", _get_env_variable)
+
+
+###### code.get_file_references
+
+
+def _get_file_references(include_missing_only: bool = False, **_: Any) -> dict[str, Any]:
+    """Every file path the scene references, with the parameter that holds it.
+
+    Args:
+        include_missing_only: Only report paths that do not exist on disk.
+    """
+    references = []
+    for parm, path in hou.fileReferences():
+        if not path:
+            continue
+        expanded = hou.text.expandString(path)
+        exists = os.path.exists(expanded) if expanded else False
+        if include_missing_only and exists:
+            continue
+        references.append(
+            {
+                "parm": parm.path() if parm is not None else None,
+                "path": path,
+                "expanded": expanded,
+                "exists": exists,
+            }
+        )
+    return {"count": len(references), "references": references}
+
+
+register_handler("code.get_file_references", _get_file_references)
+
+
+###### code.set_update_mode
+
+_UPDATE_MODES = {
+    "auto": hou.updateMode.AutoUpdate,
+    "on_mouse_up": hou.updateMode.OnMouseUp,
+    "manual": hou.updateMode.Manual,
+}
+
+
+def _set_update_mode(mode: str | None = None, **_: Any) -> dict[str, Any]:
+    """Set (or, with no mode, read) Houdini's cook update mode.
+
+    Switching to ``manual`` before a long build stops every parameter change
+    from re-cooking the network; switch back to ``auto`` afterwards.
+
+    Args:
+        mode: "auto", "on_mouse_up" or "manual". Omit to read the current mode.
+    """
+    if mode is not None:
+        key = as_text(mode, "mode").strip().lower()
+        if key not in _UPDATE_MODES:
+            raise ValueError(
+                f"Unknown update mode '{mode}'. Use one of: {', '.join(_UPDATE_MODES)}."
+            )
+        hou.setUpdateMode(_UPDATE_MODES[key])
+    current = hou.updateModeSetting()
+    name = next((k for k, v in _UPDATE_MODES.items() if v == current), str(current))
+    return {"success": True, "mode": name}
+
+
+register_handler("code.set_update_mode", _set_update_mode)
