@@ -10,9 +10,6 @@ The public API this package uses is unchanged between the two: ``MCPServer(name,
 instructions)``, the ``tool()``/``prompt()``/``resource(uri)`` decorators, and
 ``Context``. So supporting both is an import shim rather than a port, and the
 dependency does not need pinning to a major version.
-
-``mcp.types`` is imported directly elsewhere because ``ImageContent`` and
-``TextContent`` did not move.
 """
 
 from __future__ import annotations
