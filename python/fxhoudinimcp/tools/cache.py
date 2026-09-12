@@ -93,7 +93,9 @@ async def write_cache(
         frame_range: [start, end] frame range to render. Overrides the
             node's $FSTART/$FEND expressions for this and later writes.
         background: File Cache only. Save from a separate Houdini process so
-            the session stays usable; poll get_cache_status for completion.
+            the session stays usable (the node's own "Save to Disk in
+            Background"). Saves the hip first. Returns at once with
+            status "launched"; poll get_cache_status for frames on disk.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path, "background": background}

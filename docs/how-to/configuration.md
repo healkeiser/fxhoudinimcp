@@ -6,6 +6,7 @@
 |----------|---------|-------------|
 | `HOUDINI_HOST` | `localhost` | Houdini host address |
 | `HOUDINI_PORT` | `8100` | Houdini hwebserver port |
+| `HOUDINI_TIMEOUT` | `FXHOUDINIMCP_TIMEOUT` + 15 | Seconds the MCP client waits for one command before reporting a timeout. Keep it above the plugin's deadline, and raise it alongside any `FXHOUDINIMCP_TIMEOUT_<COMMAND>` you set |
 | `FXHOUDINIMCP_PORT` | `8100` | Port for the Houdini plugin to listen on |
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Set to `0` to disable auto-start |
 | `FXHOUDINIMCP_BIND` | `127.0.0.1` | Address the Houdini plugin binds. Loopback by default; see [Security](#security) before widening it |

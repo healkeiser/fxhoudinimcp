@@ -129,3 +129,57 @@ def test_input_name_that_does_not_exist_suggests_one():
 
     with pytest.raises(ValueError, match="base_color"):
         node_handlers._resolve_input_index(dest, 0, "basecolor")
+
+
+def test_background_write_presses_the_top_cook_button_and_returns_launched(monkeypatch):
+    """File Cache's real background path is the cookoutputnode button, not the toggle."""
+    node = MagicMock()
+    parms = {"cookoutputnode": MagicMock(), "execute": MagicMock()}
+    node.parm.side_effect = parms.get
+    monkeypatch.setattr(cache_handlers, "_get_node", lambda _p: node)
+    monkeypatch.setattr(cache_handlers, "reported_outputs", lambda _n: [])
+    hip = cache_handlers.hou.hipFile
+    hip.isNewFile.return_value = False
+
+    out = cache_handlers._write_cache(node_path="/obj/G/cache", background=True)
+
+    hip.save.assert_called_once()
+    parms["cookoutputnode"].pressButton.assert_called_once()
+    assert out["status"] == "launched" and out["success"] is True and out["wrote_files"] is False
+
+
+def test_background_write_refuses_a_node_without_the_button(monkeypatch):
+    node = MagicMock()
+    node.parm.return_value = None
+    monkeypatch.setattr(cache_handlers, "_get_node", lambda _p: node)
+
+    with pytest.raises(ValueError, match="cookoutputnode"):
+        cache_handlers._write_cache(node_path="/obj/G/box", background=True)
+
+
+@pytest.mark.parametrize(
+    ("at_1", "at_2", "expected"),
+    [
+        (
+            "/geo/a.cache/v1/a.cache_v1.0001.bgeo.sc",
+            "/geo/a.cache/v1/a.cache_v1.0002.bgeo.sc",
+            "/geo/a.cache/v1/a.cache_v1.*.bgeo.sc",
+        ),
+        ("/geo/a.1.bgeo", "/geo/a.2.bgeo", "/geo/a.*.bgeo"),
+        ("/geo/static.bgeo.sc", "/geo/static.bgeo.sc", "/geo/static.bgeo.sc"),
+    ],
+)
+def test_frame_glob_comes_from_evaluated_paths(at_1, at_2, expected, monkeypatch):
+    # The helper moves the playbar and evaluates, so the fake hou has to
+    # remember the frame it was set to.
+    state = {"frame": 7.0}
+    hou = cache_handlers.hou
+    monkeypatch.setattr(hou, "frame", lambda: state["frame"])
+    monkeypatch.setattr(hou, "setFrame", lambda f: state.__setitem__("frame", f))
+    parm = MagicMock()
+    parm.eval.side_effect = lambda: at_1 if state["frame"] == 1 else at_2
+    node = MagicMock()
+    node.parm.side_effect = lambda n: parm if n == "sopoutput" else None
+
+    assert cache_handlers._frame_glob(node) == expected
+    assert state["frame"] == 7.0  # playbar restored

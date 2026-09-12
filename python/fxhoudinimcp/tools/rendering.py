@@ -7,6 +7,7 @@ and render progress monitoring.
 from __future__ import annotations
 
 # Built-in
+import asyncio
 from typing import Any
 
 # Third-party
@@ -22,6 +23,7 @@ async def render_viewport(
     output_path: str,
     resolution: list[int] | None = None,
     camera: str | None = None,
+    settle_seconds: float = 0,
 ) -> dict:
     """Capture the current 3D viewport to an image file.
 
@@ -29,8 +31,13 @@ async def render_viewport(
         output_path: Image file path.
         resolution: [width, height] in pixels.
         camera: Camera node path.
+        settle_seconds: Wait this long before capturing, without blocking
+            Houdini, so a Karma viewport can converge after a change. Use
+            this instead of a shell sleep between calls. Capped at 120.
     """
     bridge = _get_bridge(ctx)
+    if settle_seconds > 0:
+        await asyncio.sleep(min(settle_seconds, 120))
     params: dict[str, Any] = {"output_path": output_path}
     if resolution is not None:
         params["resolution"] = resolution

@@ -8,6 +8,7 @@ navigation, and error node discovery.
 from __future__ import annotations
 
 # Built-in
+import asyncio
 from typing import Any
 
 # Third-party
@@ -165,6 +166,7 @@ async def capture_screenshot(
     ctx: Context,
     output_path: str,
     pane_name: str | None = None,
+    settle_seconds: float = 0,
 ) -> dict:
     """Capture a screenshot of the viewport or a specific pane tab.
 
@@ -175,8 +177,13 @@ async def capture_screenshot(
     Args:
         output_path: Image file path.
         pane_name: Pane tab name.
+        settle_seconds: Wait this long before capturing, without blocking
+            Houdini, so a Karma viewport can converge after a change. Use
+            this instead of a shell sleep between calls. Capped at 120.
     """
     bridge = _get_bridge(ctx)
+    if settle_seconds > 0:
+        await asyncio.sleep(min(settle_seconds, 120))
     params: dict[str, Any] = {"output_path": output_path}
     if pane_name is not None:
         params["pane_name"] = pane_name

@@ -60,9 +60,76 @@ def _is_cache_node(node: hou.Node) -> bool:
     )
 
 
+@contextlib.contextmanager
+def _at_frame(frame: float | None):
+    """Evaluate output paths at the frame a write starts on.
+
+    The verdict compares files before and after by evaluating `$F` paths, and
+    it used to do that at the current frame. Writing frames 10-12 while the
+    playbar sat on frame 1 then read as "nothing was written".
+    """
+    if frame is None:
+        yield
+        return
+    previous = hou.frame()
+    hou.setFrame(frame)
+    try:
+        yield
+    finally:
+        hou.setFrame(previous)
+
+
+# The write path first. On File Cache 2.0 `sopoutput` is where frames go and
+# `file` is the load path, which in the default "constructed" mode is an
+# unversioned pattern no frame is ever written to; reading it reported an
+# empty cache over 60 fresh frames.
+_OUTPUT_PARMS = ("sopoutput", "file", "filename", "filepath")
+
+
+def _frame_glob(node: hou.Node) -> str | None:
+    """A glob for every frame a cache node writes, from evaluated paths.
+
+    The raw path is not usable: on File Cache 2.0 `sopoutput` is a Python
+    expression, and on any node `$F` may be hidden behind chs() calls. So
+    evaluate the path at two frames and turn the part that changed into `*`,
+    widened over the whole digit run so 0009 -> 0010 still matches.
+    """
+    for parm_name in _OUTPUT_PARMS:
+        parm = node.parm(parm_name)
+        if parm is None:
+            continue
+        # Not evalAtFrame(): File Cache's sopoutput is a Python expression
+        # whose chs() calls read the current frame, so evalAtFrame(2) returned
+        # the frame-1 path. Move the playbar for real, and put it back.
+        try:
+            with _at_frame(1):
+                at_1 = parm.eval()
+            with _at_frame(2):
+                at_2 = parm.eval()
+        except Exception:
+            continue
+        if not at_1:
+            continue
+        if at_1 == at_2:
+            return at_1
+        i = 0
+        while i < min(len(at_1), len(at_2)) and at_1[i] == at_2[i]:
+            i += 1
+        j = 0
+        while j < min(len(at_1), len(at_2)) - i and at_1[-1 - j] == at_2[-1 - j]:
+            j += 1
+        # Widen the changed span over the digit run on either side.
+        while i > 0 and at_1[i - 1].isdigit():
+            i -= 1
+        while j > 0 and at_1[-j].isdigit():
+            j -= 1
+        return at_1[:i] + "*" + (at_1[-j:] if j else "")
+    return None
+
+
 def _get_file_pattern(node: hou.Node) -> str | None:
     """Extract the file path pattern from a cache node."""
-    for parm_name in ("file", "sopoutput", "filename", "filepath"):
+    for parm_name in _OUTPUT_PARMS:
         parm = node.parm(parm_name)
         if parm is not None:
             try:
@@ -74,7 +141,7 @@ def _get_file_pattern(node: hou.Node) -> str | None:
 
 def _get_file_pattern_raw(node: hou.Node) -> str | None:
     """Extract the raw (unexpanded) file path pattern from a cache node."""
-    for parm_name in ("file", "sopoutput", "filename", "filepath"):
+    for parm_name in _OUTPUT_PARMS:
         parm = node.parm(parm_name)
         if parm is not None:
             return parm.rawValue()
@@ -132,7 +199,9 @@ def _list_caches(*, root_path: str = "/", **_: Any) -> dict[str, Any]:
         # Determine status by checking if any files exist
         status = "unknown"
         if file_pattern:
-            glob_pattern = _expand_frame_pattern(raw_pattern if raw_pattern else file_pattern)
+            glob_pattern = _frame_glob(node) or _expand_frame_pattern(
+                raw_pattern if raw_pattern else file_pattern
+            )
             try:
                 existing = glob.glob(glob_pattern)
                 status = f"cached ({len(existing)} files)" if existing else "empty"
@@ -178,7 +247,9 @@ def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
         raise ValueError(f"Could not determine file pattern for node: {node_path}")
 
     # Find existing files using glob
-    glob_pattern = _expand_frame_pattern(raw_pattern if raw_pattern else file_pattern)
+    glob_pattern = _frame_glob(node) or _expand_frame_pattern(
+        raw_pattern if raw_pattern else file_pattern
+    )
 
     try:
         existing_files = sorted(glob.glob(glob_pattern))
@@ -293,25 +364,6 @@ register_handler("cache.clear_cache", _clear_cache)
 ###### cache.write_cache
 
 
-@contextlib.contextmanager
-def _at_frame(frame: float | None):
-    """Evaluate output paths at the frame a write starts on.
-
-    The verdict compares files before and after by evaluating `$F` paths, and
-    it used to do that at the current frame. Writing frames 10-12 while the
-    playbar sat on frame 1 then read as "nothing was written".
-    """
-    if frame is None:
-        yield
-        return
-    previous = hou.frame()
-    hou.setFrame(frame)
-    try:
-        yield
-    finally:
-        hou.setFrame(previous)
-
-
 def _set_frame_parm(node: hou.Node, name: str, value: float) -> None:
     """Set f1/f2, removing the $FSTART/$FEND keyframe a fresh cache node ships with.
 
@@ -343,19 +395,27 @@ def _write_cache(
         node_path: Path to the cache node.
         frame_range: Optional [start_frame, end_frame] to render. If not
             provided, uses the node's own frame range settings.
-        background: Write in a separate Houdini process (File Cache's own
-            "Save in Background" toggle) so the session stays responsive.
-            The return then reports the launch, not the finished files.
+        background: Write from a separate Houdini process so the session
+            stays responsive. File Cache implements this as a PDG cook of its
+            internal TOP network (the "Save to Disk in Background" button,
+            parm `cookoutputnode`); its `savebackground` toggle on its own
+            changes nothing, and pressing `execute` with the toggle on still
+            blocks the main thread for the whole write, which is what a live
+            session measured. The return reports the launch; poll
+            get_cache_status for the files.
     """
     node = _get_node(node_path)
 
-    bg_parm = node.parm("savebackground")
-    if background and bg_parm is None:
+    bg_button = node.parm("cookoutputnode")
+    if background and bg_button is None:
         raise ValueError(
-            f"{node_path} has no 'savebackground' toggle; background=True needs a File Cache"
+            f"{node_path} has no background save (no 'cookoutputnode' button); "
+            "background=True needs a File Cache 2.0 style node"
         )
-    if bg_parm is not None:
-        bg_parm.set(1 if background else 0)
+    # The worker process loads the hip from disk, so a never-saved hip has no
+    # file to load and an unsaved change would be cached as last saved.
+    if background and hou.hipFile.isNewFile():
+        raise ValueError("Save the hip first (save_scene): a background cache loads it from disk")
 
     # Set frame range if provided
     if frame_range is not None and len(frame_range) >= 2:
@@ -382,6 +442,24 @@ def _write_cache(
     failure: Exception | None = None
     method = "execute button"
     try:
+        if background:
+            hou.hipFile.save()
+            method = "cookoutputnode button (PDG, background process)"
+            bg_button.pressButton()
+            return {
+                "node_path": node_path,
+                "frame_range": frame_range,
+                "method": method,
+                "background": True,
+                "success": True,
+                "wrote_files": False,
+                "status": "launched",
+                "message": (
+                    "Background cache launched in a separate Houdini process; "
+                    "poll get_cache_status(node_path) for frames on disk."
+                ),
+                "outputs": before,
+            }
         # Try pressing the execute button first (filecache style)
         execute_parm = node.parm("execute")
         if execute_parm is not None:
