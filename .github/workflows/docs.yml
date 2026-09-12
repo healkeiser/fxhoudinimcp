@@ -11,6 +11,15 @@ on:
 permissions:
   contents: write
 
+# A tag push and the main push behind it start two deploys within seconds, and
+# both push to gh-pages. The second to push is rejected with "fetch first" and
+# the run fails (it happened twice on the day v2.11.0 and v2.11.1 shipped).
+# Serialise them; never cancel, because each deploy publishes a different
+# version and both must land.
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
