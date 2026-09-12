@@ -162,28 +162,31 @@ register_handler("parameters.get_parameter", _get_parameter)
 ###### Handler: parameters.set_parameter
 
 
-def _set_parameter(node_path: str, parm_name: str, value: Any, **_: Any) -> dict[str, Any]:
-    """Set a parameter value, auto-detecting the appropriate type.
+def _set_tuple(node: hou.Node, parm_name: str, value: list | tuple) -> Any | None:
+    """Apply a list value to the parm tuple of that name; None if there is none.
 
-    A list/tuple value addressed at a vector parameter name (e.g. "size"
-    on a box, "t" on a transform) is applied to the whole parm tuple, so
-    callers are not forced to know the per-component names (sizex, ...).
+    A list/tuple value addressed at a vector parameter name (e.g. "size" on a
+    box, "t" on a transform, a light's colour) is applied to the whole parm
+    tuple, so callers are not forced to know the per-component names.
     """
+    parm_tuple = node.parmTuple(parm_name)
+    if parm_tuple is None:
+        return None
+    if len(value) != len(parm_tuple):
+        raise ValueError(
+            f"Parameter '{parm_name}' on {node.path()} has "
+            f"{len(parm_tuple)} components, got {len(value)} values."
+        )
+    parm_tuple.set(value)
+    return [_serialize_value(p.eval()) for p in parm_tuple]
+
+
+def _set_parameter(node_path: str, parm_name: str, value: Any, **_: Any) -> dict[str, Any]:
+    """Set a parameter value, auto-detecting the appropriate type."""
     if isinstance(value, (list, tuple)):
-        node = _resolve_node(node_path)
-        parm_tuple = node.parmTuple(parm_name)
-        if parm_tuple is not None:
-            if len(value) != len(parm_tuple):
-                raise ValueError(
-                    f"Parameter '{parm_name}' on {node_path} has "
-                    f"{len(parm_tuple)} components, got {len(value)} values."
-                )
-            parm_tuple.set(value)
-            return {
-                "node_path": node_path,
-                "parm_name": parm_name,
-                "new_value": [_serialize_value(p.eval()) for p in parm_tuple],
-            }
+        new_value = _set_tuple(_resolve_node(node_path), parm_name, value)
+        if new_value is not None:
+            return {"node_path": node_path, "parm_name": parm_name, "new_value": new_value}
 
     parm = _resolve_parm(node_path, parm_name)
 
@@ -211,6 +214,18 @@ def _set_parameters(node_path: str, params: dict[str, Any], **_: Any) -> dict[st
 
     available = _available_parm_names(node)
     for name, value in params.items():
+        # A list on a vector name sets the whole tuple, exactly as the single
+        # setter does. The batch path used to know only per-component names,
+        # which made "prefer set_parameters" and "set a light colour" collide.
+        if isinstance(value, (list, tuple)):
+            try:
+                new_value = _set_tuple(node, name, value)
+            except Exception as exc:
+                errors.append({"parm_name": name, "error": str(exc)})
+                continue
+            if new_value is not None:
+                results.append({"parm_name": name, "new_value": new_value})
+                continue
         parm = node.parm(name)
         if parm is None:
             close = get_close_matches(name, available, n=3, cutoff=0.4)

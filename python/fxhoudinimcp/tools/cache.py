@@ -78,6 +78,7 @@ async def write_cache(
     ctx: Context,
     node_path: str,
     frame_range: list[int] | None = None,
+    background: bool = False,
 ) -> dict:
     """Execute a cache node, and report whether a cache actually appeared.
 
@@ -89,10 +90,13 @@ async def write_cache(
     Args:
         ctx: MCP context.
         node_path: Path to the cache node.
-        frame_range: [start, end] frame range to render.
+        frame_range: [start, end] frame range to render. Overrides the
+            node's $FSTART/$FEND expressions for this and later writes.
+        background: File Cache only. Save from a separate Houdini process so
+            the session stays usable; poll get_cache_status for completion.
     """
     bridge = _get_bridge(ctx)
-    params: dict[str, Any] = {"node_path": node_path}
+    params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
     return await bridge.execute("cache.write_cache", params)

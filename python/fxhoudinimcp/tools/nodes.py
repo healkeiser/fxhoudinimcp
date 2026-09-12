@@ -236,6 +236,7 @@ async def connect_nodes(
     dest_path: str,
     output_index: int = 0,
     input_index: int = 0,
+    input_name: str | None = None,
 ) -> dict:
     """Connect two nodes together.
 
@@ -245,6 +246,8 @@ async def connect_nodes(
         dest_path: Downstream node path.
         output_index: Source output index.
         input_index: Destination input index.
+        input_name: Destination connector name or label (e.g. "base_color"
+            on a VOP shader); wins over input_index.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -254,6 +257,7 @@ async def connect_nodes(
             "dest_path": dest_path,
             "output_index": output_index,
             "input_index": input_index,
+            "input_name": input_name,
         },
     )
 
@@ -268,7 +272,8 @@ async def connect_nodes_batch(
     Args:
         connections: List of connections. Each dict has keys:
             source_path (str), dest_path (str),
-            output_index (int, default 0), input_index (int, default 0).
+            output_index (int, default 0), input_index (int, default 0),
+            input_name (str, optional: connector name or label, wins over input_index).
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
