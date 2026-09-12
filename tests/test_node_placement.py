@@ -315,6 +315,37 @@ class TestHandlerSourceGuard:
                         offenders.append(f"{path.name}:{fn.name} -> {call.func.id}")
         assert offenders == []
 
+    def test_the_dop_import_sop_is_never_wired_to_an_input(self):
+        """createNode("dopimport") resolves to dopimport::2.0, which has no
+        inputs: it reads the sim out of its doppath parm. Only the version 1
+        node took one, so wiring it raised hou.InvalidInput and killed the RBD
+        legacy DOP branch outright, half-built, on every Houdini 22 run."""
+        tree = ast.parse((_HANDLER_DIR / "workflow_handlers.py").read_text(encoding="utf-8"))
+        made = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+                continue
+            target, call = node.targets[0], node.value
+            if (
+                isinstance(target, ast.Name)
+                and _is_create_node(call)
+                and call.args
+                and isinstance(call.args[0], ast.Constant)
+                and str(call.args[0].value).startswith("dopimport")
+            ):
+                made.add(target.id)
+        # Reading *from* a DOP Import is fine; only feeding one is not.
+        offenders = [
+            ast.unparse(node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "setInput"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in made
+        ]
+        assert offenders == []
+
 
 ###### Guard helpers
 

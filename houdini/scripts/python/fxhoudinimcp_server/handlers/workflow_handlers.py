@@ -561,7 +561,11 @@ def _setup_rbd_sim(
 
         dopimport = geo.createNode("dopimport", "dop_import1")
         _set_parm_safe(dopimport, "doppath", dopnet.path())
-        dopimport.setInput(0, last_sop, 0)
+        # No setInput: "dopimport" resolves to dopimport::2.0, which has no
+        # inputs at all and reads the sim straight out of doppath. Only the
+        # version 1 node took one, so wiring it raised hou.InvalidInput and
+        # killed this branch outright. The pyro and flip paths above already
+        # treat the DOP Import as the head of its own chain.
         all_nodes.append(dopimport.path())
         last_sop = dopimport
 
