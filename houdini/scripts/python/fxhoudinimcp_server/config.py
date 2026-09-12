@@ -26,7 +26,7 @@ def auto_layout_enabled() -> bool:
     return value.strip().lower() not in _FALSY
 
 
-def layout_if_enabled(node: hou.Node) -> None:
+def layout_if_enabled(node: hou.Node, place_unpositioned: bool = True) -> None:
     """Lay out *node*'s children unless auto-layout is disabled.
 
     Also the placement floor for every creation path: each handler already
@@ -41,12 +41,19 @@ def layout_if_enabled(node: hou.Node) -> None:
     ever positions that container, so back-to-back ``setup_*_sim`` calls used
     to pile their containers at ``/obj``'s origin. ``layoutChildren`` never
     moves the parent, so this half is not gated by the flag.
+
+    Handlers that create nothing -- ``connect_nodes``, ``connect_nodes_batch``,
+    ``set_node_flags`` -- pass ``place_unpositioned=False``. The floor is for
+    freshly created nodes; running it on a call that only rewires would
+    relocate whatever the user had parked at the origin, which is the opposite
+    of what someone who set ``FXHOUDINIMCP_AUTO_LAYOUT=0`` asked for.
     """
-    _place_if_unplaced(node)
+    if place_unpositioned:
+        _place_if_unplaced(node)
     if auto_layout_enabled():
         node.layoutChildren()
-    else:
-        place_new_nodes(_children_stacked_at_origin(node))
+    elif place_unpositioned:
+        place_new_nodes(_unplaced_children(node))
 
 
 ###### Placement of freshly created nodes
@@ -61,6 +68,30 @@ _PLACE_KWARGS = {
     "move_outputs": False,
     "move_unconnected": False,
 }
+
+# moveToGoodPosition legitimately leaves the first node of a network exactly
+# where it was, so "sits at (0, 0)" on its own marks that node unplaced for
+# ever, and re-nudges it on some later, unrelated call -- a container jumping
+# because someone edited its insides. Record the decision instead. User data is
+# saved with the .hip, so the answer survives a reload.
+_PLACED_TAG = "fxhoudinimcp_placed"
+
+
+def mark_placed(node: hou.Node) -> None:
+    """Record that *node* has been positioned, so the floor leaves it alone."""
+    with contextlib.suppress(Exception):
+        node.setUserData(_PLACED_TAG, "1")
+
+
+def _is_unplaced(node: hou.Node) -> bool:
+    """Whether the placement floor should position *node*.
+
+    Unplaced means nobody has positioned it: no placement tag, and still at
+    exactly ``(0, 0)``. The residual cost is unchanged -- a node a user parked
+    at the origin by hand is nudged -- but only once, because placing it tags
+    it.
+    """
+    return node.userData(_PLACED_TAG) is None and tuple(node.position()) == (0.0, 0.0)
 
 
 def place_new_node(node: hou.Node) -> None:
@@ -78,6 +109,7 @@ def place_new_node(node: hou.Node) -> None:
     # Placement is cosmetic -- never fail a create because of it.
     with contextlib.suppress(Exception):
         node.moveToGoodPosition(**_PLACE_KWARGS)
+    mark_placed(node)
 
 
 def place_new_nodes(nodes) -> None:
@@ -91,17 +123,15 @@ def place_new_nodes(nodes) -> None:
             place_new_node(node)
 
 
-def _children_stacked_at_origin(parent: hou.Node) -> list:
-    """Children still parked at ``(0, 0)`` -- Houdini's mark of the unplaced.
+def _unplaced_children(parent: hou.Node) -> list:
+    """Children nothing has positioned yet.
 
-    A node nothing has positioned sits exactly at the origin, so this is how
-    the placement floor recognises fresh nodes without tracking every
-    ``createNode`` call. The cost: a node someone deliberately parked at
-    exactly ``(0, 0)`` gets nudged once. ``children()`` returns creation
-    order, which is what ``relative_to_inputs`` placement needs.
+    This is how the placement floor recognises fresh nodes without tracking
+    every ``createNode`` call. ``children()`` returns creation order, which is
+    what ``relative_to_inputs`` placement needs.
     """
     with contextlib.suppress(Exception):
-        return [child for child in parent.children() if tuple(child.position()) == (0.0, 0.0)]
+        return [child for child in parent.children() if _is_unplaced(child)]
     return []
 
 
@@ -116,9 +146,5 @@ def _place_if_unplaced(node: hou.Node) -> None:
     """
     with contextlib.suppress(Exception):
         parent = node.parent()
-        if (
-            parent is not None
-            and parent.parent() is not None
-            and tuple(node.position()) == (0.0, 0.0)
-        ):
+        if parent is not None and parent.parent() is not None and _is_unplaced(node):
             place_new_node(node)

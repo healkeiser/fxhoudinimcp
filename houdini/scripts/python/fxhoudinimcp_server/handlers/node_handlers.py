@@ -12,7 +12,12 @@ import contextlib
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import auto_layout_enabled, layout_if_enabled, place_new_node
+from fxhoudinimcp_server.config import (
+    auto_layout_enabled,
+    layout_if_enabled,
+    mark_placed,
+    place_new_node,
+)
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.serialize import to_jsonable
@@ -38,12 +43,17 @@ def _node_summary(node: hou.Node) -> dict:
     }
 
 
-def _focus_network_editor(node: hou.Node) -> None:
-    """Best-effort: layout the parent network, then pan the editor to *node*."""
+def _focus_network_editor(node: hou.Node, place_unpositioned: bool = True) -> None:
+    """Best-effort: layout the parent network, then pan the editor to *node*.
+
+    Callers that created nothing pass ``place_unpositioned=False``, so a call
+    that only rewires or flips a flag never relocates a node the user parked at
+    the origin.
+    """
     try:
         parent = node.parent()
         if parent is not None:
-            layout_if_enabled(parent)
+            layout_if_enabled(parent, place_unpositioned)
         for pane_tab in hou.ui.paneTabs():
             if pane_tab.type() == hou.paneTabType.NetworkEditor:
                 if parent is not None:
@@ -83,6 +93,9 @@ def create_node(
 
     if position is not None and len(position) >= 2:
         node.setPosition(hou.Vector2(position[0], position[1]))
+        # The caller's position is final, including [0, 0] -- without the tag
+        # the floor would read that as "never positioned" and move it.
+        mark_placed(node)
     else:
         # No position asked for: place it beside its inputs rather than leaving
         # it at (0, 0) on top of whatever is already there.
@@ -489,7 +502,7 @@ def connect_nodes(
 
     dest.setInput(input_index, source, output_index)
 
-    _focus_network_editor(dest)
+    _focus_network_editor(dest, place_unpositioned=False)
 
     return {
         "success": True,
@@ -544,7 +557,7 @@ def connect_nodes_batch(
             )
 
     if last_dest is not None:
-        _focus_network_editor(last_dest)
+        _focus_network_editor(last_dest, place_unpositioned=False)
 
     return {
         "success": len(errors) == 0,
@@ -698,7 +711,7 @@ def set_node_flags(
         )
 
     if changed.get("display"):
-        _focus_network_editor(node)
+        _focus_network_editor(node, place_unpositioned=False)
 
     return {
         "success": True,

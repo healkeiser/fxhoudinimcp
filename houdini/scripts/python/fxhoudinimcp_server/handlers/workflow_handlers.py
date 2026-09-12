@@ -14,7 +14,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 
@@ -554,6 +554,10 @@ def _setup_rbd_sim(
         gravity.setInput(0, rbdsolver, 0)
         gravity.setDisplayFlag(True)
         all_nodes.append(gravity.path())
+
+        # The dopnet's own children need their own call: geo.layoutChildren()
+        # does not descend, and the origin sweep only walks direct children.
+        layout_if_enabled(dopnet)
 
         dopimport = geo.createNode("dopimport", "dop_import1")
         _set_parm_safe(dopimport, "doppath", dopnet.path())
@@ -1169,6 +1173,9 @@ def _setup_render(
     if camera is None:
         print("[workflow] Creating camera at /obj")
         cam = obj.createNode("cam", "render_cam")
+        # Only /out is laid out below, so the camera is on its own -- without
+        # this, back-to-back setup_render calls pile cameras at /obj's origin.
+        place_new_node(cam)
         camera = cam.path()
         all_nodes.append(camera)
 

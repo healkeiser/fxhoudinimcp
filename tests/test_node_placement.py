@@ -20,6 +20,7 @@ being in tension.
 from __future__ import annotations
 
 # Built-in
+import ast
 import os
 import pathlib
 import sys
@@ -54,6 +55,7 @@ class _FakeNode:
         self.placements = []
         self.positions = []
         self.layouts = []
+        self.user_data = {}
 
     def parent(self):
         return self._parent
@@ -65,9 +67,16 @@ class _FakeNode:
 
     def setPosition(self, vector):
         self.positions.append(vector)
+        self.pos = tuple(vector)
 
     def position(self):
         return self.pos
+
+    def userData(self, name):
+        return self.user_data.get(name)
+
+    def setUserData(self, name, value):
+        self.user_data[name] = value
 
     def layoutChildren(self):
         self.layouts.append(True)
@@ -91,7 +100,9 @@ class _FakeParent(_FakeNode):
         self.created = []
 
     def createNode(self, node_type, node_name=None):
-        node = _FakeNode(f"{self._path}/{node_name or node_type}1")
+        # Parented, so the handlers' _focus_network_editor really reaches the
+        # placement floor -- without it these tests pass vacuously.
+        node = _FakeNode(f"{self._path}/{node_name or node_type}1", parent=self)
         self.created.append(node)
         return node
 
@@ -257,16 +268,177 @@ class TestHandlerSourceGuard:
         ]
         assert offenders == []
 
-    def test_every_creating_handler_reaches_a_placement_route(self):
-        """A handler that calls createNode must reach the placement floor
-        somehow: place_new_node directly, or layout_if_enabled (usually via
-        its _focus_network_editor). Guards the next handler someone adds --
-        the bare-call guard above passes trivially for a file that never
-        positions anything at all."""
-        routes = ("place_new_node", "layout_if_enabled", "_focus_network_editor")
+    def test_every_network_created_into_reaches_the_placement_floor(self):
+        """Per network created into, not per file.
+
+        Matching route names anywhere in the file passes vacuously: the RBD
+        DOP fallback created five nodes inside a dopnet nobody ever laid out,
+        and setup_render left its camera at /obj's origin, both in a file that
+        mentions all three routes elsewhere. A function that lays out one
+        network and forgets another is the failure worth catching.
+        """
         offenders = []
         for path in sorted(_HANDLER_DIR.glob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            if "createNode(" in text and not any(route in text for route in routes):
-                offenders.append(path.name)
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for network in _networks_left_unplaced(fn):
+                    if (fn.name, network) not in _PLACEMENT_EXEMPT:
+                        offenders.append(f"{path.name}:{fn.name} creates into {network}")
         assert offenders == []
+
+    def test_handlers_that_create_nothing_decline_the_floor(self):
+        """The floor is for freshly created nodes.
+
+        A handler that only rewires or flips a flag must pass
+        place_unpositioned=False, or it relocates whatever the user parked at
+        the origin on a call that created nothing -- which is what setting
+        FXHOUDINIMCP_AUTO_LAYOUT=0 asks us not to do.
+        """
+        routes = ("_focus_network_editor", "layout_if_enabled")
+        offenders = []
+        for path in sorted(_HANDLER_DIR.glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if fn.name == "_focus_network_editor":
+                    continue  # the helper itself just forwards the choice
+                calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)]
+                if any(_is_create_node(call) for call in calls):
+                    continue
+                for call in calls:
+                    if not isinstance(call.func, ast.Name) or call.func.id not in routes:
+                        continue
+                    if not any(kw.arg == "place_unpositioned" for kw in call.keywords):
+                        offenders.append(f"{path.name}:{fn.name} -> {call.func.id}")
+        assert offenders == []
+
+
+###### Guard helpers
+
+
+def _is_create_node(node) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "createNode"
+    )
+
+
+def _networks_left_unplaced(fn) -> list:
+    """Networks *fn* calls createNode on without routing them to the floor.
+
+    A network is covered when the function hands it to layout_if_enabled, or
+    when a node created inside it goes to _focus_network_editor (which lays out
+    that node's parent, so the whole network), or when every node created
+    inside it is placed individually.
+    """
+    created: dict[str, set] = {}
+    laid_out, placed, focused = set(), set(), set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                for call in ast.walk(node.value):
+                    if _is_create_node(call):
+                        created.setdefault(ast.unparse(call.func.value), set()).add(target.id)
+        if _is_create_node(node):
+            created.setdefault(ast.unparse(node.func.value), set())
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.args:
+            arg = ast.unparse(node.args[0])
+            if node.func.id == "layout_if_enabled":
+                laid_out.add(arg)
+            elif node.func.id in ("place_new_node", "place_new_nodes"):
+                placed.add(arg)
+            elif node.func.id == "_focus_network_editor":
+                focused.add(arg)
+    return [
+        network
+        for network, made in created.items()
+        if network not in laid_out
+        and not (made & focused)
+        and not (made and made <= (placed | laid_out))
+    ]
+
+
+# (function, network) pairs the check above cannot see through, each for a
+# reason that is not "nobody placed it".
+_PLACEMENT_EXEMPT = {
+    # Scratch probe, made in a throwaway network and destroyed again.
+    ("_parm_names_for_type", "scratch"),
+    # The /mat context itself: a root-level manager, which the floor
+    # deliberately never moves (moveToGoodPosition relocates /obj).
+    ("_create_material_network", "hou.node('/')"),
+    ("_ensure_mat_context", "hou.node('/')"),
+    # Hands the node straight back; the caller does the placing.
+    ("_create_first_available", "parent"),
+    # Delegates to _setup_pyro_sim_sop / _dop, which lay out both networks.
+    ("_setup_pyro_sim", "obj"),
+    ("_setup_pyro_sim", "geo"),
+    # Routed via _focus_network_editor(hou.node(created_path)), which this
+    # check cannot follow back to a variable.
+    ("import_file", "parent"),
+    # Sole child of a container created empty in the same breath: placement
+    # leaves the first node of a network where it is, so there is nothing to do.
+    ("import_file", "lopnet"),
+    ("import_file", "geo"),
+}
+
+
+class TestTheFloorStaysOffNonCreatingHandlers:
+    """connect_nodes, connect_nodes_batch and set_node_flags create nothing.
+
+    Running the floor from them relocated whatever the user had parked at the
+    origin, on a call that only rewired, which is the opposite of what setting
+    FXHOUDINIMCP_AUTO_LAYOUT=0 asks for.
+    """
+
+    def _network(self):
+        parked = _FakeNode("/obj/geo1/null1")
+        parent = _FakeNode("/obj/geo1", parent=_FakeNode("/obj"))
+        parent.children = lambda: (parked,)
+        return parked, _FakeNode("/obj/geo1/box1", pos=(2.0, 2.0), parent=parent)
+
+    def test_declining_the_floor_leaves_a_parked_node_alone(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        parked, node = self._network()
+        nodes._focus_network_editor(node, place_unpositioned=False)
+        assert parked.placements == []
+
+    def test_the_floor_still_runs_by_default(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        parked, node = self._network()
+        nodes._focus_network_editor(node)
+        assert parked.placements  # a creating caller still gets the floor
+
+
+class TestPlacementIsRecorded:
+    """moveToGoodPosition legitimately leaves the first node of a network
+    where it is, so position alone cannot answer "has this been placed?"."""
+
+    def test_a_placed_node_is_never_nudged_again(self, monkeypatch):
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        root = _FakeNode("/")
+        container = _FakeNode("/obj/pyro_sim", parent=_FakeNode("/obj", parent=root))
+        config.layout_if_enabled(container)
+        assert len(container.placements) == 1
+        # A later call that only touched the container's insides.
+        config.layout_if_enabled(container)
+        assert len(container.placements) == 1
+
+    def test_an_explicit_origin_position_is_respected(self, monkeypatch):
+        """position=[0, 0] is a position. Untagged, the floor read it back as
+        "never positioned" and moved the node the caller had just placed."""
+        monkeypatch.setattr(config, "auto_layout_enabled", lambda: False)
+        monkeypatch.setattr(nodes.hou, "Vector2", lambda x, y: (x, y), raising=False)
+        parent = _FakeParent()
+        parent.children = lambda: tuple(parent.created)
+        monkeypatch.setattr(nodes, "_get_node", lambda path: parent)
+
+        nodes.create_node("/obj/geo1", "box", position=[0, 0])
+
+        node = parent.created[0]
+        assert node.positions == [(0, 0)]
+        assert node.placements == []
