@@ -166,11 +166,51 @@ class TestPdgFailures:
         assert "errors" in node_level and "warnings" in node_level
         item_level = call("tops.get_top_logs", node_path=failing_top, work_item_index=0)
         assert item_level["work_item"]["index"] == 0
-        assert "log" in item_level
+        # In-process items keep their traceback in pdg.WorkItem.logMessages, not in
+        # a scheduler file. The tool must surface it, or a failed item is a dead end.
+        assert "parity: deliberate failure" in item_level["log"], item_level
         error = call(
             "tops.get_top_logs", node_path=failing_top, work_item_index=999, expect_error=True
         )
         assert "999" in error["message"]
+
+    def test_failed_items_carry_their_traceback(self, call, failing_top):
+        failed = call("tops.get_failed_work_items", node_path=failing_top)
+        assert failed["failed"], failed
+        assert all(
+            "parity: deliberate failure" in item.get("log_tail", "") for item in failed["failed"]
+        ), failed
+
+    def test_cook_that_fails_every_item_does_not_report_success(self, call):
+        """cook_top_node said success: true, errors: [] with every item cooked_fail.
+
+        node.errors() only holds generation-time errors; cook-time failures live in
+        the work item states, which the handler never read.
+        """
+        topnet = call(
+            "nodes.create_node", parent_path="/obj", node_type="topnet", name="parity_pdg2"
+        )["node_path"]
+        gen = hou.node(topnet).createNode("genericgenerator")
+        gen.parm("itemcount").set(2)
+        script = gen.createOutputNode("pythonscript")
+        script.parm("script").set("raise RuntimeError('parity: cook failure')")
+        script.parm("pdg_cooktype").set(1)
+        script.setDisplayFlag(True)
+        result = call("tops.cook_top_node", node_path=script.path(), block=True)
+        assert result["success"] is False, result
+        assert result["state_counts"].get("cooked_fail") == 2, result
+        assert "parity: cook failure" in result["message"], result
+
+    def test_cook_that_succeeds_still_reports_success(self, call):
+        topnet = call(
+            "nodes.create_node", parent_path="/obj", node_type="topnet", name="parity_pdg3"
+        )["node_path"]
+        gen = hou.node(topnet).createNode("genericgenerator")
+        gen.parm("itemcount").set(2)
+        gen.setDisplayFlag(True)
+        result = call("tops.cook_top_node", node_path=gen.path(), block=True)
+        assert result["success"] is True, result
+        assert result["state_counts"].get("cooked_success") == 2, result
 
 
 class TestHdaVersions:

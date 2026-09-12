@@ -160,6 +160,15 @@ def _work_item_state_name(state) -> str:
         return str(state)
 
 
+def _state_counts(pdg_node) -> dict:
+    """How many work items sit in each state, by readable name."""
+    counts: dict = {}
+    for wi in pdg_node.workItems:
+        name = _work_item_state_name(wi.state)
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 def _work_item_to_dict(work_item) -> dict:
     """Convert a PDG work item to a plain dict."""
     info = {
@@ -335,10 +344,12 @@ def cook_top_node(
 
     try:
         pdg_node = _get_pdg_node(node)
-        work_items = pdg_node.workItems
+        work_items = list(pdg_node.workItems)
         result["work_item_count"] = len(work_items)
     except (ValueError, AttributeError) as e:
         logger.debug("Could not read work item count: %s", e)
+        pdg_node = None
+        work_items = []
         result["work_item_count"] = None
 
     try:
@@ -348,6 +359,30 @@ def cook_top_node(
         logger.debug("Could not read node errors: %s", e)
         result["errors"] = []
 
+    if not block or pdg_node is None:
+        return result
+
+    # node.errors() only holds generation-time errors. A script that raises while
+    # *cooking* leaves the node clean and marks each work item cooked_fail, so the
+    # states are the only honest verdict on a blocking cook. This used to return
+    # success: True, errors: [] with every item failed.
+    counts = _state_counts(pdg_node)
+    result["state_counts"] = counts
+    failed = [wi for wi in work_items if _work_item_state_name(wi.state) == "cooked_fail"]
+    cancelled = counts.get("cooked_cancel", 0)
+    if failed or cancelled:
+        result["success"] = False
+        parts = []
+        if failed:
+            parts.append(f"{len(failed)} of {len(work_items)} work item(s) failed")
+        if cancelled:
+            parts.append(f"{cancelled} cancelled")
+        message = "; ".join(parts) + f" on {node.path()}."
+        first_log = _work_item_log(failed[0]).strip() if failed else ""
+        if first_log:
+            message += f" First failure ({failed[0].name}): {first_log[-500:]}"
+        message += " get_failed_work_items lists them all with their logs."
+        result["message"] = message
     return result
 
 
@@ -747,20 +782,44 @@ def get_failed_work_items(node_path: str, limit: int = 50) -> dict:
     return {"node_path": node.path(), "failed_count": len(failed), "failed": failed}
 
 
+def _log_uri_to_path(uri: str) -> str:
+    """``file:C:/x``, ``file:///C:/x`` and ``file:///tmp/x`` all to a local path."""
+    if uri.startswith("file://"):
+        path = uri[len("file://") :]
+        # file:///C:/x arrives as /C:/x; a POSIX file:///tmp/x must keep its slash.
+        if len(path) > 2 and path[0] == "/" and path[2] == ":":
+            path = path[1:]
+        return path
+    return uri[len("file:") :]
+
+
 def _work_item_log(work_item) -> str:
-    """Whatever the scheduler kept as this item's log, or empty."""
+    """This item's log text, or empty.
+
+    In-process items (the default for Python Script, and every item cooked without
+    a scheduler process) keep their output and traceback in ``logMessages``, not in
+    a file. Out-of-process items have a ``logURI`` the scheduler wrote. Read both,
+    text first. Measured on 22.0.368: a raising Python Script TOP puts the full
+    traceback in logMessages and leaves node.errors() empty.
+    """
+    text = ""
     try:
-        text = work_item.node.scheduler.getLogURI(work_item) if work_item.node else ""
+        text = work_item.logMessages or ""
     except Exception:
         text = ""
-    if isinstance(text, str) and text.startswith("file:"):
-        path = text[len("file:") :].lstrip("/") if text.startswith("file:///") else text[5:]
+    if text:
+        return text
+    try:
+        uri = work_item.logURI or ""
+    except Exception:
+        uri = ""
+    if uri.startswith("file:"):
         try:
-            with open(path, encoding="utf-8", errors="replace") as handle:
+            with open(_log_uri_to_path(uri), encoding="utf-8", errors="replace") as handle:
                 return handle.read()
         except OSError:
             return ""
-    return text if isinstance(text, str) else ""
+    return ""
 
 
 ###### tops.get_top_logs
@@ -800,7 +859,10 @@ def get_top_logs(node_path: str, work_item_index: int | None = None, tail: int =
     result["log"] = log[-tail:] if tail > 0 else log
     result["truncated"] = tail > 0 and len(log) > tail
     if not log:
-        result["message"] = "No log kept for this work item. In-process items produce none."
+        result["message"] = (
+            "No log recorded for this work item: nothing was written to logMessages "
+            "and no scheduler log file exists."
+        )
     return result
 
 
