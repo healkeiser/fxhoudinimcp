@@ -30,9 +30,9 @@
             }
         },
         {
-            "label": "Deploy Documentation (MkDocs)",
+            "label": "Build Documentation (Zensical)",
             "type": "shell",
-            "command": "python -m mkdocs gh-deploy",
+            "command": "python docs/.scripts/generate_technical_docs.py && python -m zensical build --clean --strict",
             "problemMatcher": [],
             "group": {
                 "kind": "none",
@@ -44,9 +44,9 @@
             }
         },
         {
-            "label": "Deploy Documentation (MkDocs, Local Preview)",
+            "label": "Preview Documentation (Zensical)",
             "type": "shell",
-            "command": "python -m mkdocs serve",
+            "command": "python docs/.scripts/generate_technical_docs.py && python -m zensical serve",
             "problemMatcher": [],
             "group": {
                 "kind": "none",

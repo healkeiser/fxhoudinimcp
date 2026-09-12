@@ -33,7 +33,12 @@ jobs:
           python-version: 3.x
 
       - name: Install dependencies
-        run: pip install -r requirements.mkdocs.txt
+        run: pip install -r requirements.docs.txt
+
+      # Zensical has no gen-files plugin: the Technical section is written to
+      # docs/technical/ (gitignored) before the build reads it.
+      - name: Generate the Technical section
+        run: python docs/.scripts/generate_technical_docs.py
 
       - name: Configure Git
         run: |
@@ -50,8 +55,6 @@ jobs:
           fi
 
       - name: Deploy docs (versioned)
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0")
           mike deploy --push --update-aliases "$VERSION" latest

@@ -1,0 +1,155 @@
+# Zensical configuration. Successor to mkdocs.yml.
+#
+# Author: Valentin Beaumont
+# Mail: valentin.onze@gmail.com
+#
+# The Technical section is generated from the Python package before each
+# build by docs/.scripts/generate_technical_docs.py (Zensical has no
+# gen-files plugin); literate-nav then reads docs/technical/SUMMARY.md.
+
+[project]
+site_name = "fxhoudinimcp"
+site_author = "Valentin Beaumont"
+copyright = "Valentin Beaumont | Licensed under the MIT License"
+repo_url = "https://github.com/healkeiser/fxhoudinimcp"
+repo_name = "healkeiser/fxhoudinimcp"
+edit_uri = "edit/main/docs/"
+
+###### Navigation ##############################################################
+
+nav = [
+  { Home = "index.md" },
+  { Installation = "installation.md" },
+  { "How-to" = [
+    { Overview = "how-to/index.md" },
+    { Configuration = "how-to/configuration.md" },
+    { Tools = "how-to/tools.md" },
+  ] },
+  { Technical = "technical/" },
+  { Changelog = "changelog.md" },
+]
+
+###### Custom ##################################################################
+
+extra_css = ["stylesheets/extra.css"]
+
+[project.extra.status]
+new = "Recently added"
+deprecated = "No longer supported"
+
+[project.extra.version]
+provider = "mike"
+default = "latest"
+alias = true
+
+###### Theme ###################################################################
+
+[project.theme]
+# "classic" keeps the Material for MkDocs look the site had before the switch.
+variant = "classic"
+language = "en"
+favicon = "images/favicon.svg"
+logo = "images/logo.svg"
+features = [
+  "announce.dismiss",
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.expand",
+  "navigation.top",
+  "navigation.path",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "search.suggest",
+  "search.highlight",
+  "toc.follow",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.tooltips",
+  "content.tabs.link",
+  "content.action.edit",
+]
+
+[project.theme.icon]
+repo = "material/github"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "black"
+accent = "custom"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "black"
+accent = "custom"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+###### Markdown extensions #####################################################
+
+[project.markdown_extensions]
+toc.permalink = true
+footnotes = {}
+admonition = {}
+attr_list = {}
+md_in_html = {}
+def_list = {}
+tables = {}
+pymdownx.details = {}
+pymdownx.inlinehilite = {}
+pymdownx.snippets = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.critic = {}
+pymdownx.caret = {}
+pymdownx.keys = {}
+pymdownx.mark = {}
+pymdownx.tilde = {}
+pymdownx.b64 = {}
+pymdownx.smartsymbols = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tabbed.alternate_style = true
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+
+###### Plugins #################################################################
+
+[project.plugins.search]
+
+[project.plugins.literate-nav]
+nav_file = "SUMMARY.md"
+
+[project.plugins.section-index]
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["python"]
+inventories = ["https://docs.python.org/3/objects.inv"]
+options.heading_level = 2
+options.show_source = false
+options.show_symbol_type_heading = true
+options.show_symbol_type_toc = true
+options.separate_signature = true
+options.parameter_headings = true
+options.line_length = 80
+options.show_signature_annotations = true
+options.signature_crossrefs = true
+options.docstring_style = "google"
+options.docstring_section_style = "table"
+options.show_if_no_docstring = false
+options.show_docstring_attributes = true
+options.annotations_path = "brief"
+options.show_submodules = false
+options.show_root_heading = true
+options.show_root_full_path = false
+options.find_stubs_package = true
+options.summary = true
+options.members_order = "alphabetical"
+options.group_by_category = true
+options.show_category_heading = true
+options.merge_init_into_class = true
+options.show_inheritance_diagram = true
