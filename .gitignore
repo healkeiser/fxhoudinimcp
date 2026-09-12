@@ -50,3 +50,6 @@ Thumbs.db
 # Test artifact: scene.new_scene(save_current=True) on an unsaved scene writes
 # this into the working directory.
 /untitled.hip
+
+# mkdocs plugin caches (git-committers etc.)
+.cache/
