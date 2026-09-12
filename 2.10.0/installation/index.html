@@ -2525,7 +2525,7 @@ file, so both work. The cost is an <strong>MCP</strong> menu in a Houdini versio
 use, which <code>uninstall</code> clears in one go.</p>
 <p>Because it never stops to ask, the same command works unchanged from a terminal,
 from Houdini's MCP menu, or from a setup script. To target one directory only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp<span class="w"> </span>install<span class="w"> </span>--houdini-dir<span class="w"> </span><span class="s2">&quot;~/Documents/houdini22.0/packages&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp<span class="w"> </span>install<span class="w"> </span>--houdini-dir<span class="w"> </span><span class="s2">"~/Documents/houdini22.0/packages"</span>
 </code></pre></div>
 <p>If your MCP client already has an <code>fxhoudini</code> entry pointing at a different
 interpreter, it is repointed at this one and the old value is printed. That is
@@ -2639,7 +2639,7 @@ something needs untangling. It is the same two halves.</p>
 </code></pre></div>
 <p>That prints the package file with the plugin path filled in for <em>this</em> install,
 plus the Houdini packages directories found on your machine. Write it with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>fxhoudinimcp<span class="w"> </span>houdini-package<span class="w"> </span>--write<span class="w"> </span><span class="s2">&quot;~/Documents/houdini22.0/packages&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>fxhoudinimcp<span class="w"> </span>houdini-package<span class="w"> </span>--write<span class="w"> </span><span class="s2">"~/Documents/houdini22.0/packages"</span>
 </code></pre></div>
 <p>Do not type the plugin path by hand. It lives inside the Python environment you
 installed into, so it changes if you recreate a virtualenv, switch to uv or
@@ -2651,8 +2651,8 @@ processes every packages directory and lets the last one win. That is how a stal
 clone silently overrides a fresh install.</p>
 <p><strong>Pointing at a clone instead.</strong> Contributors, or anyone wanting the plugin
 tracked by git, can write the package file against a checkout:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;FXHOUDINIMCP&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:/Users/you/code/fxhoudinimcp/houdini&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$FXHOUDINIMCP&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"env"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"FXHOUDINIMCP"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:/Users/you/code/fxhoudinimcp/houdini"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$FXHOUDINIMCP"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>Forward slashes work on every platform. The path must end in <code>/houdini</code> and must
 contain <code>scripts/</code>, <code>MainMenuCommon.xml</code> and the <code>python3.Xlibs/</code> folders. Do not
@@ -2671,20 +2671,20 @@ installed. Clients start their servers without your shell environment, so a bare
 <code>python</code> resolves against a PATH they may not share, and the only symptom is the
 client reporting <strong>disconnected</strong> with nothing explaining why. Find the path
 with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sys; print(sys.executable)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import sys; print(sys.executable)"</span>
 </code></pre></div>
 <p><strong>Claude Code</strong> (user scope, available in every project):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>fxhoudini<span class="w"> </span>--<span class="w"> </span><span class="s2">&quot;C:\Program Files\Python311\python.exe&quot;</span><span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>fxhoudini<span class="w"> </span>--<span class="w"> </span><span class="s2">"C:\Program Files\Python311\python.exe"</span><span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
 </code></pre></div>
 <p>There is no in-place update. To repoint an existing entry, remove it first:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>remove<span class="w"> </span>fxhoudini<span class="w"> </span>-s<span class="w"> </span>user
 </code></pre></div>
 <p><strong>Claude Desktop</strong> (<code>claude_desktop_config.json</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">&quot;fxhoudini&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\Program Files\\Python311\\python.exe&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fxhoudinimcp&quot;</span><span class="p">]</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">"fxhoudini"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:\\Program Files\\Python311\\python.exe"</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">"args"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"-m"</span><span class="p">,</span><span class="w"> </span><span class="s2">"fxhoudinimcp"</span><span class="p">]</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="p">}</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">}</span>
@@ -2745,7 +2745,7 @@ installer. It now exits with <code>unknown command</code> and the list of real o
 <h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
 <h3 id="mkdocs-documentation">MkDocs Documentation<a class="headerlink" href="#mkdocs-documentation" title="Permanent link">&para;</a></h3>
 <p>For building the documentation locally:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[mkdocs]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[mkdocs]"</span>
 </code></pre></div>
 
 
