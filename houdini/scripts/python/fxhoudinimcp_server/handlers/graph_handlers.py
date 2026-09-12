@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import tempfile
 import time
 import zipfile
@@ -59,12 +60,41 @@ def _resolve_node_type(category: hou.NodeTypeCategory, type_name: str):
     return None
 
 
-def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict]:
-    """Instantiate a type once to learn its parm names, tuple names and menus.
+def _instance_patterns(node_type) -> list[re.Pattern]:
+    """Regexes matching the live names of a type's multiparm instances.
+
+    A fresh probe node has zero instances, so `usept0` and `pt0x` on an Add
+    SOP were reported as non-existent and a session fell back to a wrangle
+    to make three points. The template names carry `#` where the instance
+    number goes; a live name is that with digits, plus an optional vector
+    component suffix.
+    """
+    patterns: list[re.Pattern] = []
+
+    def walk(templates) -> None:
+        for template in templates:
+            if "#" in template.name():
+                body = re.escape(template.name()).replace(r"\#", r"\d+")
+                patterns.append(re.compile(rf"^{body}[xyzwrgba]?$"))
+            if template.type() == hou.parmTemplateType.Folder:
+                walk(template.parmTemplates())
+
+    walk(node_type.parmTemplateGroup().entries())
+    return patterns
+
+
+def _is_instance_parm(name: str, patterns: list[re.Pattern]) -> bool:
+    return any(p.match(name) for p in patterns)
+
+
+def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict, list]:
+    """Instantiate a type once to learn its parm names, tuple names, menus and
+    multiparm instance patterns.
 
     The third element maps a strict-menu parm name to its token list. Only
     menus that reject arbitrary text are recorded (int menus and "normal"
     string menus); a free-text field with a suggestion menu is not a menu.
+    The fourth is what `_instance_patterns` returns.
     """
     probe = scratch.createNode(node_type.name())
     parm_names = {p.name() for p in probe.parms()}
@@ -83,7 +113,7 @@ def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict]:
             ):
                 menus[parm.name()] = items
     probe.destroy()
-    return parm_names, tuple_names, menus
+    return parm_names, tuple_names, menus, _instance_patterns(node_type)
 
 
 def _menu_error(parm_name: str, value: Any, tokens: list[str]) -> str | None:
@@ -260,7 +290,7 @@ def build_network(
     # nodes are destroyed immediately; display/render flags restored), so
     # bad parm names fail validation, not the build. Runs even when other
     # errors exist: report everything in one pass.
-    parm_knowledge: dict[str, tuple[set, set, dict]] = {}
+    parm_knowledge: dict[str, tuple[set, set, dict, list]] = {}
     if resolved_types:
         display_before = parent.displayNode() if hasattr(parent, "displayNode") else None
         render_before = parent.renderNode() if hasattr(parent, "renderNode") else None
@@ -278,13 +308,17 @@ def build_network(
         label = spec.get("name") or spec.get("type") or f"#{index}"
         knowledge = parm_knowledge.get(spec.get("type"))
         if knowledge:
-            parm_names, tuple_names, menus = knowledge
+            parm_names, tuple_names, menus, instance_patterns = knowledge
             for parm_name, value in (spec.get("parms") or {}).items():
                 if parm_name in menus:
                     problem = _menu_error(parm_name, value, menus[parm_name])
                     if problem:
                         errors.append(f"node {label}: {problem}")
-                if parm_name not in parm_names and parm_name not in tuple_names:
+                if (
+                    parm_name not in parm_names
+                    and parm_name not in tuple_names
+                    and not _is_instance_parm(parm_name, instance_patterns)
+                ):
                     close = get_close_matches(
                         parm_name,
                         sorted(parm_names | tuple_names),

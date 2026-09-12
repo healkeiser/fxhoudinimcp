@@ -183,3 +183,20 @@ def test_frame_glob_comes_from_evaluated_paths(at_1, at_2, expected, monkeypatch
 
     assert cache_handlers._frame_glob(node) == expected
     assert state["frame"] == 7.0  # playbar restored
+
+
+def test_multiparm_instance_names_validate_against_the_template():
+    """usept0 / pt0x on an Add SOP are real once the count is set; a zero-instance probe never has them."""
+    import re
+
+    patterns = [
+        re.compile(r"^usept\d+[xyzwrgba]?$"),
+        re.compile(r"^pt\d+[xyzwrgba]?$"),
+        re.compile(r"^source_volume\d+[xyzwrgba]?$"),
+    ]
+    assert graph_handlers._is_instance_parm("usept0", patterns)
+    assert graph_handlers._is_instance_parm("pt12x", patterns)
+    assert graph_handlers._is_instance_parm("source_volume3", patterns)
+    assert not graph_handlers._is_instance_parm("pt", patterns)
+    assert not graph_handlers._is_instance_parm("points", patterns)
+    assert not graph_handlers._is_instance_parm("pt0xy", patterns)
