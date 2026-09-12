@@ -1,0 +1,6 @@
+# Documentation build dependencies (Zensical).
+# Source of truth for the PyPI part: pyproject.toml [project.optional-dependencies.docs]
+-e .[docs]
+# Zensical's versioned deploys use squidfunk's fork of mike, not the PyPI release:
+# https://zensical.org/docs/setup/versioning/
+mike @ git+https://github.com/squidfunk/mike.git
