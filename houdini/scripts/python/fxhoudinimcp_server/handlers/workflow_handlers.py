@@ -14,7 +14,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 
@@ -555,9 +555,17 @@ def _setup_rbd_sim(
         gravity.setDisplayFlag(True)
         all_nodes.append(gravity.path())
 
+        # The dopnet's own children need their own call: geo.layoutChildren()
+        # does not descend, and the origin sweep only walks direct children.
+        layout_if_enabled(dopnet)
+
         dopimport = geo.createNode("dopimport", "dop_import1")
         _set_parm_safe(dopimport, "doppath", dopnet.path())
-        dopimport.setInput(0, last_sop, 0)
+        # No setInput: "dopimport" resolves to dopimport::2.0, which has no
+        # inputs at all and reads the sim straight out of doppath. Only the
+        # version 1 node took one, so wiring it raised hou.InvalidInput and
+        # killed this branch outright. The pyro and flip paths above already
+        # treat the DOP Import as the head of its own chain.
         all_nodes.append(dopimport.path())
         last_sop = dopimport
 
@@ -1169,6 +1177,9 @@ def _setup_render(
     if camera is None:
         print("[workflow] Creating camera at /obj")
         cam = obj.createNode("cam", "render_cam")
+        # Only /out is laid out below, so the camera is on its own -- without
+        # this, back-to-back setup_render calls pile cameras at /obj's origin.
+        place_new_node(cam)
         camera = cam.path()
         all_nodes.append(camera)
 

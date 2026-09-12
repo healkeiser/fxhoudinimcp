@@ -156,10 +156,10 @@ def build_network(
             flags (dict): display/render/bypass/template booleans.
             color (list[3]) and comment (str): network annotations.
         dry_run: Validate only; never mutates the scene.
-        layout: Position the nodes created by this call, each relative to its
-            inputs (default). Nodes that already existed are never moved. With
-            FXHOUDINIMCP_AUTO_LAYOUT enabled the whole parent network is laid
-            out on top of that.
+        layout: Also lay out the whole parent network afterwards, which only
+            happens when FXHOUDINIMCP_AUTO_LAYOUT is enabled. It does not gate
+            placement: the nodes this call creates are always positioned, each
+            relative to its inputs, and nodes that already existed never move.
     """
     parent = hou.node(parent_path)
     errors: list[str] = []
