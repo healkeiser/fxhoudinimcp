@@ -59,13 +59,52 @@ def _resolve_node_type(category: hou.NodeTypeCategory, type_name: str):
     return None
 
 
-def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set]:
-    """Instantiate a type once to learn its parm and parmTuple names."""
+def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict]:
+    """Instantiate a type once to learn its parm names, tuple names and menus.
+
+    The third element maps a strict-menu parm name to its token list. Only
+    menus that reject arbitrary text are recorded (int menus and "normal"
+    string menus); a free-text field with a suggestion menu is not a menu.
+    """
     probe = scratch.createNode(node_type.name())
     parm_names = {p.name() for p in probe.parms()}
     tuple_names = {pt.name() for pt in probe.parmTuples()}
+    menus: dict[str, list[str]] = {}
+    for parm in probe.parms():
+        with contextlib.suppress(Exception):
+            template = parm.parmTemplate()
+            items = list(parm.menuItems())
+            if items and (
+                template.type() == hou.parmTemplateType.Menu
+                or (
+                    template.type() == hou.parmTemplateType.String
+                    and template.menuType() == hou.menuType.Normal
+                )
+            ):
+                menus[parm.name()] = items
     probe.destroy()
-    return parm_names, tuple_names
+    return parm_names, tuple_names, menus
+
+
+def _menu_error(parm_name: str, value: Any, tokens: list[str]) -> str | None:
+    """Why `value` cannot be set on a strict menu parm, or None if it can.
+
+    Houdini only says "Invalid menu item" at set time, after the whole build
+    is under way, and build_network then rolls everything back. Catching it
+    at validation keeps a typo in one token from costing the whole graph.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        if 0 <= value < len(tokens):
+            return None
+        return f"parm '{parm_name}': menu index {value} is out of range (0-{len(tokens) - 1})"
+    if isinstance(value, str) and value not in tokens:
+        close = get_close_matches(value, tokens, n=3, cutoff=0.4)
+        hint = f" Did you mean: {close}?" if close else ""
+        shown = tokens[:15] + (["..."] if len(tokens) > 15 else [])
+        return f"parm '{parm_name}': '{value}' is not a menu item. Items: {shown}.{hint}"
+    return None
 
 
 def _apply_parm(node: hou.Node, name: str, value: Any) -> None:
@@ -221,7 +260,7 @@ def build_network(
     # nodes are destroyed immediately; display/render flags restored), so
     # bad parm names fail validation, not the build. Runs even when other
     # errors exist: report everything in one pass.
-    parm_knowledge: dict[str, tuple[set, set]] = {}
+    parm_knowledge: dict[str, tuple[set, set, dict]] = {}
     if resolved_types:
         display_before = parent.displayNode() if hasattr(parent, "displayNode") else None
         render_before = parent.renderNode() if hasattr(parent, "renderNode") else None
@@ -239,8 +278,12 @@ def build_network(
         label = spec.get("name") or spec.get("type") or f"#{index}"
         knowledge = parm_knowledge.get(spec.get("type"))
         if knowledge:
-            parm_names, tuple_names = knowledge
-            for parm_name in spec.get("parms") or {}:
+            parm_names, tuple_names, menus = knowledge
+            for parm_name, value in (spec.get("parms") or {}).items():
+                if parm_name in menus:
+                    problem = _menu_error(parm_name, value, menus[parm_name])
+                    if problem:
+                        errors.append(f"node {label}: {problem}")
                 if parm_name not in parm_names and parm_name not in tuple_names:
                     close = get_close_matches(
                         parm_name,
@@ -489,6 +532,7 @@ def get_node_card(
     _PARM_CAP = 80
     _MENU_CAP = 15
     truncated = False
+    omitted: list[str] = []
     matched = 0
     for template in resolved.parmTemplateGroup().entriesWithoutFolders():
         name, label = template.name(), template.label()
@@ -500,7 +544,11 @@ def get_node_card(
             continue
         matched += 1
         if len(parms) >= _PARM_CAP:
+            # Past the cap the card still names the parameter, without its
+            # details. A File Cache has 82 parameters and the cap was 80, so
+            # `savebackground` was invisible and got hunted down by hand.
             truncated = True
+            omitted.append(name)
             continue
         entry: dict[str, Any] = {
             "name": name,
@@ -578,6 +626,7 @@ def get_node_card(
         "is_generator": resolved.minNumInputs() == 0,
         "parm_count": len(parms),
         "parms_matched": matched,
+        "parms_omitted": omitted,
         "parms_truncated": truncated,
         "parms": parms,
         "multiparms": multiparms,

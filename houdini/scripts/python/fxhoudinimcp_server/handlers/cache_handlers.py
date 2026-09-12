@@ -293,10 +293,45 @@ register_handler("cache.clear_cache", _clear_cache)
 ###### cache.write_cache
 
 
+@contextlib.contextmanager
+def _at_frame(frame: float | None):
+    """Evaluate output paths at the frame a write starts on.
+
+    The verdict compares files before and after by evaluating `$F` paths, and
+    it used to do that at the current frame. Writing frames 10-12 while the
+    playbar sat on frame 1 then read as "nothing was written".
+    """
+    if frame is None:
+        yield
+        return
+    previous = hou.frame()
+    hou.setFrame(frame)
+    try:
+        yield
+    finally:
+        hou.setFrame(previous)
+
+
+def _set_frame_parm(node: hou.Node, name: str, value: float) -> None:
+    """Set f1/f2, removing the $FSTART/$FEND keyframe a fresh cache node ships with.
+
+    parm.set() on a parm driven by an expression keyframe leaves the
+    expression in charge: set(10) evaluates back to $FSTART. So the range this
+    function was asked for used to be silently ignored.
+    """
+    parm = node.parm(name)
+    if parm is None:
+        return
+    if parm.keyframes():
+        parm.deleteAllKeyframes()
+    parm.set(value)
+
+
 def _write_cache(
     *,
     node_path: str,
     frame_range: list[int] | None = None,
+    background: bool = False,
     **_: Any,
 ) -> dict[str, Any]:
     """Execute (render) a cache node to write files to disk.
@@ -308,8 +343,19 @@ def _write_cache(
         node_path: Path to the cache node.
         frame_range: Optional [start_frame, end_frame] to render. If not
             provided, uses the node's own frame range settings.
+        background: Write in a separate Houdini process (File Cache's own
+            "Save in Background" toggle) so the session stays responsive.
+            The return then reports the launch, not the finished files.
     """
     node = _get_node(node_path)
+
+    bg_parm = node.parm("savebackground")
+    if background and bg_parm is None:
+        raise ValueError(
+            f"{node_path} has no 'savebackground' toggle; background=True needs a File Cache"
+        )
+    if bg_parm is not None:
+        bg_parm.set(1 if background else 0)
 
     # Set frame range if provided
     if frame_range is not None and len(frame_range) >= 2:
@@ -320,12 +366,8 @@ def _write_cache(
             trange_idx = _menu_index_by_label(trange_parm, "specific frame")
             trange_parm.set(trange_idx if trange_idx is not None else 1)
 
-        f1_parm = node.parm("f1")
-        f2_parm = node.parm("f2")
-        if f1_parm is not None:
-            f1_parm.set(frame_range[0])
-        if f2_parm is not None:
-            f2_parm.set(frame_range[1])
+        _set_frame_parm(node, "f1", frame_range[0])
+        _set_frame_parm(node, "f2", frame_range[1])
 
     # Snapshot the output before executing, so "did a cache appear" is answerable
     # afterwards. pressButton() is fire-and-forget: a File Cache SOP that fails to
@@ -333,7 +375,9 @@ def _write_cache(
     # function used to set status = "success" on the strength of having pressed a
     # button. That is the report an artist trusts before closing Houdini for the
     # night, and it was never evidence that a cache exists.
-    before = reported_outputs(node)
+    first_frame = frame_range[0] if frame_range else None
+    with _at_frame(first_frame):
+        before = reported_outputs(node)
 
     failure: Exception | None = None
     method = "execute button"
@@ -366,15 +410,17 @@ def _write_cache(
             with contextlib.suppress(Exception):
                 actual_range = [f1_parm.eval(), f2_parm.eval()]
 
-    verdict = (
-        failure_verdict(node, before, failure, action="Cache write")
-        if failure is not None
-        else write_verdict(node, before, action="Cache write")
-    )
+    with _at_frame(first_frame):
+        verdict = (
+            failure_verdict(node, before, failure, action="Cache write")
+            if failure is not None
+            else write_verdict(node, before, action="Cache write")
+        )
     return {
         "node_path": node_path,
         "frame_range": actual_range,
         "method": method,
+        "background": background,
         # Kept so existing callers reading `status` still work, but derived from
         # the same evidence as `success` rather than from an unconditional string.
         "status": (

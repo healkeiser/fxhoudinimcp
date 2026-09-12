@@ -7,6 +7,7 @@ nodes within Houdini's node graph.
 from __future__ import annotations
 
 import contextlib
+from difflib import get_close_matches
 
 # Third-party
 import hou
@@ -483,11 +484,31 @@ def list_node_types(
 ###### nodes.connect_nodes
 
 
+def _resolve_input_index(dest: hou.Node, input_index: int, input_name: str | None) -> int:
+    """Turn an input name (VOP connector such as "base_color") into its index.
+
+    VOP shaders have dozens of inputs and their order is not stable across
+    versions; the name is what the node card shows. Indices still work.
+    """
+    if not input_name:
+        return int(input_index)
+    names = list(dest.inputNames()) if hasattr(dest, "inputNames") else []
+    if input_name in names:
+        return names.index(input_name)
+    labels = list(dest.inputLabels())
+    if input_name in labels:
+        return labels.index(input_name)
+    close = get_close_matches(input_name, names + labels, n=3, cutoff=0.4)
+    hint = f" Did you mean: {close}?" if close else ""
+    raise ValueError(f"{dest.path()} has no input named '{input_name}'.{hint}")
+
+
 def connect_nodes(
     source_path: str,
     dest_path: str,
     output_index: int = 0,
     input_index: int = 0,
+    input_name: str | None = None,
 ) -> dict:
     """Wire two nodes together.
 
@@ -496,10 +517,12 @@ def connect_nodes(
         dest_path: Path to the destination (downstream) node.
         output_index: Output connector index on the source node.
         input_index: Input connector index on the destination node.
+        input_name: Input connector name or label; wins over input_index.
     """
     source = _get_node(source_path)
     dest = _get_node(dest_path)
 
+    input_index = _resolve_input_index(dest, input_index, input_name)
     dest.setInput(input_index, source, output_index)
 
     _focus_network_editor(dest, place_unpositioned=False)
@@ -523,7 +546,8 @@ def connect_nodes_batch(
 
     Args:
         connections: List of dicts, each with keys:
-            source_path, dest_path, output_index (default 0), input_index (default 0).
+            source_path, dest_path, output_index (default 0), input_index (default 0),
+            input_name (optional; a connector name or label, wins over input_index).
     """
     results = []
     errors = []
@@ -537,6 +561,7 @@ def connect_nodes_batch(
         try:
             source = _get_node(src_path)
             dest = _get_node(dst_path)
+            in_idx = _resolve_input_index(dest, in_idx, conn.get("input_name"))
             dest.setInput(in_idx, source, out_idx)
             last_dest = dest
             results.append(
