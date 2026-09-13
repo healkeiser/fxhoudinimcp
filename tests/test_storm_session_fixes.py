@@ -221,29 +221,43 @@ def test_license_error_is_singled_out():
     assert outputs.license_error(["bad path"]) is None
 
 
-def test_write_cache_picks_background_past_24_frames(monkeypatch):
-    monkeypatch.setattr(cache_handlers, "_serialize_value", lambda v: v, raising=False)
+def test_write_cache_stays_in_the_foreground_by_default(monkeypatch):
     monkeypatch.setattr(cache_handlers.hou.hipFile, "isNewFile", lambda: False)
-    monkeypatch.setattr(cache_handlers.hou.hipFile, "save", lambda: None)
     parms = {"cookoutputnode": MagicMock(), "execute": MagicMock(), "trange": None}
     node = MagicMock()
     node.parm.side_effect = parms.get
     monkeypatch.setattr(cache_handlers, "_get_node", lambda p: node)
     monkeypatch.setattr(cache_handlers, "_set_frame_parm", lambda *a: None)
     monkeypatch.setattr(cache_handlers, "reported_outputs", lambda n: [])
+    monkeypatch.setattr(
+        cache_handlers,
+        "write_verdict",
+        lambda *a, **k: {"success": True, "wrote_files": True, "message": "ok", "errors": []},
+    )
 
-    long_range = cache_handlers._write_cache(node_path="/obj/g/c", frame_range=[1, 80])
-    assert long_range["status"] == "launched"
-    assert long_range["decided"].startswith("background chosen")
-    parms["cookoutputnode"].pressButton.assert_called_once()
-    parms["execute"].pressButton.assert_not_called()
+    result = cache_handlers._write_cache(node_path="/obj/g/c", frame_range=[1, 80])
+    assert result["background"] is False
+    parms["execute"].pressButton.assert_called_once()
+    parms["cookoutputnode"].pressButton.assert_not_called()
+
+
+def test_long_commands_get_an_hour_by_default(monkeypatch):
+    from fxhoudinimcp_server import dispatcher
+
+    monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT", raising=False)
+    monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE", raising=False)
+    assert dispatcher.command_timeout("cache.write_cache") == 3600.0
+    assert dispatcher.command_timeout("rendering.start_render") == 3600.0
+    assert dispatcher.command_timeout("nodes.create_node") == dispatcher._COMMAND_TIMEOUT
+    monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE", "30")
+    assert dispatcher.command_timeout("cache.write_cache") == 30.0
 
 
 def test_timeout_message_points_at_background_for_caches():
     from fxhoudinimcp_server import dispatcher
 
-    assert "background=True" in dispatcher._TIMEOUT_HINTS["cache.write_cache"]
-    assert "get_render_progress" in dispatcher._TIMEOUT_HINTS["rendering.start_render"]
+    assert "do not poll the disk" in dispatcher._TIMEOUT_HINTS["cache.write_cache"]
+    assert "background=True" in dispatcher._TIMEOUT_HINTS["rendering.start_render"]
 
 
 @pytest.mark.asyncio
