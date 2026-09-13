@@ -596,7 +596,7 @@ def start_render(
         background: Render from a separate hython on the saved hip and return
             at once; get_render_progress follows the process. Off by default:
             a foreground render shows the user Houdini's own progress dialog,
-            and the dispatcher gives it an hour.
+            and the dispatcher puts no deadline on it.
     """
     node, category, can_render = _renderable(node_path)
     execute_parm = node.parm("execute")

@@ -25,6 +25,10 @@ from fxhoudinimcp.errors import ConnectionError, HoudiniCommandError
 
 logger = logging.getLogger(__name__)
 
+# Pass as `timeout` to wait for a command with no deadline at all. A cache
+# write or a render takes as long as it takes and reports when done.
+NO_TIMEOUT = float("inf")
+
 
 def _rpc_body(func_name: str, **kwargs: Any) -> dict[str, str]:
     """Build form data for an hwebserver JSON-encoded RPC call."""
@@ -109,8 +113,11 @@ class HoudiniBridge:
         permanently "disconnected" until the MCP client itself is restarted.
         """
         # httpx reads timeout=None as "wait forever", so fall back to the
-        # configured timeout rather than passing None straight through.
+        # configured timeout rather than passing None straight through; a
+        # caller that does mean forever says so with NO_TIMEOUT.
         effective = self.timeout if timeout is None else timeout
+        if effective == NO_TIMEOUT:
+            effective = None
 
         client = await self._get_client()
         try:

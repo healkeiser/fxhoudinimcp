@@ -241,13 +241,13 @@ def test_write_cache_stays_in_the_foreground_by_default(monkeypatch):
     parms["cookoutputnode"].pressButton.assert_not_called()
 
 
-def test_long_commands_get_an_hour_by_default(monkeypatch):
+def test_caches_and_renders_have_no_deadline(monkeypatch):
     from fxhoudinimcp_server import dispatcher
 
     monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT", raising=False)
     monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE", raising=False)
-    assert dispatcher.command_timeout("cache.write_cache") == 3600.0
-    assert dispatcher.command_timeout("rendering.start_render") == 3600.0
+    assert dispatcher.command_timeout("cache.write_cache") is None
+    assert dispatcher.command_timeout("rendering.start_render") is None
     assert dispatcher.command_timeout("nodes.create_node") == dispatcher._COMMAND_TIMEOUT
     monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE", "30")
     assert dispatcher.command_timeout("cache.write_cache") == 30.0
@@ -257,7 +257,7 @@ def test_timeout_message_points_at_background_for_caches():
     from fxhoudinimcp_server import dispatcher
 
     assert "do not poll the disk" in dispatcher._TIMEOUT_HINTS["cache.write_cache"]
-    assert "background=True" in dispatcher._TIMEOUT_HINTS["rendering.start_render"]
+    assert "no deadline" in dispatcher._TIMEOUT_HINTS["rendering.start_render"]
 
 
 @pytest.mark.asyncio
@@ -305,3 +305,25 @@ def test_verified_foreground_write_turns_load_from_disk_on(monkeypatch):
     result = cache_handlers._write_cache(node_path="/obj/g/c", frame_range=[1, 5])
     assert result["load_from_disk_enabled"] is True
     parms["loadfromdisk"].set.assert_called_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_no_timeout_sentinel_disables_the_http_deadline(monkeypatch):
+    from fxhoudinimcp import bridge as bridge_mod
+
+    b = bridge_mod.HoudiniBridge(timeout=7.0)
+    seen = {}
+
+    class FakeClient:
+        async def post(self, url, data=None, timeout="unset"):
+            seen["timeout"] = timeout
+            return MagicMock()
+
+    async def fake_client():
+        return FakeClient()
+
+    monkeypatch.setattr(b, "_get_client", fake_client)
+    await b._post({}, timeout=bridge_mod.NO_TIMEOUT)
+    assert seen["timeout"] is None
+    await b._post({})
+    assert seen["timeout"] == 7.0

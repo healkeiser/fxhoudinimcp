@@ -14,10 +14,8 @@ from typing import Any
 from fxhoudinimcp._sdk import Context
 
 # Internal
+from fxhoudinimcp.bridge import NO_TIMEOUT
 from fxhoudinimcp.server import _get_bridge, mcp
-
-# A render is given an hour by the plugin; the client waits as long.
-_LONG_TIMEOUT = 3600.0
 
 
 @mcp.tool()
@@ -144,9 +142,9 @@ async def start_render(
     """Execute any node that renders or writes files.
 
     Foreground by default: Houdini shows its own progress dialog and the
-    user can cancel. The call holds until the render finishes, up to an
-    hour; a client that hands a long call to a background task notifies you
-    with the verdict. Do nothing else in Houdini meanwhile and never poll
+    user can cancel. The call holds until the render finishes, however
+    long that is; a client that hands a long call to a background task
+    notifies you with the verdict. Do nothing else in Houdini meanwhile and never poll
     the disk.
 
     Not just /out ROPs: a LOP usdrender_rop (which is how Solaris renders), a
@@ -170,7 +168,7 @@ async def start_render(
     params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
-    return await bridge.execute("rendering.start_render", params, timeout=_LONG_TIMEOUT)
+    return await bridge.execute("rendering.start_render", params, timeout=NO_TIMEOUT)
 
 
 @mcp.tool()

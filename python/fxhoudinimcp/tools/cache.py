@@ -13,10 +13,8 @@ from typing import Any
 from fxhoudinimcp._sdk import Context
 
 # Internal
+from fxhoudinimcp.bridge import NO_TIMEOUT
 from fxhoudinimcp.server import _get_bridge, mcp
-
-# A cache write is given an hour by the plugin; the client waits as long.
-_LONG_TIMEOUT = 3600.0
 
 
 @mcp.tool()
@@ -92,9 +90,9 @@ async def write_cache(
     """Execute a cache node, and report whether a cache actually appeared.
 
     Foreground by default: Houdini shows its own progress dialog and the
-    user can cancel. The call holds until the write finishes, up to an hour;
-    a client that hands a long call to a background task notifies you with
-    the verdict when it lands. Do nothing else in Houdini meanwhile (every
+    user can cancel. The call holds until the write finishes, however long
+    that is; a client that hands a long call to a background task notifies
+    you with the verdict when it lands. Do nothing else in Houdini meanwhile (every
     other call queues behind the write) and never poll the disk.
 
     `success` and `wrote_files` reflect the files on disk and the errors of the
@@ -119,4 +117,4 @@ async def write_cache(
     params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
-    return await bridge.execute("cache.write_cache", params, timeout=_LONG_TIMEOUT)
+    return await bridge.execute("cache.write_cache", params, timeout=NO_TIMEOUT)
