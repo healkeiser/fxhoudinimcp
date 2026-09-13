@@ -11,6 +11,7 @@ import contextlib
 # Built-in
 import glob
 import os
+import time
 from typing import Any
 
 # Third-party
@@ -262,12 +263,48 @@ def _get_cache_status(*, node_path: str, **_: Any) -> dict[str, Any]:
     total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
     is_valid = len(existing_files) > 0
 
+    # Completeness against the node's own range, so a poll can stop on
+    # `complete` instead of counting files in a shell loop.
+    expected: list[int] | None = None
+    with contextlib.suppress(Exception):
+        f1, f2 = node.parm("f1"), node.parm("f2")
+        if f1 is not None and f2 is not None:
+            expected = list(range(int(f1.eval()), int(f2.eval()) + 1))
+    missing = [f for f in expected if f not in set(frames_on_disk)] if expected else []
+    complete = bool(expected) and not missing
+
+    # Is something still writing? A background hython shows only as files
+    # arriving, so the age of the newest one is the evidence there is.
+    newest_age: float | None = None
+    with contextlib.suppress(Exception):
+        newest_age = round(time.time() - max(os.path.getmtime(f) for f in existing_files), 1)
+
+    # A complete cache that the node does not load is the worst of both: the
+    # frames are on disk and the viewport still cooks the sim live. A session
+    # froze Houdini for eleven minutes on a fresh million-polygon mesh cache
+    # exactly this way.
+    load_parm = node.parm("loadfromdisk")
+    load_from_disk = bool(load_parm.eval()) if load_parm is not None else None
+    hint = None
+    if complete and load_from_disk is False:
+        hint = (
+            "Cache is complete but Load from Disk is off, so the node still cooks "
+            "the input live: set_parameter(node_path, 'loadfromdisk', 1)."
+        )
+
     return {
         "node_path": node_path,
         "file_pattern": file_pattern,
         "glob_pattern": glob_pattern,
         "file_count": len(existing_files),
         "frames_on_disk": frames_on_disk,
+        "expected_range": [expected[0], expected[-1]] if expected else None,
+        "missing_frames": missing[:50],
+        "complete": complete,
+        "newest_file_age_seconds": newest_age,
+        "writing": newest_age is not None and newest_age < 30 and not complete,
+        "load_from_disk": load_from_disk,
+        "hint": hint,
         "total_size_mb": total_size_mb,
         "is_valid": is_valid,
     }
@@ -501,12 +538,22 @@ def _write_cache(
             if failure is not None
             else write_verdict(node, before, action="Cache write")
         )
+
+    # A verified write is what Load from Disk is for; leaving it off keeps the
+    # sim cooking live behind a finished cache.
+    load_parm = node.parm("loadfromdisk")
+    load_enabled = False
+    if verdict["success"] and load_parm is not None:
+        with contextlib.suppress(Exception):
+            load_parm.set(1)
+            load_enabled = True
     return {
         "node_path": node_path,
         "frame_range": actual_range,
         "method": method,
         "background": background,
         "decided": decided,
+        "load_from_disk_enabled": load_enabled,
         # Kept so existing callers reading `status` still work, but derived from
         # the same evidence as `success` rather than from an unconditional string.
         "status": (
