@@ -14,18 +14,18 @@ from fxhoudinimcp.server import _get_bridge, mcp
 
 
 @mcp.tool()
-async def get_geometry_info(ctx: Context, node_path: str) -> dict:
+async def get_geometry_info(ctx: Context, node_path: str, output_index: int = 0) -> dict:
     """Get geometry summary for a SOP node.
 
     Args:
         node_path: Node path.
+        output_index: Which output to read, for nodes with several (FLIP
+            compress, Vellum solver, whitewater source): 0 is the first.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
         "geometry.get_geometry_info",
-        {
-            "node_path": node_path,
-        },
+        {"node_path": node_path, "output_index": output_index},
     )
 
 

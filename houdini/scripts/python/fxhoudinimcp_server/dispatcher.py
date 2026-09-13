@@ -38,6 +38,24 @@ _COMMAND_TIMEOUT = 120  # seconds
 _NO_UNDO_GROUP = frozenset({"scene.undo", "scene.redo"})
 
 
+# What to do instead of raising the timeout, for the commands where a longer
+# wait is the wrong answer: the work belongs in another process.
+_TIMEOUT_HINTS = {
+    "cache.write_cache": (
+        "Do not raise the timeout: call write_cache with background=True (or leave "
+        "background unset for ranges over 24 frames) and follow it with get_cache_status."
+    ),
+    "rendering.start_render": (
+        "Do not raise the timeout: call start_render with background=True and follow "
+        "it with get_render_progress."
+    ),
+    "code.execute_python": (
+        "If this was a cook, a render or a Save to Disk, use write_cache / start_render "
+        "with background=True instead of pressing buttons in Python."
+    ),
+}
+
+
 def command_timeout(command: str) -> float:
     """Seconds a command may take before dispatch gives up on it.
 
@@ -229,14 +247,19 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
             if worker.is_alive():
                 logger.error("Command '%s' timed out after %s seconds", command, timeout)
                 variable = "FXHOUDINIMCP_TIMEOUT_" + command.upper().replace(".", "_")
+                hint = _TIMEOUT_HINTS.get(
+                    command,
+                    f"Raise {variable} (or FXHOUDINIMCP_TIMEOUT for every command) "
+                    f"if it legitimately needs longer.",
+                )
                 result = {
                     "status": "error",
                     "error": {
                         "code": "TIMEOUT",
                         "message": (
                             f"Command '{command}' did not complete within {timeout:g} "
-                            f"seconds. Raise {variable} (or FXHOUDINIMCP_TIMEOUT for "
-                            f"every command) if it legitimately needs longer."
+                            f"seconds. Houdini is still working on it and every next "
+                            f"command waits behind it. {hint}"
                         ),
                     },
                 }

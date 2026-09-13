@@ -21,8 +21,12 @@ from fxhoudinimcp_server.dispatcher import register_handler
 ###### Helpers
 
 
-def _get_sop_geo(node_path: str) -> hou.Geometry:
+def _get_sop_geo(node_path: str, output_index: int = 0) -> hou.Geometry:
     """Return the cooked read-only geometry for a SOP node.
+
+    output_index picks a secondary output: a FLIP compress node or a Vellum
+    solver carries different streams on outputs 1 and 2, and "no tool reports
+    per-output geometry" sent a session to execute_python for them.
 
     Raises:
         hou.OperationFailed: if the node doesn't exist or has no geometry.
@@ -30,7 +34,7 @@ def _get_sop_geo(node_path: str) -> hou.Geometry:
     node = hou.node(node_path)
     if node is None:
         raise hou.OperationFailed(f"Node not found: {node_path}")
-    geo = node.geometry()
+    geo = node.geometry(output_index) if output_index else node.geometry()
     if geo is None:
         raise hou.OperationFailed(f"Node has no geometry: {node_path}")
     return geo
@@ -77,9 +81,9 @@ def _attrib_class_obj(geo: hou.Geometry, attrib_class: str) -> Any:
 ###### geometry.get_geometry_info
 
 
-def _get_geometry_info(*, node_path: str) -> dict[str, Any]:
+def _get_geometry_info(*, node_path: str, output_index: int = 0, **_: Any) -> dict[str, Any]:
     """Return summary information about a SOP node's geometry."""
-    geo = _get_sop_geo(node_path)
+    geo = _get_sop_geo(node_path, output_index)
 
     # Attribute lists per class
     attribs: dict[str, list[dict]] = {}

@@ -78,7 +78,7 @@ async def write_cache(
     ctx: Context,
     node_path: str,
     frame_range: list[int] | None = None,
-    background: bool = False,
+    background: bool | None = None,
 ) -> dict:
     """Execute a cache node, and report whether a cache actually appeared.
 
@@ -92,13 +92,19 @@ async def write_cache(
         node_path: Path to the cache node.
         frame_range: [start, end] frame range to render. Overrides the
             node's $FSTART/$FEND expressions for this and later writes.
-        background: File Cache only. Save from a separate Houdini process so
-            the session stays usable (the node's own "Save to Disk in
-            Background"). Saves the hip first. Returns at once with
-            status "launched"; poll get_cache_status for frames on disk.
+        background: Save from a separate Houdini process (File Cache's own
+            "Save to Disk in Background") so the session stays usable. Saves
+            the hip first, returns at once with status "launched"; follow it
+            with get_cache_status. Leave unset and it is chosen for you:
+            background whenever the node supports it and the range is more
+            than 24 frames, since a longer foreground write blocks Houdini
+            past the command timeout and reports nothing. Pass False only
+            for a short range you need the verdict of in the same call.
     """
     bridge = _get_bridge(ctx)
-    params: dict[str, Any] = {"node_path": node_path, "background": background}
+    params: dict[str, Any] = {"node_path": node_path}
+    if background is not None:
+        params["background"] = background
     if frame_range is not None:
         params["frame_range"] = frame_range
     return await bridge.execute("cache.write_cache", params)

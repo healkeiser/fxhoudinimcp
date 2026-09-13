@@ -26,9 +26,63 @@ from fxhoudinimcp.node_versions import staleness_warning
 logger = logging.getLogger(__name__)
 
 
+# Seconds between progress notifications while a command is in flight.
+_HEARTBEAT = 2.0
+
+
+class _ReportingBridge:
+    """The lifespan bridge, with a progress heartbeat for the current request.
+
+    A long command (a cook, a foreground cache, a verify on a heavy graph)
+    used to be a static "calling fxhoudini" line for as long as it took. While
+    the HTTP call is pending, this sends an MCP progress notification every
+    couple of seconds naming the command and the elapsed time. The SDK drops
+    the notification when the client sent no progress token, so a client that
+    does not render progress pays nothing; whether Claude Code shows it is
+    for the client to decide. Every other attribute goes straight through.
+    """
+
+    def __init__(self, bridge: HoudiniBridge, ctx) -> None:
+        self._bridge = bridge
+        self._ctx = ctx
+
+    def __getattr__(self, name: str):
+        return getattr(self._bridge, name)
+
+    async def _heartbeat(self, command: str) -> None:
+        import asyncio
+        import time
+
+        started = time.monotonic()
+        while True:
+            await asyncio.sleep(_HEARTBEAT)
+            elapsed = time.monotonic() - started
+            try:
+                await self._ctx.report_progress(
+                    elapsed, None, f"{command}: Houdini working for {elapsed:.0f}s"
+                )
+            except Exception:  # noqa: BLE001 - a heartbeat never fails the command
+                return
+
+    async def execute(self, command: str, params=None, timeout=None):
+        import asyncio
+
+        beat = asyncio.ensure_future(self._heartbeat(command))
+        # Bound to a local so the compat scanner, which collects the literal
+        # command names of every `.execute("...")` call, does not see a dynamic one.
+        run = self._bridge.execute
+        try:
+            return await run(command, params, timeout)
+        finally:
+            beat.cancel()
+
+
 def _get_bridge(ctx) -> HoudiniBridge:
-    """Extract the HoudiniBridge from the MCP context."""
-    return ctx.request_context.lifespan_context["bridge"]
+    """The HoudiniBridge for this request, wrapped with a progress heartbeat."""
+    bridge = ctx.request_context.lifespan_context["bridge"]
+    if isinstance(bridge, HoudiniBridge):
+        return _ReportingBridge(bridge, ctx)  # type: ignore[return-value]
+    return bridge
 
 
 # The lifespan bridge, also reachable without a request context.

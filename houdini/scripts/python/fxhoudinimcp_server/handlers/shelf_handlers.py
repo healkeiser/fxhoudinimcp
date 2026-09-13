@@ -163,6 +163,103 @@ register_handler("shelf.get_shelf_tool_script", get_shelf_tool_script)
 ###### shelf.run_shelf_tool
 
 
+# Calls that block the main thread until a person clicks in a viewport or a
+# dialog. Run through the bridge they never return: a live session hung for ten
+# minutes on the FLIP ocean-layer tool, and every later command queued behind
+# it, until the user noticed and pressed Escape. Two layers catch them: the
+# script text for the tools that call hou.ui themselves, and a guard on the
+# viewer's selection methods for the many that go through
+# soptoolutils.genericTool, whose script names only the node type while the
+# prompt happens three modules down ("flipcontainer" takes an input, so the
+# tool is a filter, so it asks for geometry).
+_INTERACTIVE_MARKERS = (
+    "selectGeometry(",
+    "selectObjects(",
+    "selectPositions(",
+    "selectDynamics(",
+    "selectSceneGraph(",
+    "hou.ui.select",
+    "hou.ui.readInput(",
+    "hou.ui.readMultiInput(",
+    "hou.ui.displayMessage(",
+    "hou.ui.displayConfirmation(",
+    "hou.ui.displayCustomConfirmation(",
+    "hou.ui.selectFile(",
+    "sceneViewer().select",
+)
+
+_VIEWER_PROMPTS = (
+    "selectGeometry",
+    "selectObjects",
+    "selectPositions",
+    "selectDynamics",
+    "selectSceneGraph",
+    "selectOrientedPositions",
+)
+_UI_PROMPTS = (
+    "readInput",
+    "readMultiInput",
+    "displayMessage",
+    "displayConfirmation",
+    "displayCustomConfirmation",
+    "selectFile",
+    "selectNode",
+    "selectParm",
+    "selectParmTag",
+    "selectFromList",
+    "selectFromTree",
+)
+
+
+class InteractivePrompt(RuntimeError):
+    """A shelf tool asked for a click."""
+
+
+def interactive_markers(script: str) -> list[str]:
+    """Which blocking-UI calls a shelf tool script makes, if any."""
+    return [m for m in _INTERACTIVE_MARKERS if m in script]
+
+
+@contextlib.contextmanager
+def _no_prompts(tool_name: str):
+    """Make every viewport selection and dialog raise instead of waiting."""
+
+    def refuse(name):
+        def _raise(*_a, **_k):
+            raise InteractivePrompt(name)
+
+        return _raise
+
+    patched: list[tuple[Any, str, Any]] = []
+    targets: list[tuple[Any, tuple[str, ...]]] = []
+    if hasattr(hou, "SceneViewer"):
+        targets.append((hou.SceneViewer, _VIEWER_PROMPTS))
+    if hasattr(hou, "ui"):
+        targets.append((hou.ui, _UI_PROMPTS))
+    for owner, names in targets:
+        for name in names:
+            if hasattr(owner, name):
+                patched.append((owner, name, getattr(owner, name)))
+                with contextlib.suppress(Exception):
+                    setattr(owner, name, refuse(name))
+    try:
+        yield
+    finally:
+        for owner, name, original in patched:
+            with contextlib.suppress(Exception):
+                setattr(owner, name, original)
+
+
+def _refusal(tool_name: str, why: str) -> ValueError:
+    return ValueError(
+        f"Shelf tool '{tool_name}' waits for a viewport selection or a dialog "
+        f"({why}). Run through the bridge that never returns and freezes every "
+        f"later command. Read it with get_shelf_tool_script and build the same "
+        f"nodes with build_network, pointing them at the geometry the tool would "
+        f"have asked for."
+    )
+
+
 def run_shelf_tool(
     tool_name: str,
     kwargs: dict | None = None,
@@ -191,6 +288,9 @@ def run_shelf_tool(
     script = tool.script() or ""
     if not script.strip():
         raise ValueError(f"Shelf tool '{tool_name}' has an empty script.")
+    blocking = interactive_markers(script)
+    if blocking:
+        raise _refusal(tool_name, ", ".join(blocking[:3]))
 
     # Watch every top-level network, not just one. largeOcean creates a geo and a
     # procedural in /obj AND a LOP in /stage, and watching only the given parent
@@ -212,7 +312,15 @@ def run_shelf_tool(
     before = {child.path() for node in watched for child in node.children()}
     namespace: dict[str, Any] = {"kwargs": call_kwargs, "hou": hou}
     try:
-        exec(script, namespace)  # noqa: S102 - running SideFX's own tool script
+        with _no_prompts(tool_name):
+            exec(script, namespace)  # noqa: S102 - running SideFX's own tool script
+    except InteractivePrompt as exc:
+        # Whatever the tool created before asking is half a setup; remove it.
+        made = {child.path() for n in watched for child in n.children()} - before
+        for path in made:
+            with contextlib.suppress(Exception):
+                hou.node(path).destroy()
+        raise _refusal(tool_name, f"{exc}()") from exc
     except AttributeError as exc:
         if "'hou' has no attribute 'ui'" in str(exc):
             raise hou.OperationFailed(
