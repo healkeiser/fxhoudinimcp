@@ -179,6 +179,53 @@ def node_messages(node: hou.Node) -> tuple[list[str], list[str]]:
     return errors[:_MAX_MESSAGES], warnings[:_MAX_MESSAGES]
 
 
+# Where a ROP finds the network it renders. The error of a failed chain lives
+# there, not on the ROP: a Fetch/Merge chain in /out reported "The attempted
+# operation failed." for an hour-long cook and the user had to say which stage
+# had died.
+_TARGET_PARMS = ("soppath", "source", "loppath", "coppath", "objpath", "dopnet", "camera")
+_MAX_UPSTREAM = 120
+
+
+def upstream_messages(node: hou.Node) -> list[str]:
+    """Errors on the chain a node depends on: its input ancestors, the networks
+    they point at, and those networks' own ancestors. Each named by node."""
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def visit(candidate) -> None:
+        if candidate is None or len(seen) >= _MAX_UPSTREAM:
+            return
+        path = candidate.path()
+        if path in seen:
+            return
+        seen.add(path)
+        with contextlib.suppress(Exception):
+            for message in candidate.errors():
+                found.append(f"{path}: {message.strip()[:360]}")
+        for parm_name in _TARGET_PARMS:
+            parm = candidate.parm(parm_name)
+            if parm is None:
+                continue
+            with contextlib.suppress(Exception):
+                target = candidate.node(parm.eval()) or hou.node(parm.eval())
+                if target is not None:
+                    visit(target)
+                    for ancestor in target.inputAncestors():
+                        visit(ancestor)
+
+    visit(node)
+    with contextlib.suppress(Exception):
+        for ancestor in node.inputAncestors():
+            visit(ancestor)
+    # Deduplicate while keeping order; the same error surfaces on several nodes.
+    unique: list[str] = []
+    for item in found:
+        if item not in unique:
+            unique.append(item)
+    return unique[:_MAX_MESSAGES]
+
+
 def write_verdict(
     node: hou.Node,
     before: list[dict[str, Any]],
@@ -201,6 +248,10 @@ def write_verdict(
     errors, warnings = node_messages(node)
     after = reported_outputs(node)
     wrote = wrote_anything(before, after)
+    if not errors and not wrote:
+        # The node itself is clean and wrote nothing: the failure, if any, is
+        # upstream of it.
+        errors = upstream_messages(node)
     # Did the node name a real file to write? An empty output path counts: it was
     # asked to write somewhere and had nowhere to write, which is a failure, not a
     # node that legitimately targets MPlay.
@@ -251,11 +302,16 @@ def failure_verdict(
     of failure it was to find out whether anything was written.
     """
     after = reported_outputs(node)
+    # "The attempted operation failed." names nothing. The chain does.
+    errors = [str(error)[:400]] + [
+        e for e in upstream_messages(node) if e not in (str(error)[:400],)
+    ]
     return {
         "success": False,
         "error": str(error),
-        "errors": [str(error)[:400]],
+        "errors": errors[:_MAX_MESSAGES],
         "wrote_files": wrote_anything(before, after),
         "outputs": after,
-        "message": f"{action} raised before completing; nothing was verified.",
+        "message": f"{action} raised before completing; nothing was verified."
+        + (f" First upstream error: {errors[1]}" if len(errors) > 1 else ""),
     }
