@@ -70,9 +70,6 @@ def _is_cache_node(node: hou.Node) -> bool:
 # empty cache over 60 fresh frames.
 _OUTPUT_PARMS = ("sopoutput", "file", "filename", "filepath")
 
-# Frames a foreground write may cover before background is chosen for it.
-_FOREGROUND_MAX_FRAMES = 24
-
 
 def _frame_glob(node: hou.Node) -> str | None:
     """A glob for every frame a cache node writes, from evaluated paths.
@@ -407,7 +404,7 @@ def _write_cache(
     *,
     node_path: str,
     frame_range: list[int] | None = None,
-    background: bool | None = None,
+    background: bool = False,
     **_: Any,
 ) -> dict[str, Any]:
     """Execute (render) a cache node to write files to disk.
@@ -430,26 +427,11 @@ def _write_cache(
     """
     node = _get_node(node_path)
 
+    # Foreground is the default on purpose: it holds the main thread, but the
+    # user sees Houdini's own progress dialog and can cancel, where a
+    # background hython shows them nothing. The dispatcher gives this command
+    # an hour, so the verdict comes back instead of a timeout.
     bg_button = node.parm("cookoutputnode")
-    frame_count = (
-        int(frame_range[1]) - int(frame_range[0]) + 1
-        if frame_range is not None and len(frame_range) >= 2
-        else None
-    )
-    # background=None means decide here. The foreground path holds Houdini's
-    # main thread for the whole write and the client gives up at the command
-    # timeout, after which the agent learns nothing about the write and falls
-    # back to polling the disk from a shell. Two 80-frame FLIP caches in a live
-    # session went that way. Past one second of frames, a node that can write in
-    # the background does.
-    decided = None
-    if background is None:
-        background = bool(bg_button is not None and (frame_count or 0) > _FOREGROUND_MAX_FRAMES)
-        decided = (
-            f"background chosen automatically: {frame_count} frames > {_FOREGROUND_MAX_FRAMES}"
-            if background
-            else "foreground: short range or node without background save"
-        )
     if background and bg_button is None:
         raise ValueError(
             f"{node_path} has no background save (no 'cookoutputnode' button); "
@@ -494,7 +476,6 @@ def _write_cache(
                 "frame_range": frame_range,
                 "method": method,
                 "background": True,
-                "decided": decided,
                 "success": True,
                 "wrote_files": False,
                 "status": "launched",
@@ -552,7 +533,6 @@ def _write_cache(
         "frame_range": actual_range,
         "method": method,
         "background": background,
-        "decided": decided,
         "load_from_disk_enabled": load_enabled,
         # Kept so existing callers reading `status` still work, but derived from
         # the same evidence as `success` rather than from an unconditional string.

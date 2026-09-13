@@ -38,20 +38,32 @@ _COMMAND_TIMEOUT = 120  # seconds
 _NO_UNDO_GROUP = frozenset({"scene.undo", "scene.redo"})
 
 
-# What to do instead of raising the timeout, for the commands where a longer
-# wait is the wrong answer: the work belongs in another process.
+# Commands that legitimately hold the main thread for a long time: a cache
+# write or a render shows Houdini's own progress dialog, which is where the
+# user wants to watch it, so they get an hour by default instead of two
+# minutes. Still overridable per command through the environment.
+_LONG_COMMAND_TIMEOUTS = {
+    "cache.write_cache": 3600.0,
+    "rendering.start_render": 3600.0,
+}
+
+# What to do when a command does time out, where the answer is not simply a
+# bigger number.
 _TIMEOUT_HINTS = {
     "cache.write_cache": (
-        "Do not raise the timeout: call write_cache with background=True (or leave "
-        "background unset for ranges over 24 frames) and follow it with get_cache_status."
+        "Houdini is still writing and shows its progress dialog to the user. Wait for "
+        "the verdict; do not poll the disk or press buttons in Python. Raise "
+        "FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE past an hour for a bigger job, or use "
+        "background=True for a write you want to work alongside."
     ),
     "rendering.start_render": (
-        "Do not raise the timeout: call start_render with background=True and follow "
-        "it with get_render_progress."
+        "Houdini is still rendering and shows its progress dialog to the user. Wait for "
+        "the verdict; do not poll the disk. Raise FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER "
+        "past an hour for a bigger job, or use background=True."
     ),
     "code.execute_python": (
         "If this was a cook, a render or a Save to Disk, use write_cache / start_render "
-        "with background=True instead of pressing buttons in Python."
+        "instead of pressing buttons in Python: they are given an hour and report a verdict."
     ),
 }
 
@@ -79,7 +91,7 @@ def command_timeout(command: str) -> float:
         if value > 0:
             return value
         logger.warning("Ignoring %s=%r: must be positive", name, raw)
-    return _COMMAND_TIMEOUT
+    return _LONG_COMMAND_TIMEOUTS.get(command, _COMMAND_TIMEOUT)
 
 
 @contextlib.contextmanager

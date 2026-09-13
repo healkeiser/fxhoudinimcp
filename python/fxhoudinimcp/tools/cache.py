@@ -15,6 +15,9 @@ from fxhoudinimcp._sdk import Context
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp
 
+# A cache write is given an hour by the plugin; the client waits as long.
+_LONG_TIMEOUT = 3600.0
+
 
 @mcp.tool()
 async def list_caches(
@@ -84,9 +87,15 @@ async def write_cache(
     ctx: Context,
     node_path: str,
     frame_range: list[int] | None = None,
-    background: bool | None = None,
+    background: bool = False,
 ) -> dict:
     """Execute a cache node, and report whether a cache actually appeared.
+
+    Foreground by default: Houdini shows its own progress dialog and the
+    user can cancel. The call holds until the write finishes, up to an hour;
+    a client that hands a long call to a background task notifies you with
+    the verdict when it lands. Do nothing else in Houdini meanwhile (every
+    other call queues behind the write) and never poll the disk.
 
     `success` and `wrote_files` reflect the files on disk and the errors of the
     node that did the writing -- a filecache delegates to an internal ROP and
@@ -99,19 +108,15 @@ async def write_cache(
         frame_range: [start, end] frame range to render. Overrides the
             node's $FSTART/$FEND expressions for this and later writes.
         background: Save from a separate Houdini process (File Cache's own
-            "Save to Disk in Background") so the session stays usable. Saves
-            the hip first, returns at once with status "launched"; follow it
-            with get_cache_status. Leave unset and it is chosen for you:
-            background whenever the node supports it and the range is more
-            than 24 frames, since a longer foreground write blocks Houdini
-            past the command timeout and reports nothing. Pass False only
-            for a short range you need the verdict of in the same call.
-            A verified foreground write turns the node's Load from Disk on.
+            "Save to Disk in Background") so Houdini stays usable, at the
+            cost of the user seeing no progress there. Saves the hip first,
+            returns at once with status "launched"; follow it with
+            get_cache_status. Use it only when asked to keep working while
+            a cache writes. A verified foreground write turns the node's
+            Load from Disk on.
     """
     bridge = _get_bridge(ctx)
-    params: dict[str, Any] = {"node_path": node_path}
-    if background is not None:
-        params["background"] = background
+    params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
-    return await bridge.execute("cache.write_cache", params)
+    return await bridge.execute("cache.write_cache", params, timeout=_LONG_TIMEOUT)

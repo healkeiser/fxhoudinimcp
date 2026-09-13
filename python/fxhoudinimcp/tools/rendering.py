@@ -16,6 +16,9 @@ from fxhoudinimcp._sdk import Context
 # Internal
 from fxhoudinimcp.server import _get_bridge, mcp
 
+# A render is given an hour by the plugin; the client waits as long.
+_LONG_TIMEOUT = 3600.0
+
 
 @mcp.tool()
 async def render_viewport(
@@ -136,9 +139,15 @@ async def start_render(
     ctx: Context,
     node_path: str,
     frame_range: list[float] | None = None,
-    background: bool | None = None,
+    background: bool = False,
 ) -> dict:
     """Execute any node that renders or writes files.
+
+    Foreground by default: Houdini shows its own progress dialog and the
+    user can cancel. The call holds until the render finishes, up to an
+    hour; a client that hands a long call to a background task notifies you
+    with the verdict. Do nothing else in Houdini meanwhile and never poll
+    the disk.
 
     Not just /out ROPs: a LOP usdrender_rop (which is how Solaris renders), a
     SOP ROP Geometry, or a File Cache's Save to Disk all work, because what
@@ -153,18 +162,15 @@ async def start_render(
         frame_range: [start, end] or [start, end, increment].
         background: Render in a separate hython on the saved hip and return
             at once with status "launched"; get_render_progress reports the
-            process, its log tail and the files. Unset, it is chosen for you:
-            background for more than 24 frames, since a longer foreground
-            render blocks Houdini past the command timeout. A ROP chain
-            (fetch/merge of several caches) counts its frames the same way.
+            process, its log tail and the files. The user sees no progress
+            in Houdini, so use it only when asked to keep working while a
+            render runs.
     """
     bridge = _get_bridge(ctx)
-    params: dict[str, Any] = {"node_path": node_path}
+    params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
-    if background is not None:
-        params["background"] = background
-    return await bridge.execute("rendering.start_render", params)
+    return await bridge.execute("rendering.start_render", params, timeout=_LONG_TIMEOUT)
 
 
 @mcp.tool()

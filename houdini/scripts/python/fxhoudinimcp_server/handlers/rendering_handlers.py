@@ -500,9 +500,6 @@ def _renderable(node_path: str) -> tuple[hou.Node, str, bool]:
     return node, category, can_render
 
 
-# Frames a foreground render may cover before the background is chosen for it.
-_FOREGROUND_MAX_FRAMES = 24
-
 # node_path -> the background render launched for it. One per node: a second
 # launch on the same node replaces the record (the earlier process keeps going).
 _BACKGROUND_RENDERS: dict[str, dict[str, Any]] = {}
@@ -587,7 +584,7 @@ def _background_status(node_path: str) -> dict[str, Any] | None:
 def start_render(
     node_path: str,
     frame_range: list = None,
-    background: bool | None = None,
+    background: bool = False,
 ) -> dict:
     """Begin rendering a ROP node.
 
@@ -597,10 +594,9 @@ def start_render(
         frame_range: Optional [start, end] or [start, end, increment]. If not
             provided, the node's own frame range settings are used.
         background: Render from a separate hython on the saved hip and return
-            at once; get_render_progress follows the process. None decides:
-            background when the range is longer than a second of frames,
-            because a foreground render holds the main thread and the client
-            times out with nothing to show for it.
+            at once; get_render_progress follows the process. Off by default:
+            a foreground render shows the user Houdini's own progress dialog,
+            and the dispatcher gives it an hour.
     """
     node, category, can_render = _renderable(node_path)
     execute_parm = node.parm("execute")
@@ -608,15 +604,6 @@ def start_render(
     if frame_range is not None and len(frame_range) < 2:
         raise ValueError("frame_range must have at least [start, end].")
 
-    decided = None
-    if background is None:
-        frame_count = int(float(frame_range[1]) - float(frame_range[0])) + 1 if frame_range else 0
-        background = frame_count > _FOREGROUND_MAX_FRAMES
-        decided = (
-            f"background chosen automatically: {frame_count} frames > {_FOREGROUND_MAX_FRAMES}"
-            if background
-            else "foreground: short or unspecified range"
-        )
     if background:
         before = reported_outputs(node)
         record = _launch_background_render(node, frame_range)
@@ -625,7 +612,6 @@ def start_render(
             "category": category,
             "method": "hython subprocess on the saved hip",
             "background": True,
-            "decided": decided,
             "pid": record["pid"],
             "log": record["log"],
             "frame_range": frame_range,
@@ -685,7 +671,6 @@ def start_render(
         "category": category,
         "method": method,
         "background": False,
-        "decided": decided,
         "frame_range": frame_range,
         **verdict,
     }
