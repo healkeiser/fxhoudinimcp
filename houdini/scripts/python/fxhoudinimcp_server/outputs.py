@@ -49,6 +49,43 @@ OUTPUT_PARMS = (
 NON_FILE_OUTPUTS = frozenset({"__render__.usd", "ip", "md"})
 
 
+@contextlib.contextmanager
+def at_frame(frame: float | None):
+    """Evaluate output paths at the frame a write starts on.
+
+    The verdict compares files before and after by evaluating `$F` paths, and
+    it used to do that at the current frame. Writing frames 10-12 while the
+    playbar sat on frame 1 then read as "nothing was written".
+    """
+    if frame is None:
+        yield
+        return
+    previous = hou.frame()
+    hou.setFrame(frame)
+    try:
+        yield
+    finally:
+        hou.setFrame(previous)
+
+
+_LICENSE_WORDS = ("licens", "licence")
+
+
+def license_error(errors: list[str]) -> str | None:
+    """The first error that is about licensing, or None.
+
+    A render that fails for want of a Karma or husk license records that on
+    the node like any other error. Buried in a list of twelve it went unread
+    for seven minutes in a live session while the agent looked for a scene
+    fault; a field of its own is read.
+    """
+    for err in errors:
+        low = str(err).lower()
+        if any(w in low for w in _LICENSE_WORDS):
+            return str(err)
+    return None
+
+
 def reported_outputs(node: hou.Node) -> list[dict[str, Any]]:
     """The node's output path(s) and whether anything is on disk there."""
     found: list[dict[str, Any]] = []

@@ -27,6 +27,7 @@ import hou
 from fxhoudinimcp_server.config import layout_if_enabled, place_new_nodes
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
+from fxhoudinimcp_server.outputs import license_error
 
 ###### Helpers
 
@@ -380,6 +381,15 @@ def build_network(
                     raise RuntimeError(
                         f"{node.path()} parm '{parm_name}': {readable_message(exc)}"
                     ) from exc
+            # "build_network cannot set expressions" was a live session's stated
+            # reason for rebuilding a lantern rig in execute_python. It can.
+            for parm_name, expression in (spec.get("expressions") or {}).items():
+                parm = node.parm(parm_name)
+                if parm is None:
+                    raise RuntimeError(
+                        f"{node.path()}: no parm '{parm_name}' to put an expression on"
+                    )
+                parm.setExpression(str(expression))
             for input_index, entry in enumerate(spec.get("inputs") or []):
                 if isinstance(entry, dict):
                     source_name = entry.get("source")
@@ -477,6 +487,7 @@ def verify_network(parent_path: str, **_: Any) -> dict:
         reports.append(report)
 
     error_nodes = [r["path"] for r in reports if r["errors"]]
+    licensing = license_error([e for r in reports for e in r["errors"]])
     return {
         "parent_path": parent_path,
         "node_count": len(reports),
@@ -484,6 +495,8 @@ def verify_network(parent_path: str, **_: Any) -> dict:
         "geometry": _geometry_summary(display) if display is not None else None,
         "error_nodes": error_nodes,
         "healthy": not error_nodes,
+        # Named apart from the rest because no scene change fixes it.
+        "license_error": licensing,
         "nodes": reports,
     }
 

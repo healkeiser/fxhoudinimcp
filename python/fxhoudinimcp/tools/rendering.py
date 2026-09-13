@@ -136,6 +136,7 @@ async def start_render(
     ctx: Context,
     node_path: str,
     frame_range: list[float] | None = None,
+    background: bool | None = None,
 ) -> dict:
     """Execute any node that renders or writes files.
 
@@ -150,11 +151,19 @@ async def start_render(
     Args:
         node_path: Any node with a render() or an 'execute' button.
         frame_range: [start, end] or [start, end, increment].
+        background: Render in a separate hython on the saved hip and return
+            at once with status "launched"; get_render_progress reports the
+            process, its log tail and the files. Unset, it is chosen for you:
+            background for more than 24 frames, since a longer foreground
+            render blocks Houdini past the command timeout. A ROP chain
+            (fetch/merge of several caches) counts its frames the same way.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path}
     if frame_range is not None:
         params["frame_range"] = frame_range
+    if background is not None:
+        params["background"] = background
     return await bridge.execute("rendering.start_render", params)
 
 
@@ -179,10 +188,16 @@ async def render_node_network(
 
 @mcp.tool()
 async def get_render_progress(ctx: Context, node_path: str) -> dict:
-    """Get render progress and status of a ROP node.
+    """Progress of a render or write started with start_render.
+
+    Accepts every node start_render accepts (a LOP usdrender_rop or Karma
+    LOP, a SOP ROP, a File Cache), not only /out ROPs. Reports the node's
+    errors with `license_error` singled out, the output files on disk, and
+    for a background render the process state and the tail of its log.
+    `done` is true when there is nothing left to wait for.
 
     Args:
-        node_path: ROP node path.
+        node_path: The node given to start_render.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("rendering.get_render_progress", {"node_path": node_path})

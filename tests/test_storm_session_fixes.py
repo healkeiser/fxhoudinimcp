@@ -11,7 +11,7 @@ from __future__ import annotations
 # Built-in
 import os
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 # Third-party
 import pytest
@@ -200,3 +200,75 @@ def test_multiparm_instance_names_validate_against_the_template():
     assert not graph_handlers._is_instance_parm("pt", patterns)
     assert not graph_handlers._is_instance_parm("points", patterns)
     assert not graph_handlers._is_instance_parm("pt0xy", patterns)
+
+
+# ---------------------------------------------------------------- second storm session
+
+
+def test_interactive_shelf_tools_are_named():
+    from fxhoudinimcp_server.handlers import shelf_handlers
+
+    script = "import toolutils\nsel = toolutils.sceneViewer().selectGeometry(prompt='pick')\n"
+    assert shelf_handlers.interactive_markers(script) == ["selectGeometry(", "sceneViewer().select"]
+    assert shelf_handlers.interactive_markers("hou.node('/obj').createNode('geo')") == []
+
+
+def test_license_error_is_singled_out():
+    from fxhoudinimcp_server import outputs
+
+    errors = ["Unable to open camera", "No licenses could be found to run this application."]
+    assert outputs.license_error(errors) == errors[1]
+    assert outputs.license_error(["bad path"]) is None
+
+
+def test_write_cache_picks_background_past_24_frames(monkeypatch):
+    monkeypatch.setattr(cache_handlers, "_serialize_value", lambda v: v, raising=False)
+    monkeypatch.setattr(cache_handlers.hou.hipFile, "isNewFile", lambda: False)
+    monkeypatch.setattr(cache_handlers.hou.hipFile, "save", lambda: None)
+    parms = {"cookoutputnode": MagicMock(), "execute": MagicMock(), "trange": None}
+    node = MagicMock()
+    node.parm.side_effect = parms.get
+    monkeypatch.setattr(cache_handlers, "_get_node", lambda p: node)
+    monkeypatch.setattr(cache_handlers, "_set_frame_parm", lambda *a: None)
+    monkeypatch.setattr(cache_handlers, "reported_outputs", lambda n: [])
+
+    long_range = cache_handlers._write_cache(node_path="/obj/g/c", frame_range=[1, 80])
+    assert long_range["status"] == "launched"
+    assert long_range["decided"].startswith("background chosen")
+    parms["cookoutputnode"].pressButton.assert_called_once()
+    parms["execute"].pressButton.assert_not_called()
+
+
+def test_timeout_message_points_at_background_for_caches():
+    from fxhoudinimcp_server import dispatcher
+
+    assert "background=True" in dispatcher._TIMEOUT_HINTS["cache.write_cache"]
+    assert "get_render_progress" in dispatcher._TIMEOUT_HINTS["rendering.start_render"]
+
+
+@pytest.mark.asyncio
+async def test_reporting_bridge_heartbeats_while_a_command_runs(monkeypatch):
+    import asyncio
+
+    from fxhoudinimcp import server
+
+    monkeypatch.setattr(server, "_HEARTBEAT", 0.01)
+    inner = MagicMock(spec=server.HoudiniBridge)
+
+    async def slow(command, params=None, timeout=None):
+        await asyncio.sleep(0.05)
+        return {"ok": command}
+
+    inner.execute = slow
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock()
+    ctx.request_context.lifespan_context = {"bridge": inner}
+    monkeypatch.setattr(server, "HoudiniBridge", MagicMock)
+    ctx.request_context.lifespan_context["bridge"] = MagicMock()
+    ctx.request_context.lifespan_context["bridge"].execute = slow
+
+    bridge = server._get_bridge(ctx)
+    assert await bridge.execute("scene.get_scene_info") == {"ok": "scene.get_scene_info"}
+    assert ctx.report_progress.await_count >= 1
+    message = ctx.report_progress.await_args.args[2]
+    assert message.startswith("scene.get_scene_info: Houdini working for")

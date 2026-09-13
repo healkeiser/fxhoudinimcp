@@ -19,6 +19,9 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.outputs import (
+    at_frame as _at_frame,
+)
+from fxhoudinimcp_server.outputs import (
     failure_verdict,
     reported_outputs,
     write_verdict,
@@ -60,30 +63,14 @@ def _is_cache_node(node: hou.Node) -> bool:
     )
 
 
-@contextlib.contextmanager
-def _at_frame(frame: float | None):
-    """Evaluate output paths at the frame a write starts on.
-
-    The verdict compares files before and after by evaluating `$F` paths, and
-    it used to do that at the current frame. Writing frames 10-12 while the
-    playbar sat on frame 1 then read as "nothing was written".
-    """
-    if frame is None:
-        yield
-        return
-    previous = hou.frame()
-    hou.setFrame(frame)
-    try:
-        yield
-    finally:
-        hou.setFrame(previous)
-
-
 # The write path first. On File Cache 2.0 `sopoutput` is where frames go and
 # `file` is the load path, which in the default "constructed" mode is an
 # unversioned pattern no frame is ever written to; reading it reported an
 # empty cache over 60 fresh frames.
 _OUTPUT_PARMS = ("sopoutput", "file", "filename", "filepath")
+
+# Frames a foreground write may cover before background is chosen for it.
+_FOREGROUND_MAX_FRAMES = 24
 
 
 def _frame_glob(node: hou.Node) -> str | None:
@@ -383,7 +370,7 @@ def _write_cache(
     *,
     node_path: str,
     frame_range: list[int] | None = None,
-    background: bool = False,
+    background: bool | None = None,
     **_: Any,
 ) -> dict[str, Any]:
     """Execute (render) a cache node to write files to disk.
@@ -407,6 +394,25 @@ def _write_cache(
     node = _get_node(node_path)
 
     bg_button = node.parm("cookoutputnode")
+    frame_count = (
+        int(frame_range[1]) - int(frame_range[0]) + 1
+        if frame_range is not None and len(frame_range) >= 2
+        else None
+    )
+    # background=None means decide here. The foreground path holds Houdini's
+    # main thread for the whole write and the client gives up at the command
+    # timeout, after which the agent learns nothing about the write and falls
+    # back to polling the disk from a shell. Two 80-frame FLIP caches in a live
+    # session went that way. Past one second of frames, a node that can write in
+    # the background does.
+    decided = None
+    if background is None:
+        background = bool(bg_button is not None and (frame_count or 0) > _FOREGROUND_MAX_FRAMES)
+        decided = (
+            f"background chosen automatically: {frame_count} frames > {_FOREGROUND_MAX_FRAMES}"
+            if background
+            else "foreground: short range or node without background save"
+        )
     if background and bg_button is None:
         raise ValueError(
             f"{node_path} has no background save (no 'cookoutputnode' button); "
@@ -451,6 +457,7 @@ def _write_cache(
                 "frame_range": frame_range,
                 "method": method,
                 "background": True,
+                "decided": decided,
                 "success": True,
                 "wrote_files": False,
                 "status": "launched",
@@ -499,6 +506,7 @@ def _write_cache(
         "frame_range": actual_range,
         "method": method,
         "background": background,
+        "decided": decided,
         # Kept so existing callers reading `status` still work, but derived from
         # the same evidence as `success` rather than from an unconditional string.
         "status": (
