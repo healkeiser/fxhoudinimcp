@@ -272,3 +272,22 @@ async def test_reporting_bridge_heartbeats_while_a_command_runs(monkeypatch):
     assert ctx.report_progress.await_count >= 1
     message = ctx.report_progress.await_args.args[2]
     assert message.startswith("scene.get_scene_info: Houdini working for")
+
+
+def test_verified_foreground_write_turns_load_from_disk_on(monkeypatch):
+    monkeypatch.setattr(cache_handlers.hou.hipFile, "isNewFile", lambda: False)
+    parms = {"execute": MagicMock(), "loadfromdisk": MagicMock(), "trange": None}
+    node = MagicMock()
+    node.parm.side_effect = parms.get
+    monkeypatch.setattr(cache_handlers, "_get_node", lambda p: node)
+    monkeypatch.setattr(cache_handlers, "_set_frame_parm", lambda *a: None)
+    monkeypatch.setattr(cache_handlers, "reported_outputs", lambda n: [])
+    monkeypatch.setattr(
+        cache_handlers,
+        "write_verdict",
+        lambda *a, **k: {"success": True, "wrote_files": True, "message": "ok", "errors": []},
+    )
+
+    result = cache_handlers._write_cache(node_path="/obj/g/c", frame_range=[1, 5])
+    assert result["load_from_disk_enabled"] is True
+    parms["loadfromdisk"].set.assert_called_once_with(1)

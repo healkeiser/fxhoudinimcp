@@ -38,7 +38,13 @@ async def list_caches(
 
 @mcp.tool()
 async def get_cache_status(ctx: Context, node_path: str) -> dict:
-    """Get the detailed status of a cache node.
+    """Frames on disk for a cache node, against the range it is set to write.
+
+    This is what to poll after a background write_cache: `complete` is true
+    when every frame of `expected_range` is on disk, `missing_frames` lists
+    the rest, `writing` is true while files are still arriving, and `hint`
+    tells you when the finished cache is not yet loaded from disk. Never
+    wait for a cache with a shell loop; call this between other work.
 
     Args:
         ctx: MCP context.
@@ -100,6 +106,7 @@ async def write_cache(
             than 24 frames, since a longer foreground write blocks Houdini
             past the command timeout and reports nothing. Pass False only
             for a short range you need the verdict of in the same call.
+            A verified foreground write turns the node's Load from Disk on.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path}
