@@ -45,7 +45,7 @@ _INSTRUCTIONS = (
     / "prompts"
     / "markdown"
     / "instructions"
-    / "server_instructions.md"
+    / "discipline.md"
 )
 # The full evidence: every sampled build and the node types it had. Big,
 # diffable, and deliberately NOT shipped -- nothing at runtime reads it.

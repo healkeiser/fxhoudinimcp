@@ -198,3 +198,25 @@ def test_workflow_guide_text_prefers_a_subject_file_over_a_sim_alias():
     assert "Blending a FLIP region" in workflow_guide_text("ocean")
     assert "Blending a FLIP region" not in workflow_guide_text("flip")
     assert "FLIP inside an ocean" in workflow_guide_text("water")
+
+
+class TestInstructionSize:
+    # Claude Code showed 2,047 characters of a 31,903-character instruction
+    # string and cut the rest: rules 3 to 8 never reached the agent. The
+    # summary must fit; the full rules live in instructions/discipline.md.
+    _CAP = 2000
+
+    def test_server_instructions_fit_the_client_cap(self, monkeypatch):
+        from fxhoudinimcp._loader import load_markdown
+
+        for value in ("0", "1"):
+            monkeypatch.setenv("FXHOUDINIMCP_AUTO_LAYOUT", value)
+            text = load_markdown("instructions/server_instructions.md")
+            assert len(text) <= self._CAP, f"{len(text)} chars with AUTO_LAYOUT={value}"
+
+    def test_discipline_guide_serves_the_full_rules(self):
+        from fxhoudinimcp.prompts.workflows import workflow_guide_text
+
+        text = workflow_guide_text("discipline")
+        assert "ISOLATE WHILE ITERATING" in text
+        assert "COMMONLY MISSED NODE DOMAINS" in text

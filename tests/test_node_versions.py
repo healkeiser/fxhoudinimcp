@@ -1,6 +1,6 @@
 """Tests for the shipped sampled-version record and its staleness signal.
 
-The version markers in server_instructions.md cannot describe a Houdini nobody
+The version markers in discipline.md (the full rules; server_instructions.md is the 2 KB summary a client shows) cannot describe a Houdini nobody
 has sampled. Read literally, "(21.0+)" includes a future 23.0, so a node dropped
 there would still be advertised. These tests cover the code that notices that.
 """
@@ -171,7 +171,7 @@ class TestInstructionAnnotationsSurvive:
     def test_generated_block_still_carries_version_markers(self):
         from fxhoudinimcp._loader import load_markdown
 
-        text = load_markdown("instructions/server_instructions.md")
+        text = load_markdown("instructions/discipline.md")
         begin = text.index("<!-- BEGIN GENERATED: node domains -->")
         end = text.index("<!-- END GENERATED: node domains -->")
         block = text[begin:end]
