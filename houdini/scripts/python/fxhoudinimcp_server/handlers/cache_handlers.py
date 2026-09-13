@@ -429,8 +429,9 @@ def _write_cache(
 
     # Foreground is the default on purpose: it holds the main thread, but the
     # user sees Houdini's own progress dialog and can cancel, where a
-    # background hython shows them nothing. The dispatcher gives this command
-    # an hour, so the verdict comes back instead of a timeout.
+    # background hython shows them nothing. The dispatcher puts no deadline on
+    # this command: a cache takes as long as it takes, and the verdict comes
+    # back when it is done.
     bg_button = node.parm("cookoutputnode")
     if background and bg_button is None:
         raise ValueError(

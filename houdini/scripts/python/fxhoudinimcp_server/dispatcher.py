@@ -38,38 +38,35 @@ _COMMAND_TIMEOUT = 120  # seconds
 _NO_UNDO_GROUP = frozenset({"scene.undo", "scene.redo"})
 
 
-# Commands that legitimately hold the main thread for a long time: a cache
-# write or a render shows Houdini's own progress dialog, which is where the
-# user wants to watch it, so they get an hour by default instead of two
-# minutes. Still overridable per command through the environment.
-_LONG_COMMAND_TIMEOUTS = {
-    "cache.write_cache": 3600.0,
-    "rendering.start_render": 3600.0,
-}
+# Commands with no deadline. A cache write or a render takes as long as it
+# takes, shows Houdini's own progress dialog, and is cancelled from there;
+# any number here would be a threshold past which the client is told a lie
+# while Houdini keeps working. FXHOUDINIMCP_TIMEOUT_<COMMAND> can still put
+# one back per command.
+_UNBOUNDED_COMMANDS = frozenset({"cache.write_cache", "rendering.start_render"})
 
 # What to do when a command does time out, where the answer is not simply a
 # bigger number.
 _TIMEOUT_HINTS = {
     "cache.write_cache": (
         "Houdini is still writing and shows its progress dialog to the user. Wait for "
-        "the verdict; do not poll the disk or press buttons in Python. Raise "
-        "FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE past an hour for a bigger job, or use "
-        "background=True for a write you want to work alongside."
+        "the verdict; do not poll the disk or press buttons in Python. This command has "
+        "no deadline unless FXHOUDINIMCP_TIMEOUT_CACHE_WRITE_CACHE set one."
     ),
     "rendering.start_render": (
         "Houdini is still rendering and shows its progress dialog to the user. Wait for "
-        "the verdict; do not poll the disk. Raise FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER "
-        "past an hour for a bigger job, or use background=True."
+        "the verdict; do not poll the disk. This command has no deadline unless "
+        "FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER set one."
     ),
     "code.execute_python": (
         "If this was a cook, a render or a Save to Disk, use write_cache / start_render "
-        "instead of pressing buttons in Python: they are given an hour and report a verdict."
+        "instead of pressing buttons in Python: they have no deadline and report a verdict."
     ),
 }
 
 
-def command_timeout(command: str) -> float:
-    """Seconds a command may take before dispatch gives up on it.
+def command_timeout(command: str) -> float | None:
+    """Seconds a command may take before dispatch gives up on it; None is never.
 
     ``FXHOUDINIMCP_TIMEOUT_<COMMAND>`` wins (the dotted name uppercased with
     dots as underscores, so ``tops.cook_top_node`` reads
@@ -91,7 +88,9 @@ def command_timeout(command: str) -> float:
         if value > 0:
             return value
         logger.warning("Ignoring %s=%r: must be positive", name, raw)
-    return _LONG_COMMAND_TIMEOUTS.get(command, _COMMAND_TIMEOUT)
+    if command in _UNBOUNDED_COMMANDS:
+        return None
+    return _COMMAND_TIMEOUT
 
 
 @contextlib.contextmanager
