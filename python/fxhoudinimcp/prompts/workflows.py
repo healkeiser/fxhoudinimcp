@@ -169,6 +169,10 @@ def workflow_guide_text(topic: str, description: str = "") -> str:
     them, exactly as simulation_setup does, so one lookup serves both.
     """
     key = topic.strip().lower().replace("/", "")
+    if key == "discipline":
+        # The full working rules. The server instructions are a summary of
+        # them, because the client shows a server about 2 KB of instructions.
+        return load_markdown("instructions/discipline.md")
     # A subject with its own file wins over the sim alias table: "ocean" is
     # both a guide and an alias for fluid, and the guide is what was asked for.
     if not markdown_exists(f"workflows/{key}.md"):

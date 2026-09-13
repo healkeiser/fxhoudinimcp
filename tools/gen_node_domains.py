@@ -61,7 +61,7 @@ _INSTRUCTIONS = (
     / "prompts"
     / "markdown"
     / "instructions"
-    / "server_instructions.md"
+    / "discipline.md"
 )
 _TABLE = Path(__file__).resolve().parent / "node_versions.json"
 
