@@ -10,7 +10,7 @@
 | `FXHOUDINIMCP_PORT` | `8100` | Port for the Houdini plugin to listen on |
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Set to `0` to disable auto-start |
 | `FXHOUDINIMCP_BIND` | `127.0.0.1` | Address the Houdini plugin binds. Loopback by default; see [Security](#security) before widening it |
-| `FXHOUDINIMCP_AUTO_LAYOUT` | `1` | Set to `0` to stop tools re-arranging existing nodes. New nodes are still placed |
+| `FXHOUDINIMCP_AUTO_LAYOUT` | `0` | Off: tools never re-arrange existing nodes, new nodes are still placed. Set to `1` to have handlers lay out the parent network after each change |
 | `FXHOUDINIMCP_PROJECT_ROOT` | unset | Confine hip, import, export and HDA file operations to this directory tree |
 | `FXHOUDINIMCP_TIMEOUT` | `120` | Seconds a command may run before the plugin reports a timeout |
 | `FXHOUDINIMCP_TIMEOUT_<COMMAND>` | unset | Per-command override, e.g. `FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900` |
@@ -52,15 +52,16 @@ always wins, including `[0, 0]`. Without this, a session run with auto-layout
 off used to leave every new node in one unreadable pile at the origin.
 
 **Auto-layout re-arranges the whole network**, and is what
-`FXHOUDINIMCP_AUTO_LAYOUT` controls. By default, node-creation handlers and
-workflow tools call `layoutChildren()` on the parent network after they work,
-and the `layout_children` tool is available on demand. That moves *all* nodes
-in the affected network, including ones you placed by hand.
+`FXHOUDINIMCP_AUTO_LAYOUT` controls. It is off by default. When on,
+node-creation handlers and workflow tools call `layoutChildren()` on the
+parent network after they work, and the `layout_children` tool is available
+on demand. That moves *all* nodes in the affected network, including ones you
+placed by hand, which is why it is opt-in.
 
-To keep your manual layouts, disable auto-layout:
+To turn it on:
 
 ``` shell
-export FXHOUDINIMCP_AUTO_LAYOUT=0
+export FXHOUDINIMCP_AUTO_LAYOUT=1
 ```
 
 Set it both in the MCP client environment (where `python -m fxhoudinimcp`
@@ -69,10 +70,10 @@ installer writes), since each process reads it independently. Inside a running
 Houdini session you can also toggle it without restarting:
 
 ``` python
-hou.putenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
+hou.putenv("FXHOUDINIMCP_AUTO_LAYOUT", "1")
 ```
 
-When disabled, the server instructions tell assistants never to move nodes,
+When off (the default), the server instructions tell assistants never to move nodes,
 `layout_children` becomes a no-op, the Houdini-side handlers skip every
 automatic `layoutChildren()` call, and only freshly created nodes are placed.
 Tools that create nothing (`connect_nodes`, `connect_nodes_batch`,

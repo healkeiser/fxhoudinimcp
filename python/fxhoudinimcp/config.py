@@ -12,7 +12,8 @@ def auto_layout_enabled() -> bool:
     """Whether tools may auto-arrange nodes in the network editor.
 
     Controlled by the ``FXHOUDINIMCP_AUTO_LAYOUT`` environment variable.
-    Defaults to enabled; set to ``0`` to preserve existing node layouts.
+    Off by default so existing node layouts are never rearranged; set to
+    ``1`` to opt in.
     """
-    value = os.getenv("FXHOUDINIMCP_AUTO_LAYOUT", "1")
+    value = os.getenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
     return value.strip().lower() not in _FALSY

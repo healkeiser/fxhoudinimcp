@@ -60,9 +60,10 @@ class TestFailedBuildRollsBack:
 def manual_layout():
     """The contract under test is the one FXHOUDINIMCP_AUTO_LAYOUT=0 promises.
 
-    With the flag at its default, create_node runs layoutChildren() on the
-    parent and every node moves; this test found a hand-placed node three
-    units away before the flag was set here.
+    With the flag on, create_node runs layoutChildren() on the parent and
+    every node moves; this test found a hand-placed node three units away
+    when the flag still defaulted to on. Off is the default now; pinned here
+    so the test says what it asserts.
     """
     hou.putenv("FXHOUDINIMCP_AUTO_LAYOUT", "0")
     yield

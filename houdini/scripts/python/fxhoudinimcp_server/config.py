@@ -17,12 +17,14 @@ def auto_layout_enabled() -> bool:
 
     Reads ``FXHOUDINIMCP_AUTO_LAYOUT`` via ``hou.getenv`` first (so it can
     be set in houdini.env or toggled at runtime with ``hou.putenv``), then
-    falls back to the process environment. Defaults to enabled; set to
-    ``0`` to preserve existing node layouts.
+    falls back to the process environment. Off by default: an artist's
+    layout is theirs, and a tool that rearranges it on every call is the first
+    thing they uninstall. Set to ``1`` to have handlers lay out the parent
+    network after they work.
     """
     value = hou.getenv("FXHOUDINIMCP_AUTO_LAYOUT")
     if value is None:
-        value = os.environ.get("FXHOUDINIMCP_AUTO_LAYOUT", "1")
+        value = os.environ.get("FXHOUDINIMCP_AUTO_LAYOUT", "0")
     return value.strip().lower() not in _FALSY
 
 
