@@ -88,6 +88,20 @@ def _is_instance_parm(name: str, patterns: list[re.Pattern]) -> bool:
     return any(p.match(name) for p in patterns)
 
 
+def _is_dynamic_menu(probe: hou.Node, parm: hou.Parm) -> bool:
+    """A menu whose items depend on state a fresh probe cannot have.
+
+    The VOP ``signature`` menu lists only the signature the node currently
+    has ("default" on a fresh mtlxmultiply) while ``set()`` accepts every
+    signature the shader defines, so validating "color3" against that list
+    refused a valid build. Such a menu is left to Houdini.
+    """
+    try:
+        return parm.name() == "signature" and probe.type().category().name() == "Vop"
+    except Exception:
+        return False
+
+
 def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict, list]:
     """Instantiate a type once to learn its parm names, tuple names, menus and
     multiparm instance patterns.
@@ -102,6 +116,8 @@ def _parm_names_for_type(scratch: hou.Node, node_type) -> tuple[set, set, dict, 
     tuple_names = {pt.name() for pt in probe.parmTuples()}
     menus: dict[str, list[str]] = {}
     for parm in probe.parms():
+        if _is_dynamic_menu(probe, parm):
+            continue
         with contextlib.suppress(Exception):
             template = parm.parmTemplate()
             items = list(parm.menuItems())
