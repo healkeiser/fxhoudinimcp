@@ -2530,8 +2530,8 @@
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_AUTO_LAYOUT</code></td>
-<td><code>1</code></td>
-<td>Set to <code>0</code> to stop tools re-arranging existing nodes. New nodes are still placed</td>
+<td><code>0</code></td>
+<td>Off: tools never re-arrange existing nodes, new nodes are still placed. Set to <code>1</code> to have handlers lay out the parent network after each change</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_PROJECT_ROOT</code></td>
@@ -2590,20 +2590,21 @@ already existed moves. An explicit <code>position=[x, y]</code> passed to a crea
 always wins, including <code>[0, 0]</code>. Without this, a session run with auto-layout
 off used to leave every new node in one unreadable pile at the origin.</p>
 <p><strong>Auto-layout re-arranges the whole network</strong>, and is what
-<code>FXHOUDINIMCP_AUTO_LAYOUT</code> controls. By default, node-creation handlers and
-workflow tools call <code>layoutChildren()</code> on the parent network after they work,
-and the <code>layout_children</code> tool is available on demand. That moves <em>all</em> nodes
-in the affected network, including ones you placed by hand.</p>
-<p>To keep your manual layouts, disable auto-layout:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTO_LAYOUT</span><span class="o">=</span><span class="m">0</span>
+<code>FXHOUDINIMCP_AUTO_LAYOUT</code> controls. It is off by default. When on,
+node-creation handlers and workflow tools call <code>layoutChildren()</code> on the
+parent network after they work, and the <code>layout_children</code> tool is available
+on demand. That moves <em>all</em> nodes in the affected network, including ones you
+placed by hand, which is why it is opt-in.</p>
+<p>To turn it on:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTO_LAYOUT</span><span class="o">=</span><span class="m">1</span>
 </code></pre></div>
 <p>Set it both in the MCP client environment (where <code>python -m fxhoudinimcp</code>
 runs) and in the Houdini environment (<code>houdini.env</code> or the package file the
 installer writes), since each process reads it independently. Inside a running
 Houdini session you can also toggle it without restarting:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">hou</span><span class="o">.</span><span class="n">putenv</span><span class="p">(</span><span class="s2">"FXHOUDINIMCP_AUTO_LAYOUT"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">hou</span><span class="o">.</span><span class="n">putenv</span><span class="p">(</span><span class="s2">"FXHOUDINIMCP_AUTO_LAYOUT"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">)</span>
 </code></pre></div>
-<p>When disabled, the server instructions tell assistants never to move nodes,
+<p>When off (the default), the server instructions tell assistants never to move nodes,
 <code>layout_children</code> becomes a no-op, the Houdini-side handlers skip every
 automatic <code>layoutChildren()</code> call, and only freshly created nodes are placed.
 Tools that create nothing (<code>connect_nodes</code>, <code>connect_nodes_batch</code>,
