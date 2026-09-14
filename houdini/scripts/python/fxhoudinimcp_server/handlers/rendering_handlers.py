@@ -23,6 +23,7 @@ import hou
 from fxhoudinimcp_server.config import place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
+from fxhoudinimcp_server.handlers.viewport_handlers import _no_mplay
 from fxhoudinimcp_server.outputs import (
     at_frame,
     failure_verdict,
@@ -113,6 +114,7 @@ def render_viewport(
 
     # Build the flipbook settings for image capture
     settings = scene_viewer.flipbookSettings().stash()
+    _no_mplay(settings)
     settings.frameRange((cur_frame, cur_frame))
     settings.output(output_path)
 
@@ -180,6 +182,8 @@ def render_quad_view(
         vp_output = f"{base}_{vp_name}{ext}"
 
         settings = scene_viewer.flipbookSettings().stash()
+
+        _no_mplay(settings)
         settings.frameRange((hou.frame(), hou.frame()))
         settings.output(vp_output)
 

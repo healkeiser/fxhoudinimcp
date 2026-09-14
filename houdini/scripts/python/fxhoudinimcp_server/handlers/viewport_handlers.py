@@ -22,6 +22,20 @@ from fxhoudinimcp_server.ui import require_ui
 logger = logging.getLogger(__name__)
 
 
+def _no_mplay(settings) -> None:
+    """Keep a flipbook from launching MPlay.
+
+    MPlay is a child process of Houdini and inherits its file descriptors, the
+    hwebserver listening socket among them. After Houdini exits, that MPlay
+    keeps the port open and the next Houdini's auto-start fails with "an
+    existing server is running on port N". The frame is written to disk either
+    way; a viewer nobody asked for is not worth losing the next session's
+    server.
+    """
+    with contextlib.suppress(Exception):
+        settings.outputToMPlay(False)
+
+
 def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
     """Capture a pane tab screenshot via Qt.
 
@@ -611,6 +625,7 @@ def capture_screenshot(
         settings = pane_tab.flipbookSettings().stash()
         settings.frameRange((cur_frame, cur_frame))
         settings.output(output_path)
+        _no_mplay(settings)
         pane_tab.flipbook(viewport, settings)
 
         # Handle frame number that flipbook may insert
