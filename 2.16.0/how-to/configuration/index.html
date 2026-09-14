@@ -2599,8 +2599,9 @@ placed by hand, which is why it is opt-in.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTO_LAYOUT</span><span class="o">=</span><span class="m">1</span>
 </code></pre></div>
 <p>Set it both in the MCP client environment (where <code>python -m fxhoudinimcp</code>
-runs) and in the Houdini environment (<code>houdini.env</code> or the package file the
-installer writes), since each process reads it independently. Inside a running
+runs) and in the Houdini environment (the <code>FXHOUDINIMCP_AUTO_LAYOUT</code> entry
+already in the package file <code>install</code> wrote, or <code>houdini.env</code>), since each
+process reads it independently. A package value wins over the shell. Inside a running
 Houdini session you can also toggle it without restarting:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">hou</span><span class="o">.</span><span class="n">putenv</span><span class="p">(</span><span class="s2">"FXHOUDINIMCP_AUTO_LAYOUT"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">)</span>
 </code></pre></div>
@@ -2619,7 +2620,8 @@ dotted command name uppercased with dots as underscores:</p>
 </code></pre></div>
 <p>A command that hits its deadline returns a <code>TIMEOUT</code> error naming the exact
 variable to raise. These are read by the Houdini process, so they belong in
-<code>houdini.env</code> or the package file, not the MCP client config.</p>
+the package file <code>install</code> wrote (which carries <code>FXHOUDINIMCP_TIMEOUT</code> at its
+default) or <code>houdini.env</code>, not the MCP client config.</p>
 <h2 id="project-root-sandbox">Project Root Sandbox<a class="headerlink" href="#project-root-sandbox" title="Permanent link">&para;</a></h2>
 <p>With <code>FXHOUDINIMCP_PROJECT_ROOT</code> set, the paths the handlers themselves open,
 save, load or install must resolve under that directory: hip files (save, load,
