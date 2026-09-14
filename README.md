@@ -250,7 +250,7 @@ The package file `install` writes is also where the Houdini-side settings live.
 It ships every one of them at its default, so they are all visible in one place:
 `FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART`,
 `FXHOUDINIMCP_AUTO_LAYOUT`, `FXHOUDINIMCP_PROJECT_ROOT`, `FXHOUDINIMCP_TIMEOUT`
-and `FXHOUDINIMCP_OUTPUT_GRACE` (see [Environment Variables](#environment-variables)
+and `FXHOUDINIMCP_OUTPUT_GRACE` (see [Environment Variables](https://healkeiser.github.io/fxhoudinimcp/latest/how-to/configuration/#environment-variables)
 for what each does). Edit the values in place; running `install` again refreshes
 the plugin path and keeps every value you changed, along with any variable you
 added. Two things to know:
