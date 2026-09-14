@@ -246,17 +246,19 @@ you only want one Houdini cleaned.
 
 ### Configuring the plugin
 
-The package file `install` writes is also where the Houdini-side settings live.
-It ships every one of them at its default, so they are all visible in one place:
-`FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`, `FXHOUDINIMCP_AUTOSTART`,
-`FXHOUDINIMCP_AUTO_LAYOUT`, `FXHOUDINIMCP_PROJECT_ROOT` and
-`FXHOUDINIMCP_TIMEOUT` (see [Environment Variables](#environment-variables)
-for what each does). Two things to know:
+The Houdini-side settings, `FXHOUDINIMCP_PORT`, `FXHOUDINIMCP_BIND`,
+`FXHOUDINIMCP_AUTOSTART`, `FXHOUDINIMCP_AUTO_LAYOUT`, `FXHOUDINIMCP_PROJECT_ROOT`,
+`FXHOUDINIMCP_TIMEOUT` and `FXHOUDINIMCP_OUTPUT_GRACE` (see
+[Environment Variables](#environment-variables)), are plain environment
+variables read inside Houdini. Every one has a default, and the package file
+`install` writes sets none of them: it only points Houdini at the plugin. To
+change one, either put it in `houdini.env`, or add an entry to the package
+file's `env` list; `houdini/fxhoudinimcp.json` in the repository shows the
+shape. Two things to know:
 
-- Because the package sets these explicitly, it **wins over the same variable
-  set in your shell**. Change them here, not in your environment. Houdini's
-  package format has no "only if unset" method, and it rejects JSON comments,
-  so there is no way to ship them inert.
+- A value set in the package file **wins over the same variable set in your
+  shell**, because Houdini applies packages after the environment. Pick one
+  place and keep it there.
 - `HOUDINI_HOST`, `HOUDINI_PORT`, `MCP_TRANSPORT` and `LOG_LEVEL` do **not**
   belong here. They are read by the MCP server process that your client
   launches, not by Houdini, so setting them in this file has no effect --
