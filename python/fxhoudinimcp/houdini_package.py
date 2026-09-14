@@ -54,14 +54,60 @@ def plugin_path() -> Path:
     return here.parents[1] / "houdini"
 
 
-def package_json(path: Path | None = None) -> str:
+# Every Houdini-side setting, at its default, so the package file is the one
+# place to read and change them. Houdini applies packages after the shell
+# environment, so a value here wins over the same variable in the shell;
+# hou.putenv at runtime wins over both. PROJECT_ROOT's default is "unset", and
+# the empty string is how the reader spells that.
+SETTINGS: dict[str, str] = {
+    "FXHOUDINIMCP_PORT": "8100",
+    "FXHOUDINIMCP_BIND": "127.0.0.1",
+    "FXHOUDINIMCP_AUTOSTART": "1",
+    "FXHOUDINIMCP_AUTO_LAYOUT": "0",
+    "FXHOUDINIMCP_PROJECT_ROOT": "",
+    "FXHOUDINIMCP_TIMEOUT": "120",
+    "FXHOUDINIMCP_OUTPUT_GRACE": "2",
+}
+
+
+def existing_env(target: Path) -> dict[str, str]:
+    """The ``env`` entries of the package file at *target*, or {} if unreadable.
+
+    Read so a rewrite keeps what the user changed: ``install`` runs again after
+    every Python move, and resetting a tuned port or sandbox each time would
+    make the file useless as a place to configure anything.
+    """
+    try:
+        data = json.loads(target.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return {}
+    found: dict[str, str] = {}
+    for entry in data.get("env") or []:
+        if isinstance(entry, dict):
+            for key, value in entry.items():
+                if isinstance(value, str):
+                    found[key] = value
+    return found
+
+
+def package_json(path: Path | None = None, existing: dict[str, str] | None = None) -> str:
     """The Houdini package file contents pointing at *path*.
+
+    Carries every setting in SETTINGS at its default, except where *existing*
+    (the current file's values) says otherwise: those are kept, and so is any
+    extra variable the user added. Only the plugin path is always refreshed.
 
     Forward slashes on every platform: Houdini accepts them, and backslashes in
     JSON need escaping, which is a common way to break this file by hand.
     """
     target = (path or plugin_path()).as_posix()
-    return json.dumps({"env": [{"FXHOUDINIMCP": target}], "path": "$FXHOUDINIMCP"}, indent=4) + "\n"
+    kept = dict(existing or {})
+    kept.pop("FXHOUDINIMCP", None)
+    env: list[dict[str, str]] = [{"FXHOUDINIMCP": target}]
+    for key, default in SETTINGS.items():
+        env.append({key: kept.pop(key, default)})
+    env.extend({key: value} for key, value in kept.items())
+    return json.dumps({"env": env, "path": "$FXHOUDINIMCP"}, indent=4) + "\n"
 
 
 def candidate_package_dirs() -> list[Path]:
@@ -174,7 +220,8 @@ def write_package(destination: Path, path: Path | None = None) -> Path:
     if not destination.is_dir():
         raise NotADirectoryError(destination)
     target = destination / PACKAGE_NAME
-    target.write_text(package_json(path), encoding="utf-8", newline="\n")
+    existing = existing_env(target) if target.is_file() else None
+    target.write_text(package_json(path, existing), encoding="utf-8", newline="\n")
     return target
 
 

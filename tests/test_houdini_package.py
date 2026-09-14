@@ -74,6 +74,35 @@ class TestPackageJson:
         data = json.loads(hp.package_json())
         assert data["env"][0]["FXHOUDINIMCP"] == hp.plugin_path().as_posix()
 
+    def test_ships_every_setting_at_its_default(self):
+        env = {k: v for entry in json.loads(hp.package_json())["env"] for k, v in entry.items()}
+        for key, default in hp.SETTINGS.items():
+            assert env[key] == default, key
+        assert env["FXHOUDINIMCP_AUTO_LAYOUT"] == "0"
+
+
+class TestRewriteKeepsCustomValues:
+    def test_changed_and_extra_values_survive_a_reinstall(self, tmp_path):
+        first = hp.write_package(tmp_path, tmp_path / "old_plugin")
+        data = json.loads(first.read_text(encoding="utf-8"))
+        for entry in data["env"]:
+            if "FXHOUDINIMCP_PORT" in entry:
+                entry["FXHOUDINIMCP_PORT"] = "8123"
+        data["env"].append({"MY_STUDIO_FLAG": "yes"})
+        first.write_text(json.dumps(data, indent=4), encoding="utf-8")
+
+        second = hp.write_package(tmp_path, tmp_path / "new_plugin")
+        env = {k: v for entry in json.loads(second.read_text())["env"] for k, v in entry.items()}
+        assert env["FXHOUDINIMCP"].endswith("new_plugin")  # the path is always refreshed
+        assert env["FXHOUDINIMCP_PORT"] == "8123"  # the user's change is kept
+        assert env["FXHOUDINIMCP_AUTO_LAYOUT"] == "0"  # untouched settings stay at default
+        assert env["MY_STUDIO_FLAG"] == "yes"  # extras the user added are kept
+
+    def test_a_corrupt_file_is_replaced_not_fatal(self, tmp_path):
+        (tmp_path / hp.PACKAGE_NAME).write_text("{ not json", encoding="utf-8")
+        written = hp.write_package(tmp_path, tmp_path / "plug")
+        assert json.loads(written.read_text())["path"] == "$FXHOUDINIMCP"
+
 
 ###### Candidate directories
 
