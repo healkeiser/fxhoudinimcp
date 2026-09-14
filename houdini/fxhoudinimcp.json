@@ -13,7 +13,7 @@
             "FXHOUDINIMCP_AUTOSTART": "1"
         },
         {
-            "FXHOUDINIMCP_AUTO_LAYOUT": "1"
+            "FXHOUDINIMCP_AUTO_LAYOUT": "0"
         }
     ],
     "path": "$FXHOUDINIMCP"

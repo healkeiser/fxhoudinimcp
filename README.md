@@ -456,7 +456,7 @@ Once connected, your AI assistant can:
 | `HOUDINI_TIMEOUT` | `FXHOUDINIMCP_TIMEOUT` + 15 | Seconds the MCP client waits for one command before reporting a timeout. Keep it above the plugin's deadline, and raise it alongside any `FXHOUDINIMCP_TIMEOUT_<COMMAND>` you set |
 | `FXHOUDINIMCP_PORT` | `8100` | Port for the Houdini plugin to listen on |
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Set to `0` to disable auto-start |
-| `FXHOUDINIMCP_AUTO_LAYOUT` | `1` | Set to `0` to stop tools re-arranging existing nodes. Freshly created nodes are still placed next to their inputs instead of piling up at the origin, and an explicit `position` always wins |
+| `FXHOUDINIMCP_AUTO_LAYOUT` | `0` | Off by default: tools never re-arrange existing nodes. Freshly created nodes are still placed next to their inputs instead of piling up at the origin, and an explicit `position` always wins. Set to `1` to have handlers lay out the parent network after each change |
 | `FXHOUDINIMCP_BIND` | `127.0.0.1` | Address the Houdini plugin binds. Loopback by default: the bridge runs arbitrary Python in your Houdini session and has no authentication, so only widen this on a network you trust |
 | `FXHOUDINIMCP_PROJECT_ROOT` | unset | When set, hip files, imports, exports and HDA libraries must live under this directory. See [Security](#security) for what it does not cover |
 | `FXHOUDINIMCP_TIMEOUT` | `120` | Seconds a command may run before the plugin reports a timeout |
