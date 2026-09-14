@@ -2636,14 +2636,17 @@ you only want one Houdini cleaned.</p>
 <p>The package file <code>install</code> writes is also where the Houdini-side settings live.
 It ships every one of them at its default, so they are all visible in one place:
 <code>FXHOUDINIMCP_PORT</code>, <code>FXHOUDINIMCP_BIND</code>, <code>FXHOUDINIMCP_AUTOSTART</code>,
-<code>FXHOUDINIMCP_AUTO_LAYOUT</code>, <code>FXHOUDINIMCP_PROJECT_ROOT</code> and
-<code>FXHOUDINIMCP_TIMEOUT</code> (see <a href="#environment-variables">Environment Variables</a>
-for what each does). Two things to know:</p>
+<code>FXHOUDINIMCP_AUTO_LAYOUT</code>, <code>FXHOUDINIMCP_PROJECT_ROOT</code>, <code>FXHOUDINIMCP_TIMEOUT</code>
+and <code>FXHOUDINIMCP_OUTPUT_GRACE</code> (see <a href="#environment-variables">Environment Variables</a>
+for what each does). Edit the values in place; running <code>install</code> again refreshes
+the plugin path and keeps every value you changed, along with any variable you
+added. Two things to know:</p>
 <ul>
 <li>Because the package sets these explicitly, it <strong>wins over the same variable
   set in your shell</strong>. Change them here, not in your environment. Houdini's
   package format has no "only if unset" method, and it rejects JSON comments,
-  so there is no way to ship them inert.</li>
+  so there is no way to ship them inert. <code>hou.putenv</code> in a running session
+  still wins over both.</li>
 <li><code>HOUDINI_HOST</code>, <code>HOUDINI_PORT</code>, <code>MCP_TRANSPORT</code> and <code>LOG_LEVEL</code> do <strong>not</strong>
   belong here. They are read by the MCP server process that your client
   launches, not by Houdini, so setting them in this file has no effect --

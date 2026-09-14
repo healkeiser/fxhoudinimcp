@@ -1001,6 +1001,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp.houdini_package.existing_env" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;existing_env
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp.houdini_package.existing_packages" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2301,6 +2312,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp.houdini_package.existing_env" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;existing_env
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp.houdini_package.existing_packages" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2522,6 +2544,14 @@ listed and the choice is left to the operator.</p>
               </td>
             </tr>
             <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;existing_env&lt;/span&gt;" href="./#fxhoudinimcp.houdini_package.existing_env">existing_env</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>The <code>env</code> entries of the package file at <em>target</em>, or {} if unreadable.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
               <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;existing_packages&lt;/span&gt;" href="./#fxhoudinimcp.houdini_package.existing_packages">existing_packages</a></code></td>
               <td>
                 <div class="doc-md-description">
@@ -2604,6 +2634,29 @@ directory Houdini may never read.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="fxhoudinimcp.houdini_package.existing_env" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">existing_env</span>
+
+
+<a href="#fxhoudinimcp.houdini_package.existing_env" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">existing_env</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.houdini_package.existing_env(target)">target</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The <code>env</code> entries of the package file at <em>target</em>, or {} if unreadable.</p>
+<p>Read so a rewrite keeps what the user changed: <code>install</code> runs again after
+every Python move, and resetting a tuned port or sandbox each time would
+make the file useless as a place to configure anything.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="fxhoudinimcp.houdini_package.existing_packages" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">existing_packages</span>
 
@@ -2641,12 +2694,17 @@ just wrote would contradict itself.</p>
 
 
 <a href="#fxhoudinimcp.houdini_package.package_json" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">package_json</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.houdini_package.package_json(path)">path</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">package_json</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.houdini_package.package_json(path)">path</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp.houdini_package.package_json(existing)">existing</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>The Houdini package file contents pointing at <em>path</em>.</p>
+<p>Carries every setting in SETTINGS at its default, except where <em>existing</em>
+(the current file's values) says otherwise: those are kept, and so is any
+extra variable the user added. Only the plugin path is always refreshed.</p>
 <p>Forward slashes on every platform: Houdini accepts them, and backslashes in
 JSON need escaping, which is a common way to break this file by hand.</p>
 
