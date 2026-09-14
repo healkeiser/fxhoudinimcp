@@ -40,6 +40,11 @@ async def list_materials(
 async def get_material_info(ctx: Context, node_path: str) -> dict:
     """Get detailed information about a material node.
 
+    assignments lists the nodes under /obj and /stage whose material-path
+    parameters name this material; only those parameters are read, so the call
+    costs the same on a 4,000-node scene as on an empty one (assignment_scan
+    reports how many nodes were visited).
+
     Args:
         ctx: MCP context.
         node_path: Absolute path to the material node.

@@ -47,6 +47,90 @@ def _focus_network_editor(node: hou.Node) -> None:
         pass
 
 
+_MATERIAL_PARM_HINTS = ("materialpath", "matspecpath", "matpath", "shop_material")
+_ASSIGNMENT_ROOTS = ("/obj", "/stage")
+_material_parm_cache: dict[str, list[str]] = {}
+
+
+def _material_parm_templates(node_type: hou.NodeType) -> list[str]:
+    """String parameter names of *node_type* that hold a material path.
+
+    Cached per type: the scene has thousands of nodes but a few dozen types.
+    Multiparm instances keep their "#" (shop_materialpath#) and are expanded
+    per node.
+    """
+    key = node_type.nameWithCategory()
+    cached = _material_parm_cache.get(key)
+    if cached is not None:
+        return cached
+    names: list[str] = []
+
+    def walk(templates) -> None:
+        for template in templates:
+            if template.type() == hou.parmTemplateType.Folder:
+                walk(template.parmTemplates())
+                continue
+            if template.type() != hou.parmTemplateType.String:
+                continue
+            lowered = template.name().lower()
+            if any(hint in lowered for hint in _MATERIAL_PARM_HINTS):
+                names.append(template.name())
+
+    try:
+        walk(node_type.parmTemplateGroup().entries())
+    except Exception:
+        names = []
+    _material_parm_cache[key] = names
+    return names
+
+
+def _find_material_assignments(mat_path: str) -> tuple[list[str], int]:
+    """Paths of nodes whose material-path parameters name *mat_path*.
+
+    Reads only parameters whose name says "material path", on node types that
+    have one. The previous sweep evaluated EVERY parameter of EVERY node under
+    /obj: an expression such as npoints("../scatter") cooks its node when
+    evaluated, and 40 of them on a 4,160-node scene cost 27 s per call --
+    minutes on a production set. Returns (hits, nodes scanned).
+    """
+    hits: list[str] = []
+    scanned = 0
+    for root_path in _ASSIGNMENT_ROOTS:
+        root = hou.node(root_path)
+        if root is None:
+            continue
+        for child in root.allSubChildren():
+            scanned += 1
+            names = _material_parm_templates(child.type())
+            if not names:
+                continue
+            found = False
+            for name in names:
+                if "#" in name:
+                    prefix = name.split("#", 1)[0]
+                    candidates = [
+                        p
+                        for p in child.parms()
+                        if p.name().startswith(prefix) and p.name()[len(prefix) :].isdigit()
+                    ]
+                else:
+                    parm = child.parm(name)
+                    candidates = [parm] if parm is not None else []
+                for parm in candidates:
+                    try:
+                        value = parm.evalAsString()
+                    except Exception:
+                        continue
+                    if mat_path in value:
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                hits.append(child.path())
+    return hits, scanned
+
+
 def _material_summary(node: hou.Node) -> dict[str, Any]:
     """Return a compact summary dict for a material node."""
     return {
@@ -163,23 +247,12 @@ def _get_material_info(*, node_path: str, **_: Any) -> dict[str, Any]:
     except Exception:
         pass
 
-    # Find geometry nodes that reference this material
-    assignments: list[str] = []
-    mat_path = node.path()
+    # Nodes that reference this material: material-path parameters only, on
+    # the node types that have one (see _find_material_assignments).
     try:
-        root = hou.node("/obj")
-        if root is not None:
-            for child in root.allSubChildren():
-                for parm in child.parms():
-                    try:
-                        val = parm.eval()
-                        if isinstance(val, str) and mat_path in val:
-                            assignments.append(child.path())
-                            break
-                    except Exception:
-                        continue
+        assignments, scanned = _find_material_assignments(node.path())
     except Exception:
-        pass
+        assignments, scanned = [], 0
 
     return {
         "path": node.path(),
@@ -187,6 +260,7 @@ def _get_material_info(*, node_path: str, **_: Any) -> dict[str, Any]:
         "params": params,
         "shaders": shaders,
         "assignments": assignments,
+        "assignment_scan": {"nodes": scanned, "roots": list(_ASSIGNMENT_ROOTS)},
     }
 
 
