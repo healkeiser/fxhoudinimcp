@@ -827,6 +827,41 @@ register_handler("lops.inspect_usd_layer", _inspect_usd_layer)
 ###### lops.create_light
 
 
+# Houdini 20.5+ ships no rectlight/spherelight/disklight/cylinderlight LOPs:
+# those shapes are the generic "light" node (light::2.0) with its lighttype
+# menu set. Only dome and distant lights keep a node type of their own.
+# Values are (node type, lighttype menu token or None).
+_LOP_LIGHT_TYPES: dict[str, tuple[str, str | None]] = {
+    "dome": ("domelight", None),
+    "distant": ("distantlight", None),
+    "rect": ("light", "UsdLuxRectLight"),
+    "sphere": ("light", "UsdLuxSphereLight"),
+    "disk": ("light", "UsdLuxDiskLight"),
+    "cylinder": ("light", "UsdLuxCylinderLight"),
+    "point": ("light", "point"),
+}
+
+
+def _lop_light_type(light_type: str) -> tuple[str, str | None]:
+    """(node type, lighttype menu token or None) for "rect", "dome", ..."""
+    entry = _LOP_LIGHT_TYPES.get(light_type)
+    if entry is None:
+        available = sorted(_LOP_LIGHT_TYPES)
+        raise hou.OperationFailed(
+            f"Unknown light type: '{light_type}'. Available types: {available}"
+        )
+    return entry
+
+
+def _set_light_shape(node: hou.Node, shape: str | None) -> None:
+    """Pick *shape* on a generic light node's lighttype menu; no-op for None."""
+    if shape is None:
+        return
+    parm = node.parm("lighttype")
+    if parm is not None:
+        parm.set(shape)
+
+
 def _create_light(
     *,
     parent_path: str = "/stage",
@@ -855,24 +890,9 @@ def _create_light(
     if parent is None:
         raise hou.OperationFailed(f"Parent node not found: {parent_path}")
 
-    # Map light_type to LOP node type
-    light_type_map = {
-        "dome": "domelight",
-        "distant": "distantlight",
-        "rect": "rectlight",
-        "sphere": "spherelight",
-        "disk": "disklight",
-        "cylinder": "cylinderlight",
-    }
-
-    lop_type = light_type_map.get(light_type)
-    if lop_type is None:
-        available = sorted(light_type_map.keys())
-        raise hou.OperationFailed(
-            f"Unknown light type: '{light_type}'. Available types: {available}"
-        )
-
+    lop_type, shape = _lop_light_type(light_type)
     node = parent.createNode(lop_type, node_name=name)
+    _set_light_shape(node, shape)
 
     # Set intensity ("inputs:intensity" punycodes to xn__inputsintensity_i0a)
     intensity_parm = node.parm("xn__inputsintensity_i0a")
@@ -1093,7 +1113,7 @@ def _create_light_rig(
     presets = {
         "three_point": [
             {
-                "type": "distantlight",
+                "type": "distant",
                 "name": "key_light",
                 "intensity": 1.0,
                 "color": [1.0, 0.95, 0.9],
@@ -1101,7 +1121,7 @@ def _create_light_rig(
                 "ry": -30,
             },
             {
-                "type": "distantlight",
+                "type": "distant",
                 "name": "fill_light",
                 "intensity": 0.4,
                 "color": [0.85, 0.9, 1.0],
@@ -1109,7 +1129,7 @@ def _create_light_rig(
                 "ry": 45,
             },
             {
-                "type": "distantlight",
+                "type": "distant",
                 "name": "rim_light",
                 "intensity": 0.6,
                 "color": [1.0, 1.0, 1.0],
@@ -1119,7 +1139,7 @@ def _create_light_rig(
         ],
         "studio": [
             {
-                "type": "rectlight",
+                "type": "rect",
                 "name": "softbox_key",
                 "intensity": 2.0,
                 "color": [1.0, 0.98, 0.95],
@@ -1130,7 +1150,7 @@ def _create_light_rig(
                 "ry": -30,
             },
             {
-                "type": "rectlight",
+                "type": "rect",
                 "name": "softbox_fill",
                 "intensity": 1.0,
                 "color": [0.9, 0.95, 1.0],
@@ -1141,7 +1161,7 @@ def _create_light_rig(
                 "ry": 30,
             },
             {
-                "type": "rectlight",
+                "type": "rect",
                 "name": "softbox_back",
                 "intensity": 1.5,
                 "color": [1.0, 1.0, 1.0],
@@ -1153,9 +1173,9 @@ def _create_light_rig(
             },
         ],
         "outdoor": [
-            {"type": "domelight", "name": "sky_dome", "intensity": 0.3, "color": [0.7, 0.85, 1.0]},
+            {"type": "dome", "name": "sky_dome", "intensity": 0.3, "color": [0.7, 0.85, 1.0]},
             {
-                "type": "distantlight",
+                "type": "distant",
                 "name": "sun",
                 "intensity": 1.5,
                 "color": [1.0, 0.95, 0.85],
@@ -1164,7 +1184,7 @@ def _create_light_rig(
             },
         ],
         "hdri": [
-            {"type": "domelight", "name": "hdri_dome", "intensity": 1.0, "color": [1.0, 1.0, 1.0]},
+            {"type": "dome", "name": "hdri_dome", "intensity": 1.0, "color": [1.0, 1.0, 1.0]},
         ],
     }
 
@@ -1179,9 +1199,9 @@ def _create_light_rig(
     previous: hou.Node | None = None
 
     for light_def in preset_config:
-        lop_type = light_def["type"]
-        light_name = light_def.get("name")
-        node = parent.createNode(lop_type, node_name=light_name)
+        lop_type, shape = _lop_light_type(light_def["type"])
+        node = parent.createNode(lop_type, node_name=light_def.get("name"))
+        _set_light_shape(node, shape)
 
         # Chain the lights so the last node's stage contains the whole rig.
         if previous is not None:

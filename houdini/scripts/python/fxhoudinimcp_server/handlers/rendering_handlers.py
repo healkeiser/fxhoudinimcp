@@ -270,15 +270,7 @@ def get_render_settings(node_path: str) -> dict:
     Args:
         node_path: Path to the ROP/Driver node.
     """
-    node = hou.node(node_path)
-    if node is None:
-        raise ValueError(f"Node not found: {node_path}")
-
-    if node.type().category().name() != "Driver":
-        raise ValueError(
-            f"Node {node_path} is not a ROP/Driver node "
-            f"(category: {node.type().category().name()})."
-        )
+    node, _, _ = _renderable(node_path)
 
     settings = {
         "node_path": node.path(),
@@ -299,6 +291,9 @@ def get_render_settings(node_path: str) -> dict:
         "resy",
         "resoverride",
         "res",
+        "res_mode",
+        "resolutionx",
+        "resolutiony",
         "f1",
         "f2",
         "f3",  # frame range start, end, increment
@@ -342,15 +337,7 @@ def set_render_settings(node_path: str, settings: dict) -> dict:
         node_path: Path to the ROP/Driver node.
         settings: Dict of parameter_name -> value pairs to set.
     """
-    node = hou.node(node_path)
-    if node is None:
-        raise ValueError(f"Node not found: {node_path}")
-
-    if node.type().category().name() != "Driver":
-        raise ValueError(
-            f"Node {node_path} is not a ROP/Driver node "
-            f"(category: {node.type().category().name()})."
-        )
+    node, _, _ = _renderable(node_path)
 
     applied = {}
     errors = {}
