@@ -2862,6 +2862,13 @@ via the HTTP bridge.</p>
     <div class="doc doc-contents ">
 
         <p>Create a new material network in /mat.</p>
+<p>The keys base_color ([r, g, b]), roughness, metalness and opacity are
+accepted on both shader types and mapped to the shader's own parameter
+names (base_colorr/g/b and specular_roughness on MaterialX, basecolor,
+rough, metallic and opac on Principled). Any other key must be the
+shader's real parameter name; a list sets the whole parm tuple. The
+reply lists what was applied and, under "skipped", every key that
+matched no parameter, with the reason.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2916,7 +2923,8 @@ via the HTTP bridge.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Shader type name ("principled", "materialx", etc.).</p>
+                <p>"principled" (principledshader::2.0), "materialx"
+(mtlxstandard_surface), or any material node type name.</p>
               </div>
             </td>
             <td>

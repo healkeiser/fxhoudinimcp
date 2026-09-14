@@ -5070,6 +5070,11 @@ that may not be obvious from their names.</p>
     <div class="doc doc-contents ">
 
         <p>List all USD materials on a stage.</p>
+<p>Each material reports surface_shaders keyed by render context: "surface"
+is the universal output, a UsdPreviewSurface for viewports and Storm,
+and "mtlx" is the MaterialX shader Karma renders. surface_shader is the
+mtlx one when present, so it agrees with get_material_info on the same
+material.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
