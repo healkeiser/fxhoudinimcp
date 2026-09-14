@@ -56,9 +56,21 @@ def _capture_pane_tab_qt(pane_tab, output_path: str) -> None:
     if pixmap is None and hasattr(pane_tab, "qtScreenGeometry"):
         rect = pane_tab.qtScreenGeometry()
         try:
-            from PySide6 import QtGui
+            from PySide6 import QtCore, QtGui
         except ImportError:
-            from PySide2 import QtGui
+            from PySide2 import QtCore, QtGui
+        # Render the pane's region from Houdini's own window. A screen grab
+        # returns whatever is on top of Houdini at that moment: a terminal, a
+        # browser, a white dialog (the blank capture in #38).
+        window = None
+        with contextlib.suppress(Exception):
+            panel = pane_tab.pane().floatingPanel()
+            window = hou.qt.floatingPanelWindow(panel) if panel else hou.qt.mainWindow()
+        if window is not None:
+            local = QtCore.QRect(window.mapFromGlobal(rect.topLeft()), rect.size())
+            pixmap = window.grab(local)
+
+    if pixmap is None and hasattr(pane_tab, "qtScreenGeometry"):
         screens = QtGui.QGuiApplication.screens()
         screen = QtGui.QGuiApplication.primaryScreen()
         for candidate in screens:
