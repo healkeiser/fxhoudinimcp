@@ -67,10 +67,19 @@ async def create_material_network(
 ) -> dict:
     """Create a new material network in /mat.
 
+    The keys base_color ([r, g, b]), roughness, metalness and opacity are
+    accepted on both shader types and mapped to the shader's own parameter
+    names (base_colorr/g/b and specular_roughness on MaterialX, basecolor,
+    rough, metallic and opac on Principled). Any other key must be the
+    shader's real parameter name; a list sets the whole parm tuple. The
+    reply lists what was applied and, under "skipped", every key that
+    matched no parameter, with the reason.
+
     Args:
         ctx: MCP context.
         name: Name for the new material node.
-        shader_type: Shader type name ("principled", "materialx", etc.).
+        shader_type: "principled" (principledshader::2.0), "materialx"
+            (mtlxstandard_surface), or any material node type name.
         params: Parameter name-value pairs to set on the shader.
     """
     bridge = _get_bridge(ctx)

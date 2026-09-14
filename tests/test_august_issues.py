@@ -134,5 +134,18 @@ class TestRenderSettingsAcceptAnyRenderable:
         assert "is not a ROP/Driver node" not in source
 
 
+class TestOutputGrace:
+    def test_env_overrides_default(self, monkeypatch):
+        import fxhoudinimcp_server.config as cfg
+
+        monkeypatch.setattr(cfg.hou, "getenv", lambda name: None, raising=False)
+        monkeypatch.delenv("FXHOUDINIMCP_OUTPUT_GRACE", raising=False)
+        assert cfg.output_grace_seconds() == 2.0
+        monkeypatch.setenv("FXHOUDINIMCP_OUTPUT_GRACE", "7.5")
+        assert cfg.output_grace_seconds() == 7.5
+        monkeypatch.setenv("FXHOUDINIMCP_OUTPUT_GRACE", "soon")
+        assert cfg.output_grace_seconds() == 2.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-q"])

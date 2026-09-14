@@ -14,6 +14,7 @@
 | `FXHOUDINIMCP_PROJECT_ROOT` | unset | Confine hip, import, export and HDA file operations to this directory tree |
 | `FXHOUDINIMCP_TIMEOUT` | `120` | Seconds a command may run before the plugin reports a timeout |
 | `FXHOUDINIMCP_TIMEOUT_<COMMAND>` | unset | Per-command override, e.g. `FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900` |
+| `FXHOUDINIMCP_OUTPUT_GRACE` | `2` | Seconds a clean render or cache write may take to show its file before the tool reports that nothing was written. Raise it when output lands on a slow network share |
 | `MCP_TRANSPORT` | `stdio` | MCP transport (`stdio` or `streamable-http`) |
 | `LOG_LEVEL` | `INFO` | Logging level |
 

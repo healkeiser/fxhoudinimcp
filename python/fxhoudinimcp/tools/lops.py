@@ -230,6 +230,12 @@ async def set_usd_attribute(
 async def get_usd_materials(ctx: Context, node_path: str) -> dict:
     """List all USD materials on a stage.
 
+    Each material reports surface_shaders keyed by render context: "surface"
+    is the universal output, a UsdPreviewSurface for viewports and Storm,
+    and "mtlx" is the MaterialX shader Karma renders. surface_shader is the
+    mtlx one when present, so it agrees with get_material_info on the same
+    material.
+
     Args:
         node_path: LOP node path.
     """

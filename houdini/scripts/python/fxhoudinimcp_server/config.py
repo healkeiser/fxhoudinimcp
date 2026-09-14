@@ -26,6 +26,22 @@ def auto_layout_enabled() -> bool:
     return value.strip().lower() not in _FALSY
 
 
+def output_grace_seconds() -> float:
+    """How long a clean render or cache write may take to show its file.
+
+    ``FXHOUDINIMCP_OUTPUT_GRACE`` via ``hou.getenv`` first, then the process
+    environment; default 2 seconds. A usdrender_rop returns when husk exits
+    and the image can land a moment later; on a slow share raise this rather
+    than read "nothing was written" for a render that worked.
+    """
+    value = hou.getenv("FXHOUDINIMCP_OUTPUT_GRACE") or os.environ.get("FXHOUDINIMCP_OUTPUT_GRACE")
+    try:
+        seconds = float(value) if value else 2.0
+    except (TypeError, ValueError):
+        return 2.0
+    return max(seconds, 0.0)
+
+
 ###### Project root sandbox
 
 

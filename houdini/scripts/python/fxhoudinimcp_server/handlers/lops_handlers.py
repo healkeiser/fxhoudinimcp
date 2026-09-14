@@ -575,12 +575,25 @@ def _get_usd_materials(*, node_path: str) -> dict[str, Any]:
                 "path": mat_path,
                 "name": prim.GetName(),
             }
-            # Surface and displacement outputs
-            surface = mat.GetSurfaceOutput()
-            if surface:
-                connected = surface.GetConnectedSource()
-                if connected and connected[0]:
-                    mat_info["surface_shader"] = str(connected[0].GetPath())
+            # Surface outputs, one per render context. A /mat material imported
+            # through a Material Library carries two: the universal one, wired
+            # to a UsdPreviewSurface for viewports and Storm, and "mtlx", wired
+            # to the MaterialX shader, which is what Karma renders. Reporting
+            # only the universal one made get_material_info and this tool
+            # disagree about a material's shader (#39).
+            surfaces: dict[str, str] = {}
+            for output in mat.GetSurfaceOutputs():
+                connected = output.GetConnectedSource()
+                if not (connected and connected[0]):
+                    continue
+                # "surface" for the universal output, "mtlx:surface" otherwise
+                context = output.GetBaseName().removesuffix(":surface") or "surface"
+                surfaces[context] = str(connected[0].GetPath())
+            if surfaces:
+                mat_info["surface_shaders"] = surfaces
+                mat_info["surface_shader"] = surfaces.get(
+                    "mtlx", surfaces.get("surface", next(iter(surfaces.values())))
+                )
             displacement = mat.GetDisplacementOutput()
             if displacement:
                 connected = displacement.GetConnectedSource()
