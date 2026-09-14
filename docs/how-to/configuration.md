@@ -65,8 +65,9 @@ export FXHOUDINIMCP_AUTO_LAYOUT=1
 ```
 
 Set it both in the MCP client environment (where `python -m fxhoudinimcp`
-runs) and in the Houdini environment (`houdini.env` or the package file the
-installer writes), since each process reads it independently. Inside a running
+runs) and in the Houdini environment (the `FXHOUDINIMCP_AUTO_LAYOUT` entry
+already in the package file `install` wrote, or `houdini.env`), since each
+process reads it independently. A package value wins over the shell. Inside a running
 Houdini session you can also toggle it without restarting:
 
 ``` python
@@ -93,7 +94,8 @@ export FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER=1800
 
 A command that hits its deadline returns a `TIMEOUT` error naming the exact
 variable to raise. These are read by the Houdini process, so they belong in
-`houdini.env` or the package file, not the MCP client config.
+the package file `install` wrote (which carries `FXHOUDINIMCP_TIMEOUT` at its
+default) or `houdini.env`, not the MCP client config.
 
 ## Project Root Sandbox
 

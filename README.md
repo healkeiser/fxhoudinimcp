@@ -283,8 +283,9 @@ something needs untangling. It is the same two halves.
 fxhoudinimcp houdini-package
 ```
 
-That prints the package file with the plugin path filled in for *this* install,
-plus the Houdini packages directories found on your machine. Write it with:
+That prints the package file with the plugin path filled in for *this* install
+and every Houdini-side setting at its default, plus the Houdini packages
+directories found on your machine. Write it with:
 
 ```shell
 fxhoudinimcp houdini-package --write "~/Documents/houdini22.0/packages"
@@ -464,6 +465,7 @@ Once connected, your AI assistant can:
 | `FXHOUDINIMCP_PROJECT_ROOT` | unset | When set, hip files, imports, exports and HDA libraries must live under this directory. See [Security](#security) for what it does not cover |
 | `FXHOUDINIMCP_TIMEOUT` | `120` | Seconds a command may run before the plugin reports a timeout |
 | `FXHOUDINIMCP_TIMEOUT_<COMMAND>` | unset | Per-command override, the dotted command name uppercased with dots as underscores: `FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900` |
+| `FXHOUDINIMCP_OUTPUT_GRACE` | `2` | Seconds a clean render or cache write may take to show its file before the tool reports that nothing was written. Raise it when output lands on a slow network share |
 | `MCP_TRANSPORT` | `stdio` | MCP transport (`stdio` or `streamable-http`) |
 | `LOG_LEVEL` | `INFO` | Logging level |
 
