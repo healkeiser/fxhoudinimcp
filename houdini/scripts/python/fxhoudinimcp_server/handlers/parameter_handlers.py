@@ -162,6 +162,27 @@ register_handler("parameters.get_parameter", _get_parameter)
 ###### Handler: parameters.set_parameter
 
 
+def _expression_driven(parms: list[hou.Parm]) -> str | None:
+    """A sentence naming the first of *parms* driven by an expression, or None.
+
+    Houdini answers a set() on such a parameter with a generic permission
+    error ("locked assets, takes, product permissions..."); resolutiony on a
+    karmarendersettings is the common case, driven by the autoheight expression
+    while res_mode says so (#41).
+    """
+    for parm in parms:
+        try:
+            expression = parm.expression()
+        except hou.OperationFailed:
+            continue
+        return (
+            f"'{parm.name()}' on {parm.node().path()} is driven by the expression "
+            f"{expression!r}, so it cannot be set directly. Set the parameter that "
+            f"controls it, or remove the expression with revert_parameter first."
+        )
+    return None
+
+
 def _set_tuple(node: hou.Node, parm_name: str, value: list | tuple) -> Any | None:
     """Apply a list value to the parm tuple of that name; None if there is none.
 
@@ -177,7 +198,13 @@ def _set_tuple(node: hou.Node, parm_name: str, value: list | tuple) -> Any | Non
             f"Parameter '{parm_name}' on {node.path()} has "
             f"{len(parm_tuple)} components, got {len(value)} values."
         )
-    parm_tuple.set(value)
+    try:
+        parm_tuple.set(value)
+    except hou.PermissionError:
+        reason = _expression_driven(list(parm_tuple))
+        if reason:
+            raise ValueError(reason) from None
+        raise
     return [_serialize_value(p.eval()) for p in parm_tuple]
 
 
@@ -190,7 +217,13 @@ def _set_parameter(node_path: str, parm_name: str, value: Any, **_: Any) -> dict
 
     parm = _resolve_parm(node_path, parm_name)
 
-    parm.set(value)
+    try:
+        parm.set(value)
+    except hou.PermissionError:
+        reason = _expression_driven([parm])
+        if reason:
+            raise ValueError(reason) from None
+        raise
 
     return {
         "node_path": node_path,

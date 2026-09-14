@@ -6,8 +6,6 @@ materials and shader networks within Houdini.
 
 from __future__ import annotations
 
-import contextlib
-
 # Built-in
 from typing import Any
 
@@ -270,6 +268,47 @@ register_handler("materials.get_material_info", _get_material_info)
 ###### materials.create_material_network
 
 
+# The documented create_material_network keys, per shader node type. Only
+# metalness happens to share its name with the mtlxstandard_surface parameter;
+# base_color and roughness were dropped on the floor, silently (#39).
+_SHADER_PARM_ALIASES: dict[str, dict[str, str]] = {
+    "mtlxstandard_surface": {"roughness": "specular_roughness"},
+    "principledshader::2.0": {
+        "base_color": "basecolor",
+        "roughness": "rough",
+        "metalness": "metallic",
+        "opacity": "opac",
+    },
+}
+
+
+def _apply_shader_params(
+    node: hou.Node, shader_type: str, params: dict[str, Any]
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Set *params* on a shader node; a list sets the parm tuple of that name.
+
+    Returns (applied, skipped): applied maps each key to the parameter it
+    landed on, skipped maps each key that landed nowhere to the reason, so a
+    caller sees a dropped key instead of a default value.
+    """
+    aliases = _SHADER_PARM_ALIASES.get(shader_type, {})
+    applied: dict[str, str] = {}
+    skipped: dict[str, str] = {}
+    for key, value in params.items():
+        name = aliases.get(key, key)
+        target = node.parmTuple(name) if isinstance(value, (list, tuple)) else node.parm(name)
+        if target is None:
+            skipped[key] = f"no parameter '{name}' on {shader_type}"
+            continue
+        try:
+            target.set(value)
+        except Exception as exc:  # noqa: BLE001 - report, do not abort the material
+            skipped[key] = readable_message(exc)
+            continue
+        applied[key] = name
+    return applied, skipped
+
+
 def _create_material_network(
     *,
     name: str,
@@ -307,13 +346,7 @@ def _create_material_network(
             f"Failed to create material of type '{actual_type}' in /mat: {readable_message(e)}"
         ) from e
 
-    # Set parameters if provided
-    if params:
-        for parm_name, parm_value in params.items():
-            parm = node.parm(parm_name)
-            if parm is not None:
-                with contextlib.suppress(Exception):
-                    parm.set(parm_value)
+    applied, skipped = _apply_shader_params(node, actual_type, params or {})
 
     place_new_node(node)
     _focus_network_editor(node)
@@ -321,6 +354,8 @@ def _create_material_network(
     return {
         "material_path": node.path(),
         "shader_type": actual_type,
+        "applied": applied,
+        "skipped": skipped,
     }
 
 

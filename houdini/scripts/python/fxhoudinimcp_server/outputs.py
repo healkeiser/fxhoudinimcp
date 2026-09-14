@@ -25,6 +25,7 @@ from __future__ import annotations
 # Built-in
 import contextlib
 import os
+import time
 from typing import Any
 
 # Third-party
@@ -231,6 +232,7 @@ def write_verdict(
     before: list[dict[str, Any]],
     *,
     action: str = "Render",
+    grace: float = 2.0,
 ) -> dict[str, Any]:
     """What actually happened, for a node whose execution has just returned.
 
@@ -244,10 +246,21 @@ def write_verdict(
         before: The ``reported_outputs`` snapshot taken before executing it.
         action: How to name the operation in the message ("Render", "Export",
             "Cache write").
+        grace: Seconds to keep checking for output files when the node is clean
+            but nothing has appeared yet.
     """
     errors, warnings = node_messages(node)
     after = reported_outputs(node)
     wrote = wrote_anything(before, after)
+    # A usdrender_rop returns when husk exits, and the image can hit the disk a
+    # moment later; a clean node with nothing written yet is given a short
+    # grace period before "nothing was written" is pronounced (#40).
+    # ponytail: fixed 2 s poll, make it a parameter if a renderer needs longer.
+    deadline = time.monotonic() + grace
+    while not errors and not wrote and time.monotonic() < deadline:
+        time.sleep(0.25)
+        after = reported_outputs(node)
+        wrote = wrote_anything(before, after)
     if not errors and not wrote:
         # The node itself is clean and wrote nothing: the failure, if any, is
         # upstream of it.
