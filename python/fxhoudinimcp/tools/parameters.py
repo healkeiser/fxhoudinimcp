@@ -181,6 +181,13 @@ async def link_parameters(
 ) -> dict:
     """Create a channel reference from one parameter to another.
 
+    The destination gets an HScript expression that reads the source as its
+    own type: chs() for a String parameter, ch() for numbers, toggles and
+    menus. The path is relative to the destination node (chs("../CTRL/mat")),
+    so the link survives moving the pair, collapsing into a subnet or
+    instancing an HDA. The reply carries the expression, the function used
+    and the destination's evaluated value.
+
     Args:
         source_path: Source node path.
         source_parm: Source parameter name.
