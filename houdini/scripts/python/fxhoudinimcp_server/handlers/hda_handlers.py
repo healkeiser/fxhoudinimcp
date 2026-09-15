@@ -559,22 +559,57 @@ def list_hda_versions(node_path: str) -> dict:
     node = _get_node(node_path)
     current = _get_definition(node)
     node_type = node.type()
+    scope, namespace, name, _ = _type_name_components(node_type.name())
+
+    # Houdini keeps a version in the type name (brick::1.1 is a different
+    # NodeType from brick), so allInstalledDefinitions() of one type never
+    # shows the family. Walk the category for every type sharing
+    # scope, namespace and name.
     versions = []
-    for definition in node_type.allInstalledDefinitions():
-        versions.append(
-            {
-                "version": definition.version() or None,
-                "library_file": definition.libraryFilePath(),
-                "is_current": definition.isCurrent(),
-                "is_preferred": definition.isPreferred(),
-            }
-        )
+    for type_name, family_type in node_type.category().nodeTypes().items():
+        components = _type_name_components(type_name)
+        if components is None or components[:3] != (scope, namespace, name):
+            continue
+        for definition in family_type.allInstalledDefinitions():
+            versions.append(
+                {
+                    "type_name": type_name,
+                    "version": definition.version() or components[3] or None,
+                    "library_file": definition.libraryFilePath(),
+                    "is_current": definition.isCurrent(),
+                    "is_preferred": definition.isPreferred(),
+                    "is_instance_type": family_type == node_type,
+                }
+            )
+    versions.sort(key=lambda row: _version_key(row["version"]))
     return {
         "node_path": node.path(),
         "type_name": node_type.name(),
+        "family": {"scope": scope, "namespace": namespace, "name": name},
         "current_version": current.version() or None,
         "versions": versions,
     }
+
+
+def _type_name_components(type_name: str) -> tuple[str, str, str, str] | None:
+    """(scope, namespace, name, version) of a full node type name, or None."""
+    try:
+        parts = hou.hda.componentsFromFullNodeTypeName(type_name)
+    except Exception:
+        return None
+    if not isinstance(parts, (tuple, list)) or len(parts) != 4:
+        return None
+    return tuple(str(part) for part in parts)
+
+
+def _version_key(version) -> tuple:
+    """Sort key that orders 1.2 before 1.10 and puts an unversioned first."""
+    if not version:
+        return (0, ())
+    parts = []
+    for piece in str(version).split("."):
+        parts.append((0, int(piece)) if piece.isdigit() else (1, piece))
+    return (1, tuple(parts))
 
 
 ###### Registration
