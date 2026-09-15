@@ -15,7 +15,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import place_new_node
+from fxhoudinimcp_server.config import place_new_node, update_mode_warning
 from fxhoudinimcp_server.dispatcher import register_handler
 
 ###### Helpers
@@ -133,6 +133,9 @@ def _get_geometry_info(*, node_path: str, output_index: int = 0, **_: Any) -> di
     }
     if prim_sample_note:
         result["prim_type_breakdown_note"] = prim_sample_note
+    warning = update_mode_warning()
+    if warning:
+        result["warnings"] = [warning]
     return result
 
 

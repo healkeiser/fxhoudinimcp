@@ -84,6 +84,38 @@ def require_inside_project_root(file_path: str, what: str = "path") -> str:
     return file_path
 
 
+def update_mode_name() -> str | None:
+    """Houdini's update mode as the token set_update_mode takes, or None if unknown."""
+    try:
+        mode = hou.updateModeSetting()
+    except Exception:
+        return None
+    names = {
+        hou.updateMode.AutoUpdate: "auto",
+        hou.updateMode.OnMouseUp: "on_mouse_up",
+        hou.updateMode.Manual: "manual",
+    }
+    return names.get(mode, str(mode))
+
+
+def update_mode_warning() -> str | None:
+    """A sentence when nodes are not cooking on their own, else None.
+
+    In Manual (or On Mouse Up) mode a freshly created node holds no cooked
+    geometry, so a verb that reads cooked evidence answers "0 points, no
+    errors" with success: true and nothing says why. Every such
+    verb attaches this sentence to its reply.
+    """
+    name = update_mode_name()
+    if name in (None, "auto"):
+        return None
+    return (
+        f"Update mode is '{name}': nodes are not cooking on their own, so cooked "
+        f"evidence (point counts, bounds, errors) may be stale or empty. "
+        f"set_update_mode('auto') restores cooking; get_scene_info reports the mode."
+    )
+
+
 def layout_if_enabled(node: hou.Node, place_unpositioned: bool = True) -> None:
     """Lay out *node*'s children unless auto-layout is disabled.
 
