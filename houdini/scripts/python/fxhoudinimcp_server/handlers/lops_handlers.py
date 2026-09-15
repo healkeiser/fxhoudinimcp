@@ -7,6 +7,8 @@ All functions run on the main thread via the dispatcher.
 from __future__ import annotations
 
 # Built-in
+import contextlib
+import itertools
 from typing import Any
 
 # Third-party
@@ -73,10 +75,88 @@ def _get_lop_stage(node_path: str) -> Usd.Stage:
     return stage
 
 
-def _usd_value_to_python(val: Any) -> Any:
-    """Convert USD/Gf types to JSON-safe Python types."""
+#: Arrays longer than this are summarised (size, type, head, range) unless the
+#: caller asks for the full value. 16 keeps extent (2 vec3), xformOpOrder and
+#: small primvars whole; points, faceVertexIndices and st never fit anyway.
+_ARRAY_SUMMARY_LIMIT = 16
+_ARRAY_HEAD = 8
+
+
+def _is_usd_array(val: Any) -> bool:
+    """A Vt array or any other sized sequence that is not text, a mapping or a Gf vector."""
+    if (
+        isinstance(val, (str, bytes, dict))
+        or not hasattr(val, "__len__")
+        or not hasattr(val, "__iter__")
+    ):
+        return False
+    if HAS_PXR:
+        gf = (
+            Gf.Vec2f, Gf.Vec2d, Gf.Vec2h, Gf.Vec2i, Gf.Vec3f, Gf.Vec3d, Gf.Vec3h, Gf.Vec3i,
+            Gf.Vec4f, Gf.Vec4d, Gf.Vec4h, Gf.Vec4i, Gf.Matrix2d, Gf.Matrix2f, Gf.Matrix3d,
+            Gf.Matrix3f, Gf.Matrix4d, Gf.Matrix4f, Gf.Quatf, Gf.Quatd, Gf.Quath,
+        )  # fmt: skip
+        with contextlib.suppress(Exception):
+            if isinstance(val, gf):
+                return False
+    return True
+
+
+def _array_range(val: Any) -> dict[str, Any]:
+    """min/max of a numeric array (per component for vectors), or {} when not numeric."""
+    try:
+        import numpy as np
+
+        arr = np.asarray(val)
+        if arr.dtype.kind not in "iuf" or arr.size == 0:
+            return {}
+        if arr.ndim == 1:
+            return {"min": arr.min().item(), "max": arr.max().item()}
+        return {"min": arr.min(axis=0).tolist(), "max": arr.max(axis=0).tolist()}
+    except Exception:
+        return {}
+
+
+def _array_summary(val: Any, head: int = _ARRAY_HEAD) -> dict[str, Any]:
+    """What an agent needs from a large array: how many, of what, the first few, the range.
+
+    get_usd_prim on a building mesh answered 6.6 million characters (points,
+    st, faceVertexIndices in full) and get_usd_attribute(primvars:st) 40 000
+    lines. Nobody reads that; they grep it. This is the grep.
+    """
+    size = len(val)
+    first = val[0] if size else None
+    summary: dict[str, Any] = {
+        "array": True,
+        "size": size,
+        "element_type": type(first).__name__ if size else None,
+        "head": [_usd_value_to_python(v, array_limit=None) for v in itertools.islice(val, head)],
+    }
+    summary.update(_array_range(val))
+    summary["note"] = f"{size} elements; first {min(head, size)} shown. full=True returns them all."
+    return summary
+
+
+def _usd_value_to_python(val: Any, array_limit: int | None = _ARRAY_SUMMARY_LIMIT) -> Any:
+    """Convert USD/Gf types to JSON-safe Python types.
+
+    An array longer than *array_limit* comes back as a summary dict (see
+    _array_summary); array_limit=None returns every element.
+    """
     if val is None:
         return None
+    # Text first: a str is iterable with a length, so the generic Vt-array
+    # fallback below walks it character by character and each 1-char str is
+    # iterable again -- a token attribute (orientation, purpose, visibility)
+    # came back as a ~1000-deep nested list, 24 KB per token on a Mesh.
+    if isinstance(val, (bool, int, float, str)):
+        return val
+    if array_limit is not None and _is_usd_array(val):
+        try:
+            if len(val) > array_limit:
+                return _array_summary(val)
+        except TypeError:
+            pass
     # Handle Gf vector/matrix types
     if HAS_PXR:
         if isinstance(val, (Gf.Vec2f, Gf.Vec2d, Gf.Vec2h, Gf.Vec2i)):
@@ -130,8 +210,14 @@ def _usd_value_to_python(val: Any) -> Any:
     return str(val)
 
 
-def _prim_to_dict(prim: Usd.Prim, include_attrs: bool = False) -> dict[str, Any]:
-    """Convert a USD prim to a JSON-safe dict."""
+def _prim_to_dict(
+    prim: Usd.Prim, include_attrs: bool = False, full: bool = False
+) -> dict[str, Any]:
+    """Convert a USD prim to a JSON-safe dict.
+
+    With include_attrs, array values longer than _ARRAY_SUMMARY_LIMIT are
+    summarised unless *full* is set.
+    """
     info: dict[str, Any] = {
         "path": str(prim.GetPath()),
         "type": str(prim.GetTypeName()),
@@ -154,7 +240,9 @@ def _prim_to_dict(prim: Usd.Prim, include_attrs: bool = False) -> dict[str, Any]
             }
             if attr.IsAuthored() or attr.HasValue():
                 try:
-                    attr_info["value"] = _usd_value_to_python(attr.Get())
+                    attr_info["value"] = _usd_value_to_python(
+                        attr.Get(), array_limit=None if full else _ARRAY_SUMMARY_LIMIT
+                    )
                 except Exception:
                     attr_info["value"] = None
                     attr_info["error"] = "Could not read value"
@@ -210,8 +298,13 @@ def _get_usd_prim(
     *,
     node_path: str,
     prim_path: str,
+    full: bool = False,
 ) -> dict[str, Any]:
-    """Detailed prim info with type, kind, attributes, and children."""
+    """Detailed prim info with type, kind, attributes, and children.
+
+    Array attributes are summarised (size, element type, head, range) unless
+    *full* is set; get_usd_attribute reads one array in windows.
+    """
     stage = _get_lop_stage(node_path)
 
     prim = stage.GetPrimAtPath(prim_path)
@@ -220,7 +313,8 @@ def _get_usd_prim(
 
     return {
         "node_path": node_path,
-        "prim": _prim_to_dict(prim, include_attrs=True),
+        "prim": _prim_to_dict(prim, include_attrs=True, full=bool(full)),
+        "arrays_summarised": not full,
     }
 
 
@@ -303,8 +397,16 @@ def _get_usd_attribute(
     prim_path: str,
     attr_name: str,
     time: float | None = None,
+    full: bool = False,
+    offset: int = 0,
+    limit: int = 64,
 ) -> dict[str, Any]:
-    """Read a USD attribute value at an optional time code."""
+    """Read a USD attribute value at an optional time code.
+
+    A long array answers with a summary as `value` and a window of elements
+    as `slice` (offset/limit, default the first 64); full=True returns the
+    whole array as `value`.
+    """
     stage = _get_lop_stage(node_path)
 
     prim = stage.GetPrimAtPath(prim_path)
@@ -318,15 +420,33 @@ def _get_usd_attribute(
     time_code = Usd.TimeCode(time) if time is not None else Usd.TimeCode.Default()
     value = attr.Get(time_code)
 
-    return {
+    reply: dict[str, Any] = {
         "node_path": node_path,
         "prim_path": prim_path,
         "attr_name": attr_name,
         "type": str(attr.GetTypeName()),
         "is_authored": attr.IsAuthored(),
         "time": time,
-        "value": _usd_value_to_python(value),
     }
+    if full or not _is_usd_array(value) or len(value) <= _ARRAY_SUMMARY_LIMIT:
+        reply["value"] = _usd_value_to_python(value, array_limit=None)
+        return reply
+
+    offset = max(0, int(offset))
+    limit = max(0, int(limit))
+    window = [
+        _usd_value_to_python(v, array_limit=None)
+        for v in itertools.islice(value, offset, offset + limit)
+    ]
+    reply["value"] = _array_summary(value)
+    reply["slice"] = {
+        "offset": offset,
+        "limit": limit,
+        "count": len(window),
+        "has_more": offset + len(window) < len(value),
+        "values": window,
+    }
+    return reply
 
 
 register_handler("lops.get_usd_attribute", _get_usd_attribute)

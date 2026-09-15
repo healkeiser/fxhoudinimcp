@@ -34,21 +34,27 @@ async def get_usd_prim(
     ctx: Context,
     node_path: str,
     prim_path: str,
+    full: bool = False,
 ) -> dict:
     """Get detailed info about a USD prim.
+
+    Array attributes longer than 16 elements (points, faceVertexIndices,
+    primvars:st, ...) come back as a summary: size, element_type, the first 8
+    as `head`, and min/max for numeric data. That is what a mesh question
+    needs; the full arrays of a building ran to 6.6 million characters. Pass
+    full=True for every element, or read one array in windows with
+    get_usd_attribute(offset=, limit=).
 
     Args:
         node_path: LOP node path.
         prim_path: USD prim path.
+        full: Return array attributes in full instead of summarised.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "lops.get_usd_prim",
-        {
-            "node_path": node_path,
-            "prim_path": prim_path,
-        },
-    )
+    params: dict[str, Any] = {"node_path": node_path, "prim_path": prim_path}
+    if full:
+        params["full"] = True
+    return await bridge.execute("lops.get_usd_prim", params)
 
 
 @mcp.tool()
@@ -90,14 +96,26 @@ async def get_usd_attribute(
     prim_path: str,
     attr_name: str,
     time: float | None = None,
+    full: bool = False,
+    offset: int = 0,
+    limit: int = 64,
 ) -> dict:
     """Read a USD attribute value from a prim.
+
+    A long array (over 16 elements) answers with `value` as a summary (size,
+    element_type, head, min/max) plus `slice`: the elements from `offset`,
+    at most `limit` of them (default the first 64), with `has_more`. Walk a
+    big array by raising offset; pass full=True to get every element in
+    `value` at once.
 
     Args:
         node_path: LOP node path.
         prim_path: USD prim path.
         attr_name: Attribute name.
         time: Time code (frame number).
+        full: Return the whole array as `value`.
+        offset: First element of the window for a long array.
+        limit: Window size for a long array.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {
@@ -107,6 +125,12 @@ async def get_usd_attribute(
     }
     if time is not None:
         params["time"] = time
+    if full:
+        params["full"] = True
+    if offset:
+        params["offset"] = offset
+    if limit != 64:
+        params["limit"] = limit
     return await bridge.execute("lops.get_usd_attribute", params)
 
 
