@@ -420,6 +420,34 @@ register_handler("parameters.revert_parameter", _revert_parameter)
 ###### Handler: parameters.link_parameters
 
 
+def _channel_function(parm: hou.Parm) -> str:
+    """The HScript channel function that reads *parm* as its own type.
+
+    ``ch()`` evaluates the referenced channel as a number, so a String parameter
+    linked with it reads back as "0". Strings need ``chs()``; every
+    numeric kind (float, int, toggle, int-valued menu) reads with ``ch()``.
+    """
+    try:
+        kind = parm.parmTemplate().type()
+    except Exception:
+        return "ch"
+    return "chs" if kind == hou.parmTemplateType.String else "ch"
+
+
+def _relative_channel_path(dst: hou.Parm, src: hou.Parm) -> str:
+    """Path to *src* as *dst* would write it: relative, the way Houdini's own
+    Paste Relative References does.
+
+    An absolute path (``ch("/obj/gaps/CONTROL/mat")``) breaks the moment the
+    pair is moved, collapsed into a subnet or saved into an HDA and instanced
+    elsewhere; a relative one survives all three.
+    """
+    rel = dst.node().relativePathTo(src.node())
+    if rel in ("", "."):
+        return src.name()
+    return f"{rel}/{src.name()}"
+
+
 def _link_parameters(
     source_path: str,
     source_parm: str,
@@ -427,19 +455,38 @@ def _link_parameters(
     dest_parm: str,
     **_: Any,
 ) -> dict[str, Any]:
-    """Create a channel reference from destination parameter to source parameter."""
+    """Create a channel reference from destination parameter to source parameter.
+
+    The expression uses ``chs()`` for a String destination and ``ch()`` for
+    everything else, and a path relative to the destination node. The reply
+    reads the destination back so the caller sees the linked value, not just
+    the expression text.
+    """
     src = _resolve_parm(source_path, source_parm)
     dst = _resolve_parm(dest_path, dest_parm)
 
-    # Build the channel reference expression
-    ref_expr = f'ch("{src.path()}")'
+    function = _channel_function(dst)
+    channel_path = _relative_channel_path(dst, src)
+    ref_expr = f'{function}("{channel_path}")'
     dst.setExpression(ref_expr, hou.exprLanguage.Hscript)
 
-    return {
+    reply: dict[str, Any] = {
         "source": src.path(),
         "destination": dst.path(),
         "expression": ref_expr,
+        "function": function,
+        "relative": not channel_path.startswith("/"),
     }
+    with contextlib.suppress(Exception):
+        reply["value"] = _serialize_value(dst.eval())
+    src_kind = _channel_function(src)
+    if src_kind != function:
+        reply["warning"] = (
+            f"'{dst.name()}' is a {'String' if function == 'chs' else 'numeric'} parameter "
+            f"linked to a {'String' if src_kind == 'chs' else 'numeric'} source; "
+            f"{function}() converts the value on read."
+        )
+    return reply
 
 
 register_handler("parameters.link_parameters", _link_parameters)
