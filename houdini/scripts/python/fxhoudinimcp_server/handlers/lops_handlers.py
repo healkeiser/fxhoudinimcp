@@ -246,19 +246,24 @@ def _list_usd_prims(
         raise hou.OperationFailed(f"Root prim not found at '{root_path}' on stage from {node_path}")
 
     results: list[dict[str, Any]] = []
-    root_depth = len(root_path.rstrip("/").split("/")) - 1
+    root_sdf_path = root.GetPath()
+    root_depth = root_sdf_path.pathElementCount
 
-    for prim in stage.Traverse():
-        prim_path_str = str(prim.GetPath())
+    # Walk the subtree of *root* only. A string prefix test used to stand in
+    # for "is under root", and "/materials/BLD" then matched
+    # "/materials/BLD_probes" too; Sdf.Path.HasPrefix compares path
+    # elements, and Usd.PrimRange(root) never leaves the subtree at all.
+    prims = stage.Traverse() if root_path == "/" else Usd.PrimRange(root)
 
-        # Depth filter
-        if depth is not None:
-            prim_depth = len(prim_path_str.rstrip("/").split("/")) - 1
-            if prim_depth - root_depth > depth:
-                continue
+    for prim in prims:
+        prim_path = prim.GetPath()
 
-        # Must be under root_path
-        if root_path != "/" and not prim_path_str.startswith(root_path):
+        # Must be under root_path (element-wise, not character-wise)
+        if root_path != "/" and not prim_path.HasPrefix(root_sdf_path):
+            continue
+
+        # Depth filter, counted in path elements below root
+        if depth is not None and prim_path.pathElementCount - root_depth > depth:
             continue
 
         # Type filter
@@ -375,10 +380,12 @@ def _get_usd_prim_stats(
     type_counts: dict[str, int] = {}
     total = 0
 
-    for prim in stage.Traverse():
-        path = str(prim.GetPath())
-        if prim_path != "/" and not path.startswith(prim_path):
-            continue
+    root = stage.GetPrimAtPath(prim_path)
+    if not root.IsValid():
+        raise hou.OperationFailed(f"Root prim not found at '{prim_path}' on stage from {node_path}")
+    # Same test as list_usd_prims: a path, not a string prefix.
+    prims = stage.Traverse() if prim_path == "/" else Usd.PrimRange(root)
+    for prim in prims:
         total += 1
         type_name = str(prim.GetTypeName()) or "(untyped)"
         type_counts[type_name] = type_counts.get(type_name, 0) + 1
