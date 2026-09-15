@@ -14,7 +14,11 @@ import os
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled, require_inside_project_root
+from fxhoudinimcp_server.config import (
+    layout_if_enabled,
+    require_inside_project_root,
+    update_mode_name,
+)
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.outputs import (
     OUTPUT_PARMS,
@@ -93,6 +97,7 @@ def get_scene_info() -> dict:
         "current_frame": current_frame,
         "node_counts": node_counts,
         "memory_usage": mem_bytes,
+        "update_mode": update_mode_name(),
     }
 
 

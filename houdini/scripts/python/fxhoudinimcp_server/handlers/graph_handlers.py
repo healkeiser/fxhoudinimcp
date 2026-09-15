@@ -24,7 +24,7 @@ from typing import Any
 import hou
 
 # Internal
-from fxhoudinimcp_server.config import layout_if_enabled, place_new_nodes
+from fxhoudinimcp_server.config import layout_if_enabled, place_new_nodes, update_mode_warning
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.outputs import license_error
@@ -203,13 +203,17 @@ def _geometry_summary(node: hou.Node) -> dict[str, Any] | None:
     if geo is None:
         return None
     bbox = geo.boundingBox()
-    return {
+    summary = {
         "points": geo.intrinsicValue("pointcount"),
         "prims": geo.intrinsicValue("primitivecount"),
         "bbox_min": list(bbox.minvec()),
         "bbox_max": list(bbox.maxvec()),
         "point_attribs": [a.name() for a in geo.pointAttribs()][:30],
     }
+    warning = update_mode_warning()
+    if warning:
+        summary["warning"] = warning
+    return summary
 
 
 ###### graph.build_network
