@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 from difflib import get_close_matches
+from typing import Any
 
 # Third-party
 import hou
@@ -214,6 +215,88 @@ def move_node(node_path: str, dest_parent: str) -> dict:
 ###### nodes.get_node_info
 
 
+# Parameter kinds that carry no value: pressing, grouping, decorating.
+_VALUELESS_PARM_TYPES = frozenset({"Button", "Folder", "FolderSet", "Separator", "Label"})
+
+
+def _component_default(parm: hou.Parm) -> Any:
+    """The default of *parm* itself, not of the tuple it belongs to.
+
+    ``parmTemplate().defaultValue()`` describes the whole tuple, so ``ty`` on
+    an xform used to be compared with ``(0.0, 0.0, 0.0)`` and every component
+    of every tuple came back "non-default" (34 entries on a bare xform with
+    one edit).
+    """
+    default = parm.parmTemplate().defaultValue()
+    if isinstance(default, (tuple, list)):
+        try:
+            index = parm.componentIndex()
+        except Exception:
+            index = 0
+        if not isinstance(index, int) or index < 0 or index >= len(default):
+            return default[0] if len(default) == 1 else None
+        return default[index]
+    return default
+
+
+def _is_at_default(parm: hou.Parm, value: Any, default: Any) -> bool:
+    """Whether *parm* still holds its default.
+
+    Houdini's own answer (``isAtDefault``, which also sees an expression as a
+    change) is preferred; a component comparison is the fallback for
+    anything that cannot answer.
+    """
+    try:
+        answer = parm.isAtDefault()
+        if isinstance(answer, bool):
+            return answer
+    except Exception:
+        pass
+    # Ramp and Data parameters have no comparable defaultValue(), so this
+    # guard never filters them out and they always reach the response --
+    # which is why they have to survive JSON encoding (see serialize.py).
+    try:
+        return bool(value == default)
+    except Exception:
+        return False
+
+
+def _non_default_parms(node: hou.Node, parms: list[hou.Parm]) -> list[dict[str, Any]]:
+    """The parameters of *node* that differ from their defaults, as summaries.
+
+    Buttons, folders, separators and labels carry no value and are skipped.
+    """
+    summary: list[dict[str, Any]] = []
+    for parm in parms:
+        try:
+            template = parm.parmTemplate()
+            type_name = template.type().name()
+        except Exception:
+            continue
+        if type_name in _VALUELESS_PARM_TYPES:
+            continue
+        try:
+            val = parm.eval()
+        except Exception:
+            continue
+        try:
+            default = _component_default(parm)
+        except Exception:
+            default = None
+        if _is_at_default(parm, val, default):
+            continue
+        summary.append(
+            {
+                "name": parm.name(),
+                "label": parm.description(),
+                "value": to_jsonable(val),
+                "default": to_jsonable(default),
+                "type": type_name,
+            }
+        )
+    return summary
+
+
 def get_node_info(node_path: str) -> dict:
     """Return comprehensive information about a node.
 
@@ -229,35 +312,7 @@ def get_node_info(node_path: str) -> dict:
     # the response compact (a complex node can have 500+ parms, most at default).
     # Use get_parameter_schema to inspect the full parameter list.
     all_parms = node.parms()
-    parms_summary = []
-    for parm in all_parms:
-        try:
-            val = parm.eval()
-        except Exception:
-            continue
-        try:
-            default = parm.parmTemplate().defaultValue()
-            if isinstance(default, tuple) and len(default) == 1:
-                default = default[0]
-        except Exception:
-            default = None
-        # Ramp and Data parameters have no comparable defaultValue(), so this
-        # guard never filters them out and they always reach the response --
-        # which is why they have to survive JSON encoding (see serialize.py).
-        try:
-            if val == default:
-                continue
-        except Exception:
-            pass
-        parms_summary.append(
-            {
-                "name": parm.name(),
-                "label": parm.description(),
-                "value": to_jsonable(val),
-                "default": to_jsonable(default),
-                "type": parm.parmTemplate().type().name(),
-            }
-        )
+    parms_summary = _non_default_parms(node, all_parms)
 
     # Inputs
     inputs = []
