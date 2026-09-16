@@ -4482,6 +4482,12 @@ everything, up to the cap.</p>
     <div class="doc doc-contents ">
 
         <p>Create a channel reference from one parameter to another.</p>
+<p>The destination gets an HScript expression that reads the source as its
+own type: chs() for a String parameter, ch() for numbers, toggles and
+menus. The path is relative to the destination node (chs("../CTRL/mat")),
+so the link survives moving the pair, collapsing into a subnet or
+instancing an HDA. The reply carries the expression, the function used
+and the destination's evaluated value.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
