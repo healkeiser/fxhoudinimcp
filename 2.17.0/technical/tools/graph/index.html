@@ -1968,6 +1968,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.graph.get_node_card(include_help)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_help
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2801,6 +2812,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.graph.get_node_card(include_help)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_help
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3147,9 +3169,10 @@ read them instead of assuming success.</p>
   <summary>Each node spec dict supports</summary>
   <p>type (required), name, parms (lists set whole parm tuples),
 inputs (list of source names — earlier spec names, existing
-children, or absolute paths; or dicts with index/source/
-source_output), flags (display/render/bypass/template),
-color [r,g,b], comment.</p>
+children, or absolute paths; or dicts with index or input_name /
+source / source_output, where input_name is a connector name or
+label as get_node_card lists them), flags (display/render/bypass/
+template), color [r,g,b], comment.</p>
 </details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3565,14 +3588,20 @@ get_render_progress.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(node_type)">node_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(context)">context</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"Sop"</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(parm_filter)">parm_filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(include_help)">include_help</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Get the authoritative documentation card for a node type, straight
-from the running Houdini: real connector labels, real parameter
-names/defaults/menus, and the node's own shipped help text.</p>
+from the running Houdini: connectors in order (<code>inputs</code> / <code>outputs</code>
+with index, name and label — the index of <code>texcoord</code> on mtlximage
+lives here), real parameter names/defaults/menus, and the node's own
+shipped help text. Connectors are read off a probe node the first time
+a type is asked for in a session (no undo entry, creation scripts not
+run); <code>connectors_probed: false</code> with <code>connectors_note</code> means they could
+not be read, not that the type has none.</p>
 <p>Use this BEFORE setting parameters on a node type you have not used
 in this session — never guess parameter names. Unversioned names
 resolve to the newest version.</p>
@@ -3614,8 +3643,9 @@ resolve to the newest version.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Category — "Sop", "Lop", "Dop", "Cop", "Chop", "Top",
-"Object", "Driver".</p>
+                <p>Category — "Sop", "Lop", "Vop" (MaterialX and other shader
+nodes inside a material network), "Dop", "Cop", "Chop", "Top",
+"Object", "Driver"; also "Cop2", "Shop", "VopNet".</p>
               </div>
             </td>
             <td>
@@ -3636,6 +3666,23 @@ resolve to the newest version.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.graph.get_node_card(include_help)" class="doc doc-heading doc-heading-parameter">                  <code>include_help</code>
+<a href="#fxhoudinimcp.tools.graph.get_node_card(include_help)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>False drops the help text (about 4 KB per card) when
+only parameter names or connectors are needed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
             </td>
           </tr>
       </tbody>
