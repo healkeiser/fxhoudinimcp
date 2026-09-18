@@ -3171,7 +3171,8 @@ read them instead of assuming success.</p>
 inputs (list of source names — earlier spec names, existing
 children, or absolute paths; or dicts with index or input_name /
 source / source_output, where input_name is a connector name or
-label as get_node_card lists them), flags (display/render/bypass/
+label as get_node_card lists them; or {"indirect_input": n} to wire
+from connector n of the parent subnet itself), flags (display/render/bypass/
 template), color [r,g,b], comment.</p>
 </details>
 

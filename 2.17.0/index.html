@@ -2296,7 +2296,7 @@
 <h1 id="home"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span> Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h1>
 <h2 id="fxhoudinimcp">fxhoudinimcp<a class="headerlink" href="#fxhoudinimcp" title="Permanent link">&para;</a></h2>
 <p>The most comprehensive <a href="https://modelcontextprotocol.io/">MCP</a> (Model Context Protocol) server for <a href="https://www.sidefx.com/">SideFX Houdini</a>.</p>
-<p><strong>200 tools</strong>, <strong>8 resources</strong>, and <strong>9 prompts</strong> serving <strong>31 written workflow guides</strong> out of the box.</p>
+<p><strong>206 tools</strong>, <strong>8 resources</strong>, and <strong>9 prompts</strong> serving <strong>31 written workflow guides</strong> out of the box.</p>
 <p>Connects AI assistants like Claude directly to Houdini's Python API, enabling natural language control over scene building, simulation setup, rendering, and more.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <table>
@@ -2325,7 +2325,7 @@
 </tr>
 <tr>
 <td><strong>Node Operations</strong></td>
-<td>20</td>
+<td>22</td>
 <td>Create, delete, copy, connect, layout, flags, network boxes, sticky notes, object transforms</td>
 </tr>
 <tr>
@@ -2340,7 +2340,7 @@
 </tr>
 <tr>
 <td><strong>LOPs/USD</strong></td>
-<td>19</td>
+<td>18</td>
 <td>Stage inspection, prims, layers, composition, variants, lighting</td>
 </tr>
 <tr>
@@ -2436,7 +2436,7 @@
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]
         direction TB
-        B1("🔧 200 tools")
+        B1("🔧 206 tools")
         B2("📦 8 Resources")
         B3("💬 9 Prompts")
     end
@@ -2466,7 +2466,7 @@
 <p><strong>Houdini Plugin</strong> (<code>houdini/</code>): Runs inside Houdini's Python environment. Registers <code>@hwebserver.apiFunction</code> endpoints that receive JSON commands. Uses <code>hdefereval.executeInMainThreadWithResult()</code> to safely execute <code>hou.*</code> calls on the main thread.</p>
 </li>
 <li>
-<p><strong>MCP Server</strong> (<code>python/fxhoudinimcp/</code>): A standalone Python process using FastMCP. Exposes 200 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.</p>
+<p><strong>MCP Server</strong> (<code>python/fxhoudinimcp/</code>): A standalone Python process using FastMCP. Exposes 206 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.</p>
 </li>
 <li>
 <p><strong>Bridge</strong> (<code>python/fxhoudinimcp/bridge.py</code>): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.</p>
