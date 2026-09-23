@@ -2335,6 +2335,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.viewport.set_current_network(other_objects)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;other_objects
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3016,6 +3027,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.viewport.set_current_network(other_objects)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;other_objects
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3531,7 +3553,7 @@ navigation, and error node discovery.</p>
   &lt;/span&gt;" href="./#fxhoudinimcp.tools.viewport.set_current_network">set_current_network</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Navigate the network editor to a specific network path.</p>
+                  <p>Navigate the network editor to a network; the viewer follows it in.</p>
                 </div>
               </td>
             </tr>
@@ -4122,12 +4144,17 @@ Examples: "Creating base geometry...", "Wiring SOP chain...",
   </span>
 
 <a href="#fxhoudinimcp.tools.viewport.set_current_network" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_current_network</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.tools.viewport.set_current_network(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.viewport.set_current_network(network_path)">network_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_current_network</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.tools.viewport.set_current_network(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.viewport.set_current_network(network_path)">network_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.viewport.set_current_network(other_objects)">other_objects</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"hide"</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Navigate the network editor to a specific network path.</p>
+        <p>Navigate the network editor to a network; the viewer follows it in.</p>
+<p>Call it on the network you build in. By default the viewer then hides
+every other object (the viewport's Y hotkey, no display flag touched), so
+the work is seen on its own and the rest of the scene does not cook.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4155,6 +4182,23 @@ Examples: "Creating base geometry...", "Wiring SOP chain...",
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.viewport.set_current_network(other_objects)" class="doc doc-heading doc-heading-parameter">                  <code>other_objects</code>
+<a href="#fxhoudinimcp.tools.viewport.set_current_network(other_objects)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>"hide" (default), "ghost", "show", or null to leave
+the viewer as it is.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;hide&#39;</code>
             </td>
           </tr>
       </tbody>

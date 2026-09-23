@@ -2154,6 +2154,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.hda.list_installed_hdas(limit)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;limit
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3335,6 +3346,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.hda.list_installed_hdas(limit)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;limit
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3869,7 +3891,7 @@ via the HTTP bridge.</p>
   &lt;/span&gt;" href="./#fxhoudinimcp.tools.hda.list_installed_hdas">list_installed_hdas</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>List all installed HDA files and their definitions.</p>
+                  <p>List installed HDA definitions, grouped by library file.</p>
                 </div>
               </td>
             </tr>
@@ -4667,12 +4689,16 @@ top level and the reply says so in <code>reinstated_by_houdini</code>; hide them
   </span>
 
 <a href="#fxhoudinimcp.tools.hda.list_installed_hdas" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_installed_hdas</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.hda.list_installed_hdas(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.hda.list_installed_hdas(filter)">filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_installed_hdas</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.hda.list_installed_hdas(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.hda.list_installed_hdas(filter)">filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.hda.list_installed_hdas(limit)">limit</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">100</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>List all installed HDA files and their definitions.</p>
+        <p>List installed HDA definitions, grouped by library file.</p>
+<p>A stock install loads thousands; pass a filter (namespace, name or path
+fragment). <code>truncated</code> says when <code>limit</code> cut the list.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4716,6 +4742,22 @@ top level and the reply says so in <code>reinstated_by_houdini</code>; hide them
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.hda.list_installed_hdas(limit)" class="doc doc-heading doc-heading-parameter">                  <code>limit</code>
+<a href="#fxhoudinimcp.tools.hda.list_installed_hdas(limit)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum definitions returned.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
             </td>
           </tr>
       </tbody>

@@ -3195,6 +3195,10 @@ and rolling the whole graph back.</p>
 holds (a Ray SOP ships dir = @N.x): the dry run lists such parms in
 <code>expressions_in_the_way</code>, the build reports <code>expressions_kept</code> and a
 <code>warning</code>. "override_expression": true on the spec clears them first.</p>
+<p>Display: in a network that was empty, the last node gets the display
+flag unless a spec sets one. A display flag asked of a node that has
+none (a usdrender_rop) goes to its nearest input that has one, listed in
+<code>display_set_upstream</code>.</p>
 <p>There is no "children" key: build the subnet, then call build_network
 again with the subnet as parent_path.</p>
 
@@ -3219,7 +3223,11 @@ again with the subnet as parent_path.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Network to build inside (e.g. "/obj/geo1").</p>
+                <p>Network to build inside (e.g. "/obj/geo1"). A missing
+parent directly under /obj is created, as the container the
+specs' context needs (geo for SOPs, lopnet for LOPs), and
+removed again if the build fails; a dry run reports it as
+<code>would_create_parent</code>.</p>
               </div>
             </td>
             <td>
@@ -3315,8 +3323,12 @@ exact positions, so building into a hand-arranged network is safe.</p>
 <p>This is how you advance a sequential solver and how you prove a simulation
 is doing something. Frames are cooked in order, so a SOP solver, a DOP
 network or an animated chain all accumulate correctly, and per-frame cook
-time, errors, counts and attribute aggregates come back in ONE round trip
-instead of one per frame.</p>
+time, errors, counts, bounding box and attribute aggregates come back in
+ONE round trip instead of one per frame. <code>static: true</code> means counts and
+bounds never changed over the range: the node cooks but does nothing.
+Past 25 frames the rows are 25 evenly spaced frames plus every frame with
+an error or warning (<code>frames_shown</code>); totals, <code>static</code> and
+<code>slowest_frame</code> still cover every frame.</p>
 <p>Prefer this over set_frame in a loop, and over stepping by hand: a 100-frame
 check is one call rather than 100. The frame is left where the cook ended,
 ready to screenshot.</p>
@@ -3612,7 +3624,7 @@ get_render_progress.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(node_type)">node_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(context)">context</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"Sop"</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(parm_filter)">parm_filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(include_help)">include_help</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.graph.get_node_card(include_help)">include_help</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
@@ -3699,16 +3711,17 @@ nodes inside a material network), "Dop", "Cop", "Chop", "Top",
 <h5 id="fxhoudinimcp.tools.graph.get_node_card(include_help)" class="doc doc-heading doc-heading-parameter">                  <code>include_help</code>
 <a href="#fxhoudinimcp.tools.graph.get_node_card(include_help)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
             <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>False drops the help text (about 4 KB per card) when
-only parameter names or connectors are needed.</p>
+                <p>The node's help text (about 4 KB). Default: included
+for a whole card, left out when parm_filter asks for specific
+parameters. Pass True or False to decide.</p>
               </div>
             </td>
             <td>
-                  <code>True</code>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -3740,7 +3753,11 @@ only parameter names or connectors are needed.</p>
 and the display node's cooked geometry counts.</p>
 <p>Call this after building or modifying a network, the way an artist
 middle-clicks nodes: if <code>healthy</code> is false or <code>error_nodes</code> is
-non-empty, fix those nodes before telling the user anything is done.</p>
+non-empty, fix those nodes before telling the user anything is done.
+Each node lists <code>errors</code>, <code>warnings</code>, <code>bypassed</code> and <code>display</code> only when
+it has them; absent means none. For a LOP network the evidence is the
+stage (prims, cameras, lights, gprims without a material), for a COP
+network the image layer (resolution, channel ranges).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

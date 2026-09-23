@@ -1760,6 +1760,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.code.reload_plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;reload_plugin
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp.tools.code.set_update_mode" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2654,6 +2665,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.code.reload_plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;reload_plugin
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp.tools.code.set_update_mode" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2933,6 +2955,19 @@ expressions, and reading Houdini environment variables.</p>
               <td>
                 <div class="doc-md-description">
                   <p>Every file path the scene references, with the parameter holding it and whether it exists.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;reload_plugin&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="./#fxhoudinimcp.tools.code.reload_plugin">reload_plugin</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>Re-import the plugin's Houdini-side code without restarting Houdini.</p>
                 </div>
               </td>
             </tr>
@@ -3318,6 +3353,33 @@ covers this operation.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp.tools.code.reload_plugin" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">reload_plugin</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#fxhoudinimcp.tools.code.reload_plugin" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reload_plugin</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.tools.code.reload_plugin(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Re-import the plugin's Houdini-side code without restarting Houdini.</p>
+<p>For developing this server: after editing its handlers, this picks the
+edit up in the running session. The MCP server's own tool definitions are
+not reloaded; the client has to reconnect for those.</p>
 
 
     </div>

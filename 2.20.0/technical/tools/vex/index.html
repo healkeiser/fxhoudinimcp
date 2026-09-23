@@ -2868,7 +2868,7 @@ via the HTTP bridge.</p>
   &lt;/span&gt;" href="./#fxhoudinimcp.tools.vex.create_vex_expression">create_vex_expression</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Set a VEX expression on a parameter.</p>
+                  <p>Set an HScript expression on a parameter, evaluated before it is kept.</p>
                 </div>
               </td>
             </tr>
@@ -2961,7 +2961,9 @@ via the HTTP bridge.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Set a VEX expression on a parameter.</p>
+        <p>Set an HScript expression on a parameter, evaluated before it is kept.</p>
+<p>Parameters cannot run VEX: attribute @ syntax is refused with a pointer to
+create_wrangle. An expression that does not evaluate is not kept.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3016,7 +3018,7 @@ via the HTTP bridge.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>VEX expression code.</p>
+                <p>Expression code, in HScript syntax.</p>
               </div>
             </td>
             <td>

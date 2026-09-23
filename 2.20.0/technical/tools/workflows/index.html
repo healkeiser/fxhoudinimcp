@@ -2582,6 +2582,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.workflows.setup_vellum_sim(ground)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;ground
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3239,6 +3250,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.workflows.setup_vellum_sim(ground)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;ground
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3874,8 +3896,9 @@ Nodes are created in order and each is automatically connected to the previous.<
     <div class="doc doc-contents ">
 
         <p>Build a FLIP fluid simulation network from source geometry.</p>
-<p>Preferred over manual DOP wiring — builds the entire FLIP network in one call.
-Use FLIP Source SOP or Volume Source DOP for custom sourcing.</p>
+<p>Preferred over manual wiring — builds SideFX's SOP FLIP chain in one call:
+FLIP Container sized around the source, FLIP Boundary emitting from it,
+FLIP Solver with a ground plane at y=0, and a File Cache on the particles.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3986,7 +4009,9 @@ Use FLIP Source SOP or Volume Source DOP for custom sourcing.</p>
     <div class="doc doc-contents ">
 
         <p>Build a Pyro smoke/fire simulation network from source geometry.</p>
-<p>Preferred over manual DOP wiring — builds the entire pyro network in one call.
+<p>Preferred over manual DOP wiring — builds the entire pyro network in one call:
+Pyro Source (density, temperature, burn), Volume Rasterize Attributes, Pyro
+Solver and a File Cache.
 For custom setups beyond what this provides, use create_node with DOP nodes
 (pyrosolver, smokeobject, volumesource, etc.).</p>
 
@@ -4363,13 +4388,16 @@ booleanfracture, rbdmaterialfracture) instead of VEX.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.workflows.setup_vellum_sim(sim_type)">sim_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"cloth"</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.workflows.setup_vellum_sim(substeps)">substeps</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.workflows.setup_vellum_sim(name)">name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"vellum_sim"</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.workflows.setup_vellum_sim(ground)">ground</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Build a Vellum simulation network with configure node and solver.</p>
-<p>Preferred over manual DOP wiring — builds the entire Vellum network in one call.
+<p>Preferred over manual DOP wiring — builds the entire Vellum network in one call:
+the shelf's Configure recipe for the type, the Vellum Solver, and a Vellum I/O
+cache that keeps constraints and collisions with the geometry.
 Use Vellum Drape SOP to let cloth settle before the main simulation.</p>
 
 
@@ -4446,6 +4474,22 @@ Use Vellum Drape SOP to let cloth settle before the main simulation.</p>
             </td>
             <td>
                   <code>&#39;vellum_sim&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.workflows.setup_vellum_sim(ground)" class="doc doc-heading doc-heading-parameter">                  <code>ground</code>
+<a href="#fxhoudinimcp.tools.workflows.setup_vellum_sim(ground)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Turn on the solver's ground plane at y=0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
             </td>
           </tr>
       </tbody>
