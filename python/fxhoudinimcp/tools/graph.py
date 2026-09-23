@@ -84,7 +84,7 @@ async def build_network(
 
 
 @mcp.tool()
-async def verify_network(ctx: Context, parent_path: str) -> dict:
+async def verify_network(ctx: Context, parent_path: str, force_cook: bool = False) -> dict:
     """Inspect every node in a network at once — errors, warnings, flags,
     and the display node's cooked geometry counts.
 
@@ -92,11 +92,20 @@ async def verify_network(ctx: Context, parent_path: str) -> dict:
     middle-clicks nodes: if `healthy` is false or `error_nodes` is
     non-empty, fix those nodes before telling the user anything is done.
 
+    A node's errors are its LAST cook's verdict. A node that nothing has
+    cooked since its cause was fixed is reported `stale` and listed in
+    `stale_error_nodes`; pass force_cook=True to recook before judging.
+    The default cooks only the display node, so a heavy scene is left alone.
+
     Args:
         parent_path: Network to verify (e.g. "/obj/geo1").
+        force_cook: Cook the display node with force and recook every node
+            that has errors, so the verdict is about the network as it is now.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute("graph.verify_network", {"parent_path": parent_path})
+    return await bridge.execute(
+        "graph.verify_network", {"parent_path": parent_path, "force_cook": force_cook}
+    )
 
 
 @mcp.tool()

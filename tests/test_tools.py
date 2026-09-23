@@ -299,6 +299,28 @@ class TestEvidenceTools:
             },
         )
 
+    @pytest.mark.asyncio
+    async def test_verify_network_does_not_force_a_cook_by_default(self, mock_ctx, mock_bridge):
+        from fxhoudinimcp.tools.graph import verify_network
+
+        mock_bridge.execute.return_value = {"healthy": True}
+        await verify_network(mock_ctx, parent_path="/obj/geo1")
+        mock_bridge.execute.assert_called_once_with(
+            "graph.verify_network",
+            {"parent_path": "/obj/geo1", "force_cook": False},
+        )
+
+    @pytest.mark.asyncio
+    async def test_verify_network_forwards_force_cook(self, mock_ctx, mock_bridge):
+        from fxhoudinimcp.tools.graph import verify_network
+
+        mock_bridge.execute.return_value = {"healthy": True}
+        await verify_network(mock_ctx, parent_path="/obj/geo1", force_cook=True)
+        mock_bridge.execute.assert_called_once_with(
+            "graph.verify_network",
+            {"parent_path": "/obj/geo1", "force_cook": True},
+        )
+
 
 class TestParityTools:
     @pytest.mark.asyncio

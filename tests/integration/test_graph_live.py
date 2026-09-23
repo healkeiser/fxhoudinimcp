@@ -7,6 +7,9 @@ must actually find the expensive node.
 
 from __future__ import annotations
 
+# Built-in
+import contextlib
+
 # Third-party
 import hou
 import pytest
@@ -143,6 +146,35 @@ class TestVerifyNetwork:
         assert report["healthy"] is False
         assert f"{geo}/bad" in report["error_nodes"]
         assert report["node_count"] == 2
+
+    def test_a_fixed_node_off_the_display_chain_is_stale_until_recooked(self, call, geo, tmp_path):
+        good = call("nodes.create_node", parent_path=geo, node_type="box", name="good")["node_path"]
+        real_file = str(tmp_path / "box.bgeo").replace("\\", "/")
+        hou.node(good).geometry().saveToFile(real_file)
+        bad = call("nodes.create_node", parent_path=geo, node_type="file", name="bad")["node_path"]
+        # The file node stays off the display chain, which is the only chain
+        # verify_network cooks by default.
+        call("nodes.set_node_flags", node_path=good, display=True)
+
+        hou.node(bad).parm("file").set("/does/not/exist.bgeo")
+        with contextlib.suppress(hou.OperationFailed):
+            hou.node(bad).cook(force=True)
+        assert hou.node(bad).errors()
+        # Fixed, but not cooked since: the node still lists the old error.
+        hou.node(bad).parm("file").set(real_file)
+        assert hou.node(bad).errors()
+
+        stale = call("graph.verify_network", parent_path=geo)
+        assert stale["stale_error_nodes"] == [bad]
+        assert stale["healthy"] is False
+        assert "force_cook=True" in stale["note"]
+
+        fresh = call("graph.verify_network", parent_path=geo, force_cook=True)
+        assert fresh["error_nodes"] == []
+        assert fresh["stale_error_nodes"] == []
+        assert fresh["healthy"] is True
+        row = next(r for r in fresh["nodes"] if r["path"] == bad)
+        assert row["recooked"] is True
 
     def test_healthy_network_reports_geometry(self, call, geo):
         call(
