@@ -3175,18 +3175,29 @@ back with did-you-mean suggestions. Use dry_run=True to prove a plan
 when using unfamiliar node types. The result includes cooked
 evidence: per-node errors and the display node's geometry counts —
 read them instead of assuming success.</p>
+<p>Each node spec dict supports exactly these keys; an unknown one (in a
+spec or in an input entry) is a validation error with a did-you-mean,
+never a silently dropped request:
+    type (required), name, parms (lists set whole parm tuples; a value
+    written {"expr": "ch('../x')"} is set as an expression, with an
+    optional "language": "hscript" | "python"), expressions (or its
+    alias exprs: a block of parm name -&gt; expression), inputs (list of
+    source names — earlier spec names, existing children, or absolute
+    paths; or dicts with index or input_name / source / source_output,
+    where input_name is a connector name or label as get_node_card
+    lists them; or {"indirect_input": n} to wire from connector n of
+    the parent subnet itself), flags (display/render/bypass/template),
+    color [r,g,b], comment, override_expression.</p>
+<p>A string aimed at a numeric parameter is caught during validation and
+answered with the {"expr": ...} spelling, instead of failing mid-build
+and rolling the whole graph back.</p>
+<p>A literal in parms does not replace an expression the parm already
+holds (a Ray SOP ships dir = @N.x): the dry run lists such parms in
+<code>expressions_in_the_way</code>, the build reports <code>expressions_kept</code> and a
+<code>warning</code>. "override_expression": true on the spec clears them first.</p>
+<p>There is no "children" key: build the subnet, then call build_network
+again with the subnet as parent_path.</p>
 
-
-<details class="each-node-spec-dict-supports" open>
-  <summary>Each node spec dict supports</summary>
-  <p>type (required), name, parms (lists set whole parm tuples),
-inputs (list of source names — earlier spec names, existing
-children, or absolute paths; or dicts with index or input_name /
-source / source_output, where input_name is a connector name or
-label as get_node_card lists them; or {"indirect_input": n} to wire
-from connector n of the parent subnet itself), flags (display/render/bypass/
-template), color [r,g,b], comment.</p>
-</details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <table>
