@@ -81,8 +81,67 @@ def _attrib_class_obj(geo: hou.Geometry, attrib_class: str) -> Any:
 ###### geometry.get_geometry_info
 
 
+def _loop_context(node: hou.Node) -> dict[str, str] | None:
+    """The for-each block *node* sits in, as {begin, end} paths — or None.
+
+    A node between a block_begin and its block_end cooks once per iteration.
+    Read on its own, outside the loop, it is one iteration's slice at best,
+    never the loop's merged result.
+    """
+    try:
+        parent = node.parent()
+        ancestors = set(node.inputAncestors())
+    except Exception:
+        return None
+    if parent is None:
+        return None
+    for child in parent.children():
+        try:
+            if not child.type().name().startswith("block_end"):
+                continue
+            if node not in child.inputAncestors():
+                continue
+            begin = child.parm("blockpath").evalAsNode()
+        except Exception:
+            continue
+        if begin is not None and begin in ancestors:
+            return {"begin": begin.path(), "end": child.path()}
+    return None
+
+
+def _cook_state(node: hou.Node) -> tuple[dict[str, Any], list[str]]:
+    """How the numbers about to be reported came to be — read BEFORE geometry().
+
+    `geometry()` cooks a dirty node on the spot, so the counts are current; but
+    a node inside a for-each block is then cooked standalone, outside the loop
+    (no iteration metadata, one slice at best), and those numbers are not the
+    loop's result. A healthy floor inside a loop read "bbox 0 at 4 points" that
+    way and sent a session hunting a defect that was not there. The state says
+    whether this call cooked the node and whether it sits in a loop.
+    """
+    state: dict[str, Any] = {}
+    warnings: list[str] = []
+    with contextlib.suppress(Exception):
+        state["cooked_for_this_call"] = bool(node.needsToCook())
+    with contextlib.suppress(Exception):
+        state["cook_count"] = int(node.cookCount())
+    loop = _loop_context(node)
+    if loop is not None:
+        state["inside_loop"] = True
+        state["loop"] = loop
+        warnings.append(
+            f"Node sits inside for-each loop {loop['begin']} → {loop['end']}: read this "
+            f"way it cooks standalone, outside the loop (no iteration metadata, one slice "
+            f"at best), so these numbers are not the loop's result. Read {loop['end']} for "
+            f"the merged output."
+        )
+    return state, warnings
+
+
 def _get_geometry_info(*, node_path: str, output_index: int = 0, **_: Any) -> dict[str, Any]:
     """Return summary information about a SOP node's geometry."""
+    node = hou.node(node_path)
+    cook_state, cook_warnings = _cook_state(node) if node is not None else ({}, [])
     geo = _get_sop_geo(node_path, output_index)
 
     # Attribute lists per class
@@ -130,12 +189,16 @@ def _get_geometry_info(*, node_path: str, output_index: int = 0, **_: Any) -> di
             "center": list(bbox.center()),
         },
         "prim_type_breakdown": prim_types,
+        "cook_state": cook_state,
     }
     if prim_sample_note:
         result["prim_type_breakdown_note"] = prim_sample_note
+    warnings = list(cook_warnings)
     warning = update_mode_warning()
     if warning:
-        result["warnings"] = [warning]
+        warnings.append(warning)
+    if warnings:
+        result["warnings"] = warnings
     return result
 
 
