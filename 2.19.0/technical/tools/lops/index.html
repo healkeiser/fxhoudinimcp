@@ -4309,7 +4309,7 @@
   &lt;/span&gt;" href="./#fxhoudinimcp.tools.lops.get_stage_info">get_stage_info</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Get USD stage info from a LOP node.</p>
+                  <p>Get USD stage info from a LOP node, or from a LOP network.</p>
                 </div>
               </td>
             </tr>
@@ -4987,12 +4987,16 @@ that may not be obvious from their names.</p>
   </span>
 
 <a href="#fxhoudinimcp.tools.lops.get_stage_info" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_stage_info</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.tools.lops.get_stage_info(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.lops.get_stage_info(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_stage_info</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.tools.lops.get_stage_info(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.lops.get_stage_info(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'/stage'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Get USD stage info from a LOP node.</p>
+        <p>Get USD stage info from a LOP node, or from a LOP network.</p>
+<p>Given a network such as "/stage", the answer is about what that network
+displays: <code>display_node</code> (and <code>render_node</code>) name it, <code>resolved_from</code> is
+"display_node", <code>viewport_delegate</code> names the Hydra delegate the Scene
+Viewer draws with, and <code>frame</code> is the current frame.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5015,11 +5019,11 @@ that may not be obvious from their names.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>LOP node path.</p>
+                <p>LOP node or LOP network path (default "/stage").</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>&#39;/stage&#39;</code>
             </td>
           </tr>
       </tbody>
