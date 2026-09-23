@@ -55,8 +55,10 @@ class _Parm:
     """A parm whose set() behaves the way HOM's does on an expression.
 
     set() writes the value into the parm's own slot while the expression keeps
-    answering for eval(); only deleteAllKeyframes() drops it. With *reference*
-    the parm is a bare ch() onto that parm, and set() lands there instead.
+    answering for eval(); only deleteAllKeyframes() drops it, and it evaluates
+    the expression it drops to keep the value (logged in `evaluated_on_clear`).
+    With *reference* the parm is a bare ch() onto that parm, and set() lands
+    there instead.
     """
 
     def __init__(
@@ -79,6 +81,7 @@ class _Parm:
         self._string = string
         self._raw = raw
         self.deleted = False
+        self.evaluated_on_clear: list = []
 
     def name(self):
         return self._name
@@ -97,7 +100,12 @@ class _Parm:
             raise hou.OperationFailed("not animated")
         return self._expression
 
+    def setExpression(self, expression, language=None, replace_expression=True):  # noqa: N802
+        self._expression = expression
+
     def deleteAllKeyframes(self):  # noqa: N802 — HOM spelling
+        # HOM keeps the parm at its current value, so it evaluates what it drops.
+        self.evaluated_on_clear.append(self._expression)
         self.deleted = True
         self._expression = None
 
@@ -335,6 +343,45 @@ class TestTuples:
         assert result["parm_name"] == "t"
         assert result["expression_kept"] is True
         assert result["expression_components"][0]["component"] == "tx"
+
+
+###### Clearing an expression does not evaluate it
+
+
+class TestClearingDoesNotEvaluate:
+    """deleteAllKeyframes() evaluates the expression it drops; outside a cook a
+    Ray SOP's `@N.x` then leaves "Local variable 'N' not found" on the node.
+    A constant stands in first, so the only thing evaluated is that constant.
+    """
+
+    def test_a_constant_stands_in_before_the_channel_goes(self):
+        parm = _Parm("dirx", expression="@N.x")
+        parameters._clear_expression(parm)
+        assert parm.evaluated_on_clear == ["0"]
+        assert parm.deleted is True
+        assert parm._expression is None
+
+    def test_set_parameter_clears_without_evaluating(self, monkeypatch):
+        parm = _Parm("dirx", value=0, expression="@N.x", expression_value=0)
+        result = _set(monkeypatch, parm, 1.0, override_expression=True)
+        assert parm.evaluated_on_clear == ["0"]
+        assert result["new_value"] == 1.0
+        assert result["expression_removed"] == "@N.x"
+
+    def test_set_parameters_clears_without_evaluating(self, monkeypatch):
+        parm = _Parm("dirx", value=0, expression="@N.x", expression_value=0)
+        reply = _batch(monkeypatch, {"dirx": parm}, {"dirx": 1.0}, override_expression=True)
+        assert parm.evaluated_on_clear == ["0"]
+        assert reply["set"][0]["expression_removed"] == "@N.x"
+
+    def test_a_tuple_clears_every_component_without_evaluating(self):
+        components = [_Parm(f"dir{axis}", expression=f"@N.{axis}") for axis in "xyz"]
+        node = _node("/obj/geo1/ray1", type_name="ray")
+        node.parmTuple.return_value = _Tuple(components)
+        values, report = parameters._set_tuple(node, "dir", [0, 1, 0], override_expression=True)
+        assert [p.evaluated_on_clear for p in components] == [["0"], ["0"], ["0"]]
+        assert values == [0, 1, 0]
+        assert "expression_kept" not in report
 
 
 ###### String parameters echo their raw text

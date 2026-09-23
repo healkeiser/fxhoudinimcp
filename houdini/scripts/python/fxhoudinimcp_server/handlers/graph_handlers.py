@@ -33,6 +33,7 @@ from fxhoudinimcp_server.handlers.node_handlers import (
     _input_table,
     _resolve_input_index,
 )
+from fxhoudinimcp_server.handlers.parameter_handlers import _clear_expression
 from fxhoudinimcp_server.outputs import license_error
 
 ###### Helpers
@@ -500,8 +501,7 @@ def _apply_parm(
     if before and override_expression:
         for component in components:
             if component.name() in before:
-                with contextlib.suppress(Exception):
-                    component.deleteAllKeyframes()
+                _clear_expression(component)
         report["expressions_removed"] = before
     elif before:
         through = {

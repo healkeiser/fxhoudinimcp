@@ -244,6 +244,21 @@ def _expression_of(parm: hou.Parm) -> str | None:
     return expression if isinstance(expression, str) and expression else None
 
 
+def _clear_expression(parm: hou.Parm) -> None:
+    """Remove *parm*'s expression without evaluating it.
+
+    deleteAllKeyframes() keeps the parm at its current value, so it evaluates
+    the expression it removes -- outside a cook, where a Ray SOP's `@N.x` or a
+    `$N` stamps "Local variable 'N' not found" on a healthy node, and that
+    warning outlives the build. A constant takes the expression's place first,
+    so the value kept is that constant; the caller's set() overwrites it.
+    """
+    with contextlib.suppress(Exception):
+        parm.setExpression("0", hou.exprLanguage.Hscript, replace_expression=True)
+    with contextlib.suppress(Exception):
+        parm.deleteAllKeyframes()
+
+
 def _values_match(requested: Any, actual: Any) -> bool:
     """Whether a write of *requested* is what *actual* now reads back as."""
     if isinstance(requested, bool) or isinstance(actual, bool):
@@ -302,8 +317,8 @@ def _write_parm(parm: hou.Parm, value: Any, override_expression: bool = False) -
     hou.Parm.set() on a parm that holds an expression does NOT remove the
     expression: eval() keeps answering with it, and the reply used to look
     like a success anyway, the truth only in a `new_value` nobody compared
-    against what was asked for. deleteAllKeyframes() is what clears it, which
-    is what override_expression does.
+    against what was asked for. override_expression clears it first, without
+    evaluating it (see _clear_expression).
 
     Whether the expression survived decides `expression_kept`, not whether the
     values differ: zeroing a factory `$N` that evaluates to 0 leaves the
@@ -314,8 +329,7 @@ def _write_parm(parm: hou.Parm, value: Any, override_expression: bool = False) -
     before = _expression_of(parm)
     through = _referenced_parm(parm) if before is not None else None
     if before is not None and override_expression:
-        with contextlib.suppress(Exception):
-            parm.deleteAllKeyframes()
+        _clear_expression(parm)
         through = None
     parm.set(value)
     after = _expression_of(parm)
@@ -375,8 +389,7 @@ def _set_tuple(
     if override_expression:
         for parm in components:
             if _expression_of(parm) is not None:
-                with contextlib.suppress(Exception):
-                    parm.deleteAllKeyframes()
+                _clear_expression(parm)
         through = {}
     try:
         parm_tuple.set(value)

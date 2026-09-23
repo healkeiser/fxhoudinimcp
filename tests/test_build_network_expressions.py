@@ -49,6 +49,7 @@ class _Parm:
         self._template = template
         self._reference = reference
         self.set_expressions: list = []
+        self.evaluated_on_clear: list = []
 
     def name(self):
         return self._name
@@ -69,12 +70,14 @@ class _Parm:
         return self._expression
 
     def deleteAllKeyframes(self):  # noqa: N802 - HOM spelling
+        # HOM keeps the parm at its current value, so it evaluates what it drops.
+        self.evaluated_on_clear.append(self._expression)
         self._expression = None
 
     def set(self, value):
         self._value = value
 
-    def setExpression(self, expression, language=None):  # noqa: N802 - HOM spelling
+    def setExpression(self, expression, language=None, replace_expression=True):  # noqa: N802 - HOM spelling
         self.set_expressions.append((expression, language))
         self._expression = expression
 
@@ -163,6 +166,14 @@ class TestApplyParmNamesWhatItCouldNotDo:
         assert report == {"expressions_removed": {"dirx": "@N.x", "diry": "@N.y", "dirz": "@N.z"}}
         assert [p._expression for p in components] == [None, None, None]
         assert [p._value for p in components] == [0.0, 1.0, 0.0]
+
+    def test_override_expression_does_not_evaluate_what_it_clears(self):
+        # deleteAllKeyframes() evaluates the expression it drops; outside a
+        # cook `@N.x` leaves "Local variable 'N' not found" on the node. A
+        # constant stands in first, so that is all that gets evaluated.
+        node, components = _ray()
+        graph._apply_parm(node, "dir", [0, 1, 0], override_expression=True)
+        assert [p.evaluated_on_clear for p in components] == [["0"], ["0"], ["0"]]
 
     def test_a_plain_parm_reports_nothing(self):
         scale = _Parm("scale", value=1.0)
@@ -435,6 +446,7 @@ class TestTheBuildSaysWhatDidNotTake:
         assert "expressions_kept" not in result and "warning" not in result
         assert set(result["created"][0]["expressions_removed"]) == {"dirx", "diry", "dirz"}
         assert [p._value for p in components] == [0.0, 1.0, 0.0]
+        assert [p.evaluated_on_clear for p in components] == [["0"], ["0"], ["0"]]
 
     def test_an_expr_value_is_set_as_an_expression_in_its_language(self, building, monkeypatch):
         node_type = MagicMock()
