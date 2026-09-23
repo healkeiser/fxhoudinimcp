@@ -406,6 +406,8 @@ _PLACEMENT_EXEMPT = {
     # build_network's probe of a spec with its parms applied, in the build's
     # own parent, destroyed in the same call like _parm_names_for_type's.
     ("_probe_connectors", "scratch"),
+    # Its replay of a spec's parms to see which stay locked at the build.
+    ("_locked_on_build", "scratch"),
     # The /mat context itself: a root-level manager, which the floor
     # deliberately never moves (moveToGoodPosition relocates /obj).
     ("_create_material_network", "hou.node('/')"),

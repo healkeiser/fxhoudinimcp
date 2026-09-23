@@ -243,7 +243,7 @@ def validating_build(monkeypatch):
     monkeypatch.setattr(hou, "node", lambda path: _FakeParent(path))
     monkeypatch.setattr(graph, "_resolve_node_type", lambda cat, name: node_type)
 
-    def knowledge(scratch, resolved, parm_types=None, factory_expressions=None):
+    def knowledge(scratch, resolved, parm_types=None, factory_expressions=None, locked=None):
         if parm_types is not None:
             parm_types.update(
                 {"input": "Int", "name": "String", "tx": "Float", "ty": "Float", "tz": "Float"}
@@ -356,7 +356,7 @@ def ray_type(monkeypatch):
     node_type.maxNumInputs.return_value = 2
     monkeypatch.setattr(graph, "_resolve_node_type", lambda cat, name: node_type)
 
-    def knowledge(scratch, resolved, parm_types=None, factory_expressions=None):
+    def knowledge(scratch, resolved, parm_types=None, factory_expressions=None, locked=None):
         if factory_expressions is not None:
             factory_expressions["dir"] = {"dirx": "@N.x", "diry": "@N.y", "dirz": "@N.z"}
         connectors = {"inputs": [], "outputs": []}
@@ -444,7 +444,7 @@ class TestTheBuildSaysWhatDidNotTake:
         monkeypatch.setattr(
             graph,
             "_parm_names_for_type",
-            lambda scratch, resolved, parm_types=None, factory_expressions=None: (
+            lambda scratch, resolved, parm_types=None, factory_expressions=None, locked=None: (
                 {"input", "seed"},
                 set(),
                 {},

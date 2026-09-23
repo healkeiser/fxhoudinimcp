@@ -17,6 +17,7 @@ from typing import Any
 import hou
 
 # Internal
+from fxhoudinimcp_server.callbacks import CallbackError, callback_script, press
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.serialize import geometry_summary
 
@@ -214,14 +215,135 @@ register_handler("parameters.get_parameter", _get_parameter)
 ###### Handler: parameters.set_parameter
 
 
+class LockedParmError(ValueError):
+    """A write refused because the parm is locked by its node's interface."""
+
+
+def _is_locked(parm: hou.Parm) -> bool:
+    # HOM answers a real bool; anything else (a stand-in) is not a lock.
+    with contextlib.suppress(Exception):
+        return parm.isLocked() is True
+    return False
+
+
+def locked_controllers(parm: hou.Parm) -> list[dict[str, Any]]:
+    """Menu and toggle parms on *parm*'s node whose Python callback names its tuple.
+
+    A parm lock is set and cleared by the node's own interface scripts, not by
+    a value: on a karmarendersettings `res_mode` = autoheight locks
+    resolutiony, and only the callback of `res_mode` (loputils'
+    updateResolutionParameters) unlocks it. hou.Parm.set() does not run that
+    callback, which is why writing the menu through the bridge left the lock
+    in place. The callback text naming the tuple is the link.
+    """
+    try:
+        node = parm.node()
+        tuple_name = parm.tuple().name().lower()
+    except Exception:
+        return []
+    found: list[dict[str, Any]] = []
+    for other in node.parms():
+        if other.name() == parm.name():
+            continue
+        callback = callback_script(other)
+        if not callback or tuple_name not in callback.lower():
+            continue
+        with contextlib.suppress(Exception):
+            template = other.parmTemplate()
+            # A lock is set and cleared through HOM (parm.lock), i.e. from a
+            # Python callback; an HScript preset button (resolutionMenu) that
+            # merely names the tuple does not control it.
+            if template.scriptCallbackLanguage() != hou.scriptLanguage.Python:
+                continue
+            # A menu of any template type -- res_mode is a String parm with a
+            # Normal menu, not a Menu parm (measured on 22.0.429) -- or a toggle.
+            menu: list[str] = []
+            with contextlib.suppress(Exception):
+                menu = list(other.menuItems())
+            if not menu and template.type() != hou.parmTemplateType.Toggle:
+                continue
+            entry: dict[str, Any] = {"parm": other.name(), "value": other.evalAsString()}
+            if menu:
+                entry["menu"] = menu
+            found.append(entry)
+    return found
+
+
+def locked_message(parm: hou.Parm) -> str | None:
+    """Why *parm* cannot be written because it is locked, or None.
+
+    Houdini answers every write to a locked parm -- set(), setExpression(),
+    revertToDefaults(), deleteAllKeyframes() -- with the same generic
+    "permission error ... locked assets, takes, product permissions", and the
+    #41 hint then sent callers to revert_parameter, which fails the same way.
+    """
+    if not _is_locked(parm):
+        return None
+    message = (
+        f"'{parm.name()}' on {parm.node().path()} is locked by the node's interface "
+        f"(Parm.isLocked() is true): no value, expression or revert can be written "
+        f"to it, and override_expression / revert_parameter do not help."
+    )
+    controllers = locked_controllers(parm)
+    if controllers:
+        named = ", ".join(
+            f"{c['parm']} (now {c['value']!r}"
+            + (f", menu {c['menu']}" if c.get("menu") else "")
+            + ")"
+            for c in controllers
+        )
+        message += (
+            f" The lock is set by the callback of {named}. Set that parm with "
+            f"run_callbacks=true first -- a plain write does not run callbacks, the "
+            f"UI does -- then write '{parm.name()}'."
+        )
+    else:
+        message += " Something in the node's interface sets the lock; see get_parm_template_tree."
+    return message
+
+
+def _run_callback(parm: hou.Parm) -> dict[str, Any] | None:
+    """Run *parm*'s callback script the way the UI does after an edit.
+
+    Through callbacks.press, not pressButton(): a Python callback that raises
+    there opens Houdini's modal "Error running callback" window and holds the
+    main thread -- and this bridge -- until someone clicks OK (res_mode's
+    callback raising on a locked resolutiony did exactly that). Answers None
+    when the parm has no callback, else {"run": bool, "route": ..., and
+    "error" when it raised}.
+    """
+    if not callback_script(parm):
+        return None
+    try:
+        route = press(parm)
+    except CallbackError as exc:
+        return {"run": False, "route": "python", "error": str(exc).splitlines()[0]}
+    return {"run": True, "route": route}
+
+
+def _callback_report(outcome: dict[str, Any] | None) -> dict[str, Any]:
+    """Reply keys for a callback outcome: callback_run, and why not."""
+    if outcome is None:
+        return {}
+    report: dict[str, Any] = {"callback_run": outcome["run"]}
+    if "error" in outcome:
+        report["callback_error"] = outcome["error"]
+    return report
+
+
 def _expression_driven(parms: list[hou.Parm]) -> str | None:
     """A sentence naming the first of *parms* driven by an expression, or None.
 
     Houdini answers a set() on such a parameter with a generic permission
     error ("locked assets, takes, product permissions..."); resolutiony on a
     karmarendersettings is the common case, driven by the autoheight expression
-    while res_mode says so (#41).
+    while res_mode says so (#41). A LOCKED parm is named as such instead: the
+    expression hint sends callers to revert_parameter, which a lock refuses too.
     """
+    for parm in parms:
+        locked = locked_message(parm)
+        if locked:
+            return locked
     for parm in parms:
         try:
             expression = parm.expression()
@@ -296,7 +418,12 @@ def _raw_string(parm: hou.Parm) -> str | None:
     return None
 
 
-def _write_parm(parm: hou.Parm, value: Any, override_expression: bool = False) -> dict[str, Any]:
+def _write_parm(
+    parm: hou.Parm,
+    value: Any,
+    override_expression: bool = False,
+    run_callbacks: bool = False,
+) -> dict[str, Any]:
     """Set one parm and report honestly whether the write actually took.
 
     hou.Parm.set() on a parm that holds an expression does NOT remove the
@@ -310,7 +437,14 @@ def _write_parm(parm: hou.Parm, value: Any, override_expression: bool = False) -
     expression in place just the same. A String parm echoes its raw text next
     to the expanded one, since `$JOB/...` read back as an absolute path looks
     like the very mistake a caller checks for.
+
+    A locked parm is refused before anything is tried, with the parm that
+    controls the lock named; *run_callbacks* runs the parm's callback after
+    the write, as the UI does, which is what sets and clears such locks.
     """
+    locked = locked_message(parm)
+    if locked:
+        raise LockedParmError(locked)
     before = _expression_of(parm)
     through = _referenced_parm(parm) if before is not None else None
     if before is not None and override_expression:
@@ -318,9 +452,11 @@ def _write_parm(parm: hou.Parm, value: Any, override_expression: bool = False) -
             parm.deleteAllKeyframes()
         through = None
     parm.set(value)
+    callback = _run_callback(parm) if run_callbacks else None
     after = _expression_of(parm)
     new_value = _serialize_value(parm.eval())
     info: dict[str, Any] = {"new_value": new_value}
+    info.update(_callback_report(callback))
     raw = _raw_string(parm)
     if raw is not None:
         info["raw_value"] = raw
@@ -347,6 +483,7 @@ def _set_tuple(
     parm_name: str,
     value: list | tuple,
     override_expression: bool = False,
+    run_callbacks: bool = False,
 ) -> tuple[Any | None, dict[str, Any]]:
     """Apply a list value to the parm tuple of that name; None if there is none.
 
@@ -367,6 +504,11 @@ def _set_tuple(
             f"{len(parm_tuple)} components, got {len(value)} values."
         )
     components = list(parm_tuple)
+    for parm in components:
+        # Before any component is written: a tuple is one write.
+        locked = locked_message(parm)
+        if locked:
+            raise LockedParmError(locked)
     through = {
         parm.name(): target
         for parm in components
@@ -385,6 +527,7 @@ def _set_tuple(
         if reason:
             raise ValueError(reason) from None
         raise
+    callback = _run_callback(components[0]) if run_callbacks else None
     new_value = [_serialize_value(p.eval()) for p in components]
     kept: list[dict[str, Any]] = []
     landed_elsewhere: dict[str, str] = {}
@@ -406,7 +549,7 @@ def _set_tuple(
         if matches:
             entry["same_as_evaluated"] = True
         kept.append(entry)
-    report: dict[str, Any] = {}
+    report: dict[str, Any] = _callback_report(callback)
     raw = [_raw_string(p) for p in components]
     if any(r is not None for r in raw):
         report["raw_value"] = raw
@@ -431,12 +574,17 @@ def _set_parameter(
     parm_name: str,
     value: Any,
     override_expression: bool = False,
+    run_callbacks: bool = False,
     **_: Any,
 ) -> dict[str, Any]:
     """Set a parameter value, auto-detecting the appropriate type."""
     if isinstance(value, (list, tuple)):
         new_value, report = _set_tuple(
-            _resolve_node(node_path), parm_name, value, bool(override_expression)
+            _resolve_node(node_path),
+            parm_name,
+            value,
+            bool(override_expression),
+            bool(run_callbacks),
         )
         if new_value is not None:
             result: dict[str, Any] = {
@@ -450,7 +598,7 @@ def _set_parameter(
     parm = _resolve_parm(node_path, parm_name)
 
     try:
-        written = _write_parm(parm, value, bool(override_expression))
+        written = _write_parm(parm, value, bool(override_expression), bool(run_callbacks))
     except hou.PermissionError:
         reason = _expression_driven([parm])
         if reason:
@@ -468,15 +616,28 @@ register_handler("parameters.set_parameter", _set_parameter)
 ###### Handler: parameters.set_parameters
 
 
+def _error_entry(name: str, exc: Exception) -> dict[str, Any]:
+    entry: dict[str, Any] = {"parm_name": name, "error": str(exc)}
+    if isinstance(exc, LockedParmError):
+        entry["locked"] = True
+    return entry
+
+
 def _set_parameters(
     node_path: str,
     params: dict[str, Any],
     override_expression: bool = False,
+    run_callbacks: bool = False,
     **_: Any,
 ) -> dict[str, Any]:
-    """Batch-set multiple parameters on a single node."""
+    """Batch-set multiple parameters on a single node, in the order given.
+
+    Order matters with *run_callbacks*: a menu whose callback unlocks another
+    parm (`res_mode` before `resolutiony`) has to come first.
+    """
     node = _resolve_node(node_path)
     override = bool(override_expression)
+    callbacks = bool(run_callbacks)
 
     results: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
@@ -488,9 +649,9 @@ def _set_parameters(
         # which made "prefer set_parameters" and "set a light colour" collide.
         if isinstance(value, (list, tuple)):
             try:
-                new_value, report = _set_tuple(node, name, value, override)
+                new_value, report = _set_tuple(node, name, value, override, callbacks)
             except Exception as exc:
-                errors.append({"parm_name": name, "error": str(exc)})
+                errors.append(_error_entry(name, exc))
                 continue
             if new_value is not None:
                 entry: dict[str, Any] = {"parm_name": name, "new_value": new_value}
@@ -505,10 +666,10 @@ def _set_parameters(
             continue
         try:
             entry = {"parm_name": name}
-            entry.update(_write_parm(parm, value, override))
+            entry.update(_write_parm(parm, value, override, callbacks))
             results.append(entry)
         except Exception as exc:
-            errors.append({"parm_name": name, "error": str(exc)})
+            errors.append(_error_entry(name, exc))
 
     # A batch whose `errors` is empty while a parm kept its expression reads as
     # a clean success: name it at the top level too, so a caller that only
@@ -524,6 +685,16 @@ def _set_parameters(
         "set": results,
         "errors": errors,
     }
+    locked = [entry["parm_name"] for entry in errors if entry.get("locked")]
+    if locked:
+        reply["locked_parms"] = locked
+    not_run = {
+        entry["parm_name"]: entry.get("callback_error")
+        for entry in results
+        if entry.get("callback_run") is False
+    }
+    if not_run:
+        reply["callbacks_not_run"] = not_run
     warnings: list[str] = []
     if kept:
         reply["expressions_kept"] = kept
@@ -663,6 +834,11 @@ def _revert_parameter(node_path: str, parm_name: str, **_: Any) -> dict[str, Any
     """Revert a parameter to its default value."""
     parm = _resolve_parm(node_path, parm_name)
 
+    # Reverting a locked parm fails with the same bare permission error as a
+    # write -- and the #41 hint used to send callers exactly here.
+    locked = locked_message(parm)
+    if locked:
+        raise LockedParmError(locked)
     parm.revertToDefaults()
 
     return {

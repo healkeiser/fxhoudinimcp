@@ -14,6 +14,7 @@ import os
 import hou
 
 # Internal
+from fxhoudinimcp_server.callbacks import press
 from fxhoudinimcp_server.config import (
     layout_if_enabled,
     require_inside_project_root,
@@ -384,7 +385,7 @@ def import_file(
         else:
             container = parent.createNode("alembicarchive", node_name or "alembic_import")
             container.parm("fileName").set(file_path)
-            container.parm("buildHierarchy").pressButton()
+            press(container.parm("buildHierarchy"))  # a Python callback
             created_path = container.path()
     elif ext in (".usd", ".usda", ".usdc", ".usdz"):
         # USD: use a sublayer inside LOP networks, a LOP network elsewhere

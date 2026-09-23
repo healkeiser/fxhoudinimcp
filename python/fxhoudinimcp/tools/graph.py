@@ -47,7 +47,8 @@ async def build_network(
         where input_name is a connector name or label as get_node_card
         lists them; or {"indirect_input": n} to wire from connector n of
         the parent subnet itself), flags (display/render/bypass/template),
-        color [r,g,b], comment, override_expression.
+        color [r,g,b], comment, override_expression, run_callbacks. Parms
+        are written in the order given.
 
     A string aimed at a numeric parameter is caught during validation and
     answered with the {"expr": ...} spelling, instead of failing mid-build
@@ -57,6 +58,13 @@ async def build_network(
     holds (a Ray SOP ships dir = @N.x): the dry run lists such parms in
     `expressions_in_the_way`, the build reports `expressions_kept` and a
     `warning`. "override_expression": true on the spec clears them first.
+
+    A LOCKED parm (karmarendersettings resolutiony while res_mode is
+    autoheight) takes nothing; such a spec is refused at validation, nothing
+    built, with `locked_parms` naming the menu whose callback sets the lock.
+    Houdini runs callbacks only from the UI: "run_callbacks": true on the spec
+    runs each parm's callback after its write, so {"res_mode": "manual",
+    "resolution": [1920, 1080]} builds.
 
     There is no "children" key: build the subnet, then call build_network
     again with the subnet as parent_path.

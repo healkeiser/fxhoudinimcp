@@ -16,6 +16,7 @@ from typing import Any
 import hou
 
 # Internal
+from fxhoudinimcp_server.callbacks import CallbackError, press
 from fxhoudinimcp_server.config import (
     auto_layout_enabled,
     layout_if_enabled,
@@ -854,8 +855,11 @@ def press_button(
     Runs the button's callback exactly as a click would ("Stash Input",
     "Reload Geometry", an asset's own Build button). The call holds until
     the callback returns, with no deadline; a callback that opens a dialog
-    holds Houdini's main thread, and with it this bridge, until the dialog
-    is closed.
+    of its own holds Houdini's main thread, and with it this bridge, until
+    the dialog is closed. A Python callback that RAISES does not: it runs
+    here rather than through pressButton(), whose modal "Error running
+    callback" window would hold the bridge, and its error is the reply.
+    `callback_route` says which way the press went.
 
     A press usually only dirties the node: `errors` and `warnings` are from
     its last cook, which may predate the press. `cook=True` cooks the node
@@ -889,10 +893,11 @@ def press_button(
     parm_type = template.type().name()
     started = time.perf_counter()
     try:
-        if arguments:
-            parm.pressButton(dict(arguments))
-        else:
-            parm.pressButton()
+        # Not parm.pressButton() for a Python callback: one that raises opens
+        # Houdini's modal error window and holds the main thread.
+        route = press(parm, dict(arguments) if arguments else None)
+    except CallbackError as exc:
+        raise ValueError(str(exc)) from exc
     except Exception as exc:
         raise ValueError(
             f"Callback of {node.path()}/{parm_name} failed: {readable_message(exc)}"
@@ -905,6 +910,8 @@ def press_button(
         "parm_type": parm_type,
         "duration_ms": duration_ms,
         "cooked": False,
+        # python: the callback script ran here; hscript / native: pressButton().
+        "callback_route": route,
     }
     if cook:
         # A failed cook is an answer, not a failure of the press: its
