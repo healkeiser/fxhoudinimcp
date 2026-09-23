@@ -2200,6 +2200,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(inside)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;inside
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(recursive)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;recursive
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(node_type)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;node_type
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3356,6 +3389,39 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_defaults
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(inside)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;inside
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(recursive)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;recursive
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(node_type)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;node_type
       </span>
     </span>
   </a>
@@ -4726,10 +4792,13 @@ label (str), default_value (optional), min_val (optional), max_val (optional).</
 <a href="#fxhoudinimcp.tools.parameters.get_parameters" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_parameters</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.tools.parameters.get_parameters(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(patterns)">patterns</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(include_defaults)">include_defaults</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(inside)">inside</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(recursive)">recursive</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.parameters.get_parameters(node_type)">node_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4739,6 +4808,11 @@ label (str), default_value (optional), min_val (optional), max_val (optional).</
 settings ("flame", "wind", "buoy") come back in one call instead of one call
 each, and unlike get_node_card these are the live values on this node rather
 than the defaults for its type.</p>
+<p>Pass <code>inside</code> instead of <code>node_path</code> to read the same patterns across a
+whole network in one call: "every file parm of this material library,
+unexpanded" comes back as <code>rows</code> of {node, parm, value, raw_value}, up to
+2000 rows. <code>raw_value</code> is the unexpanded text ($JOB/...), shown when it
+differs from the value, exactly as for a single node.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4757,7 +4831,7 @@ than the defaults for its type.</p>
 <h5 id="fxhoudinimcp.tools.parameters.get_parameters(node_path)" class="doc doc-heading doc-heading-parameter">                  <code>node_path</code>
 <a href="#fxhoudinimcp.tools.parameters.get_parameters(node_path)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
             <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4765,7 +4839,7 @@ than the defaults for its type.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -4778,7 +4852,7 @@ than the defaults for its type.</p>
             <td>
               <div class="doc-md-description">
                 <p>Substrings matched against parameter name and label. Omit for
-everything, up to the cap.</p>
+everything, up to the cap. Required with <code>inside</code>.</p>
               </div>
             </td>
             <td>
@@ -4799,6 +4873,54 @@ everything, up to the cap.</p>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.get_parameters(inside)" class="doc doc-heading doc-heading-parameter">                  <code>inside</code>
+<a href="#fxhoudinimcp.tools.parameters.get_parameters(inside)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Network to read instead of a single node.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.get_parameters(recursive)" class="doc doc-heading doc-heading-parameter">                  <code>recursive</code>
+<a href="#fxhoudinimcp.tools.parameters.get_parameters(recursive)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With <code>inside</code>, include every descendant, not only children.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.get_parameters(node_type)" class="doc doc-heading doc-heading-parameter">                  <code>node_type</code>
+<a href="#fxhoudinimcp.tools.parameters.get_parameters(node_type)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With <code>inside</code>, only nodes of this type (e.g. "mtlximage").</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
