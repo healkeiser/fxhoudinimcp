@@ -3625,7 +3625,9 @@ lives here), real parameter names/defaults/menus, and the node's own
 shipped help text. Connectors are read off a probe node the first time
 a type is asked for in a session (no undo entry, creation scripts not
 run); <code>connectors_probed: false</code> with <code>connectors_note</code> means they could
-not be read, not that the type has none.</p>
+not be read, not that the type has none. A menu whose items a script
+computes (<code>loadtype</code> on filemerge::2.0) is read off the same probe and
+marked <code>menu_source: "generator"</code>, with the script in <code>menu_generator</code>.</p>
 <p>Use this BEFORE setting parameters on a node type you have not used
 in this session — never guess parameter names. Unversioned names
 resolve to the newest version.</p>
