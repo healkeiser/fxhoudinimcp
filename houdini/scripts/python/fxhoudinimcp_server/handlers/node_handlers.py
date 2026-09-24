@@ -311,6 +311,22 @@ def get_node_info(node_path: str) -> dict:
     """
     node = _get_node(node_path)
 
+    # Errors and warnings BEFORE any parameter is evaluated. Evaluating a
+    # cook-local expression outside a cook (a factory ``$N`` in a Group SOP's
+    # rangeend, ``@N.x`` in a Ray SOP's dir) sets a transient "Unable to
+    # evaluate expression" on the node, and errors() called afterwards in the
+    # same main-thread tick makes it stick: a healthy node came back with a
+    # real error, and kept it until it was force-cooked. Read first, it is
+    # the node's actual state and nothing is left behind.
+    try:
+        errors = list(node.errors())
+    except Exception:
+        errors = []
+    try:
+        warnings = list(node.warnings())
+    except Exception:
+        warnings = []
+
     # Only return parameters that differ from their defaults — this keeps
     # the response compact (a complex node can have 500+ parms, most at default).
     # Use get_parameter_schema to inspect the full parameter list.
@@ -353,16 +369,6 @@ def get_node_info(node_path: str) -> dict:
         flags["template"] = node.isTemplateFlagSet()
     with contextlib.suppress(Exception):
         flags["lock"] = node.isHardLocked()
-
-    # Errors and warnings
-    try:
-        errors = list(node.errors())
-    except Exception:
-        errors = []
-    try:
-        warnings = list(node.warnings())
-    except Exception:
-        warnings = []
 
     # Cook time
     try:
