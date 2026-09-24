@@ -302,6 +302,35 @@ def _expression_of(parm: hou.Parm) -> str | None:
     return expression if isinstance(expression, str) and expression else None
 
 
+def _expression_error(parm: hou.Parm) -> str | None:
+    """The error *parm*'s expression gives when evaluated, or None.
+
+    A failing expression does not raise: eval() returns an empty value and
+    Houdini puts "Unable to evaluate expression (... (<parm path>))" on the
+    node. That message outlives the fault -- it is still there after the
+    expression is fixed, until the node cooks (measured on 22.0.429) -- so a
+    message found is checked again after a forced cook, which clears it and
+    lets an expression that still fails put it back.
+    """
+    suffix = f"{parm.path()})"
+    node = parm.node()
+
+    def current() -> str | None:
+        with contextlib.suppress(Exception):
+            parm.eval()
+        with contextlib.suppress(Exception):
+            for message in (*node.errors(), *node.warnings()):
+                if suffix in message:
+                    return message.strip()
+        return None
+
+    if current() is None:
+        return None
+    with contextlib.suppress(Exception):
+        node.cook(force=True)
+    return current()
+
+
 def _values_match(requested: Any, actual: Any) -> bool:
     """Whether a write of *requested* is what *actual* now reads back as."""
     if isinstance(requested, bool) or isinstance(actual, bool):
@@ -791,6 +820,15 @@ def _revert_parameter(node_path: str, parm_name: str, **_: Any) -> dict[str, Any
     }
     if (expression := _expression_of(parm)) is not None:
         result["default_expression"] = expression
+        # A default expression in the wrong language comes back too and
+        # evaluates to an empty value without raising; name its language and
+        # the error it leaves on the node.
+        with contextlib.suppress(Exception):
+            result["default_expression_language"] = (
+                str(parm.expressionLanguage()).rsplit(".", 1)[-1].lower()
+            )
+        if error := _expression_error(parm):
+            result["expression_error"] = error
     return result
 
 

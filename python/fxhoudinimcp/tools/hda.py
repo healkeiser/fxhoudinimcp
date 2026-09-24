@@ -261,8 +261,8 @@ async def set_hda_interface(
     It is edit_hda_interface with one insert per entry: names already in the
     interface are refused before anything is written, and the reply is read
     back off the definition — `ops[].stored`, `renamed_by_houdini` (a tab
-    folder joins the existing tab set's naming series), `not_found_after_write`
-    and `instance_parms_missing`.
+    folder joins the existing tab set's naming series), `not_found_after_write`,
+    `instance_parms_missing` and `instance_expression_errors`.
 
     Args:
         ctx: MCP context.
@@ -302,16 +302,17 @@ async def edit_hda_interface(
             spec is a set_hda_interface spec, plus types button (with
             "callback", Python by default), separator, label, vector, color,
             file, oppath; and fields naming_scheme (base1|xyzw|rgba|minmax|
-            startend|uvw), default_expression, hidden, join_with_next,
-            callback, tags; folder_type "multiparm" for a multiparm block
-            (children named "item#").
+            startend|uvw), default_expression (+ default_expression_language),
+            hidden, join_with_next, callback, tags; folder_type "multiparm"
+            for a multiparm block (children named "item#").
         {"op": "remove", "name": name_or_folder_label}
         {"op": "hide" | "show", "name": ...}
         {"op": "replace", "name": ..., "spec": {...}}
         {"op": "modify", "name": ..., <label | help | default |
-            default_expression | min | max | min_strict | max_strict |
-            hide_when | disable_when ("" clears) | hidden | join_with_next |
-            menu_items | callback | naming_scheme | new_name | tags>}
+            default_expression | default_expression_language | min | max |
+            min_strict | max_strict | hide_when | disable_when ("" clears) |
+            hidden | join_with_next | menu_items | callback | naming_scheme |
+            new_name | tags>}
             ("rename", "set_conditional", "set_default" are aliases)
         {"op": "move", "name": ..., "after" | "before" | "in_folder": ...}
 
@@ -319,6 +320,12 @@ async def edit_hda_interface(
     addressed by label ("Controls"). Built-in parameters of the node type
     (an Object's Transform) cannot be removed — Houdini re-adds them at the
     top level and the reply says so in `reinstated_by_houdini`; hide them.
+
+    `default_expression_language` is "hscript" (Houdini's default) or
+    "python"; given alone in a modify, it changes the language of the
+    expression already there. `stored` reads both back, and
+    `instance_expression_errors` names a default expression that does not
+    evaluate on the instance.
 
     Args:
         ctx: MCP context.

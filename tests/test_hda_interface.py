@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "houdini", "scr
 
 # Internal
 import fxhoudinimcp_server.handlers.hda_handlers as hda  # noqa: E402
+import fxhoudinimcp_server.handlers.parameter_handlers as parameters  # noqa: E402
 
 
 class _Parm:
@@ -766,6 +767,30 @@ class TestEditHdaInterface:
         group.replace.assert_called_once_with(templates["r"], clone)
         assert result["ops"][0]["changed"] == ["disable_when"]
 
+    def test_a_default_expression_that_fails_on_the_instance_is_named(self, monkeypatch):
+        node, definition, group, templates = self._asset(monkeypatch)
+        clone = templates["r"].clone.return_value
+        clone.name.return_value = "r"
+        clone.defaultExpression.return_value = (_EXPRESSION,)
+        monkeypatch.setattr(
+            hda,
+            "_describe_template",
+            lambda t: (
+                {"name": t.name(), "default_expression": [_EXPRESSION]}
+                if t.name() == "r"
+                else {"name": t.name()}
+            ),
+        )
+        instance = _ExpressionNode()
+        parm = _ExpressionParm(instance, "r", failing=True)
+        node.parmTuple = lambda name: (parm,) if name == "r" else None
+        result = hda.edit_hda_interface(
+            "/obj/asset1",
+            [{"op": "modify", "name": "r", "default_expression_language": "python"}],
+        )
+        assert result["instance_expression_errors"] == [{"parm": "r", "error": _failure("r")}]
+        assert "default_expression_language" in result["note"]
+
     def test_an_unknown_op_is_named(self, monkeypatch):
         self._asset(monkeypatch)
         with pytest.raises(ValueError, match="unknown op 'explode'"):
@@ -809,3 +834,206 @@ class TestExtendedSpecs:
             hda._apply_default_expression(
                 template, {"name": "v", "default_expression": ["ch('tx')"]}
             )
+
+
+_EXPRESSION = 'strsplit(strsplit(chs("file"), "/", -1), ".", 0)'
+
+
+class _Language:
+    """str() of a hou.scriptLanguage value, which is what the readback parses."""
+
+    def __init__(self, name):
+        self._name = name
+
+    def __str__(self):
+        return f"scriptLanguage.{self._name}"
+
+
+def _failure(parm_name):
+    return (
+        "Unable to evaluate expression (\nTraceback (most recent call last):\n"
+        "NameError: name 'strsplit' is not defined\n"
+        f" (/obj/asset1/{parm_name}))."
+    )
+
+
+class _ExpressionNode:
+    """A node whose error list behaves like Houdini's: a failing evaluation
+    adds the message, and only a cook clears it."""
+
+    def __init__(self, messages=()):
+        self.messages = list(messages)
+        self.parms = []
+        self.cooks = 0
+
+    def errors(self):
+        return tuple(self.messages)
+
+    def warnings(self):
+        return ()
+
+    def cook(self, force=False):
+        self.cooks += 1
+        self.messages = []
+        for parm in self.parms:
+            parm.eval()
+
+
+class _ExpressionParm:
+    def __init__(self, node, name, failing=False, expression=_EXPRESSION, language="Hscript"):
+        self._node = node
+        self._name = name
+        self.failing = failing
+        self._expression = expression
+        self._language = language
+        self.reverted = False
+        node.parms.append(self)
+
+    def name(self):
+        return self._name
+
+    def path(self):
+        return f"/obj/asset1/{self._name}"
+
+    def node(self):
+        return self._node
+
+    def eval(self):
+        if not self.failing:
+            return "River_Banks"
+        message = _failure(self._name)
+        if message not in self._node.messages:
+            self._node.messages.append(message)
+        return ""
+
+    def expression(self):
+        return self._expression
+
+    def expressionLanguage(self):
+        return _Language(self._language)
+
+    def deleteAllKeyframes(self):
+        pass
+
+    def revertToDefaults(self):
+        self.reverted = True
+
+
+class TestDefaultExpressionLanguage:
+    """A default expression is Hscript unless the spec says otherwise.
+
+    Houdini's own default is Hscript: StringParmTemplate(default_expression=...),
+    FloatParmTemplate(...) and setDefaultExpression() without a language all
+    store Hscript (measured on 22.0.429). The handler defaulted to Python, so
+    an Hscript expression such as strsplit(chs("file"), ...) evaluated to ""
+    on every instance with a NameError on the node, and the reply said success.
+    """
+
+    def test_a_default_expression_is_hscript_unless_told(self):
+        hou = hda.hou
+        template = MagicMock()
+        template.numComponents.return_value = 1
+        hda._apply_default_expression(template, {"name": "out", "default_expression": _EXPRESSION})
+        template.setDefaultExpressionLanguage.assert_called_once_with((hou.scriptLanguage.Hscript,))
+
+    def test_the_language_given_is_used(self):
+        hou = hda.hou
+        template = MagicMock()
+        template.numComponents.return_value = 2
+        hda._apply_default_expression(
+            template,
+            {
+                "name": "v",
+                "default_expression": "hou.frame()",
+                "default_expression_language": "python",
+            },
+        )
+        template.setDefaultExpressionLanguage.assert_called_once_with(
+            (hou.scriptLanguage.Python, hou.scriptLanguage.Python)
+        )
+
+    def test_a_callback_still_defaults_to_python(self):
+        assert hda._script_language({}) is hda.hou.scriptLanguage.Python
+
+    def test_modify_with_the_language_alone_relabels_the_expression_there(self):
+        hou = hda.hou
+        template = MagicMock()
+        template.name.return_value = "out"
+        template.defaultExpression.return_value = (_EXPRESSION,)
+        changed = hda._modify_template(template, {"default_expression_language": "hscript"})
+        assert changed == ["default_expression_language"]
+        template.setDefaultExpressionLanguage.assert_called_once_with((hou.scriptLanguage.Hscript,))
+        template.setDefaultExpression.assert_not_called()
+
+    def test_modify_with_both_names_both(self):
+        template = MagicMock()
+        template.name.return_value = "out"
+        template.numComponents.return_value = 1
+        changed = hda._modify_template(
+            template,
+            {"default_expression": _EXPRESSION, "default_expression_language": "hscript"},
+        )
+        assert changed == ["default_expression", "default_expression_language"]
+
+    def test_a_language_without_an_expression_is_refused(self):
+        template = MagicMock()
+        template.name.return_value = "out"
+        template.defaultExpression.return_value = ("",)
+        with pytest.raises(ValueError, match="no default expression to set a language for"):
+            hda._modify_template(template, {"default_expression_language": "python"})
+
+    def test_the_readback_carries_the_expression_and_its_language(self):
+        template = _template("out", kind="String")
+        template.defaultExpression.return_value = (_EXPRESSION,)
+        template.defaultExpressionLanguage.return_value = (_Language("Hscript"),)
+        info = hda._describe_template(template)
+        assert info["default_expression"] == [_EXPRESSION]
+        assert info["default_expression_language"] == ["hscript"]
+
+    def test_no_expression_no_readback_keys(self):
+        template = _template("out", kind="String")
+        template.defaultExpression.return_value = ("",)
+        info = hda._describe_template(template)
+        assert "default_expression" not in info
+
+    def test_a_failing_expression_is_reported_by_the_node_error(self):
+        node = _ExpressionNode()
+        parm = _ExpressionParm(node, "out", failing=True)
+        assert parameters._expression_error(parm) == _failure("out")
+
+    def test_a_stale_message_after_the_fix_is_cleared_by_a_cook(self):
+        # Measured on 22.0.429: the "Unable to evaluate expression" message
+        # stays on the node after the expression is fixed, until it cooks.
+        node = _ExpressionNode(messages=[_failure("out")])
+        parm = _ExpressionParm(node, "out", failing=False)
+        assert parameters._expression_error(parm) is None
+        assert node.cooks == 1
+
+    def test_a_clean_parm_costs_no_cook(self):
+        node = _ExpressionNode()
+        parm = _ExpressionParm(node, "out", failing=False)
+        assert parameters._expression_error(parm) is None
+        assert node.cooks == 0
+
+    def test_revert_names_the_language_and_the_error_of_a_default_expression(self, monkeypatch):
+        node = _ExpressionNode()
+        parm = _ExpressionParm(node, "out", failing=True, language="Python")
+        monkeypatch.setattr(parameters, "_resolve_parm", lambda path, name: parm)
+        # hou.Vector2 is a MagicMock here, so the real serializer cannot run.
+        monkeypatch.setattr(parameters, "_serialize_value", lambda value: value)
+        result = parameters._revert_parameter("/obj/asset1", "out")
+        assert parm.reverted is True
+        assert result["default_expression"] == _EXPRESSION
+        assert result["default_expression_language"] == "python"
+        assert result["expression_error"] == _failure("out")
+
+    def test_revert_of_a_working_default_expression_names_no_error(self, monkeypatch):
+        node = _ExpressionNode()
+        parm = _ExpressionParm(node, "out", failing=False)
+        monkeypatch.setattr(parameters, "_resolve_parm", lambda path, name: parm)
+        # hou.Vector2 is a MagicMock here, so the real serializer cannot run.
+        monkeypatch.setattr(parameters, "_serialize_value", lambda value: value)
+        result = parameters._revert_parameter("/obj/asset1", "out")
+        assert result["value"] == "River_Banks"
+        assert result["default_expression_language"] == "hscript"
+        assert "expression_error" not in result

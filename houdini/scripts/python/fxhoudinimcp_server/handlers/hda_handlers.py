@@ -18,7 +18,7 @@ import hou
 from fxhoudinimcp_server.config import require_inside_project_root
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import as_text, readable_message
-from fxhoudinimcp_server.handlers.parameter_handlers import _template_to_dict
+from fxhoudinimcp_server.handlers.parameter_handlers import _expression_error, _template_to_dict
 
 ###### Helpers
 
@@ -748,8 +748,8 @@ def _component_defaults(spec: dict, components: int, cast, fallback) -> tuple:
     return tuple([cast(default)] * components)
 
 
-def _script_language(spec: dict, key: str = "callback_language"):
-    language = str(spec.get(key, "python")).lower()
+def _script_language(spec: dict, key: str = "callback_language", default: str = "python"):
+    language = str(spec.get(key, default)).lower()
     if language in ("python", "py"):
         return hou.scriptLanguage.Python
     if language in ("hscript", "hs"):
@@ -793,7 +793,13 @@ def _apply_default_expression(template, spec: dict) -> None:
             f"{spec.get('name')!r}: {len(expressions)} default expression(s) for "
             f"{components} component(s)."
         )
-    language = _script_language(spec, "default_expression_language")
+    # Houdini's own default for a default expression is Hscript: a
+    # StringParmTemplate or FloatParmTemplate built with default_expression,
+    # and setDefaultExpression() without a language, all store Hscript
+    # (measured on 22.0.429). Defaulting to Python turned an Hscript
+    # expression into a NameError and an empty value on every instance.
+    # Callbacks keep Python.
+    language = _script_language(spec, "default_expression_language", default="hscript")
     template.setDefaultExpression(tuple(expressions))
     template.setDefaultExpressionLanguage(tuple([language] * components))
 
@@ -805,6 +811,14 @@ def _describe_template(template) -> dict:
     the default value and hidden state and uses get_parameter_schema's keys.
     """
     info = _template_to_dict(template)
+    with contextlib.suppress(Exception):
+        expressions = tuple(template.defaultExpression())
+        if any(expressions):
+            info["default_expression"] = list(expressions)
+            info["default_expression_language"] = [
+                str(language).rsplit(".", 1)[-1].lower()
+                for language in template.defaultExpressionLanguage()
+            ]
     try:
         conditionals = template.conditionals()
         if conditionals:
@@ -1092,6 +1106,21 @@ def _modify_template(template, op: dict) -> list[str]:
     if "default_expression" in op:
         _apply_default_expression(template, {"name": template.name(), **op})
         changed.append("default_expression")
+        if "default_expression_language" in op:
+            changed.append("default_expression_language")
+    elif "default_expression_language" in op:
+        # The language alone: re-read the expression that is already there.
+        expressions = ()
+        with contextlib.suppress(Exception):
+            expressions = tuple(template.defaultExpression())
+        if not any(expressions):
+            raise ValueError(
+                f"{template.name()!r} has no default expression to set a language for; "
+                f"pass default_expression with it."
+            )
+        language = _script_language(op, "default_expression_language", default="hscript")
+        template.setDefaultExpressionLanguage(tuple([language] * len(expressions)))
+        changed.append("default_expression_language")
     if "min" in op:
         template.setMinValue(op["min"])
         changed.append("min")
@@ -1399,6 +1428,18 @@ def _edit_interface(node_path: str, ops: list, dry_run: bool, clear_first: bool)
     )
     result["instance_parms_present"] = [name for name in expected if name in on_node]
     result["instance_parms_missing"] = [name for name in expected if name not in on_node]
+    # A default expression in the wrong language is stored without complaint
+    # and evaluates to an empty value on the instance; only the node's error
+    # says so. Each parm the write gave a default expression is evaluated.
+    with_expression = sorted(
+        {
+            info["name"]
+            for record in records
+            for info in record.get("stored", [])
+            if info.get("default_expression")
+        }
+    )
+    result["instance_expression_errors"] = _instance_expression_errors(instance, with_expression)
     notes = []
     if result["renamed_by_houdini"]:
         notes.append(
@@ -1412,9 +1453,29 @@ def _edit_interface(node_path: str, ops: list, dry_run: bool, clear_first: bool)
             "interface; Houdini re-adds them at the top level. Hide them instead "
             "({'op': 'hide', 'name': ...})."
         )
+    if result["instance_expression_errors"]:
+        notes.append(
+            "A default expression does not evaluate on the instance "
+            "(instance_expression_errors): check default_expression_language, "
+            "'hscript' (the default) or 'python'."
+        )
     if notes:
         result["note"] = " ".join(notes)
     return result
+
+
+def _instance_expression_errors(node, names) -> list[dict]:
+    """Default expressions that fail to evaluate on *node*, one entry per parm."""
+    failures = []
+    for name in names:
+        parm_tuple = node.parmTuple(name)
+        if parm_tuple is None:
+            continue
+        for parm in parm_tuple:
+            error = _expression_error(parm)
+            if error:
+                failures.append({"parm": parm.name(), "error": error})
+    return failures
 
 
 ###### hda.update_hda

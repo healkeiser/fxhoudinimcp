@@ -71,3 +71,58 @@ class TestEditHdaInterface:
         )
         assert data["instance_parms_missing"] == []
         assert asset.parm("stud_count").eval() == 2
+
+
+FILE_NAME = [
+    {"name": "file", "type": "string", "default": "$JOB/geo/River_Banks.bgeo.sc"},
+    {
+        "name": "out",
+        "type": "string",
+        "default_expression": 'strsplit(strsplit(chs("file"), "/", -1), ".", 0)',
+    },
+]
+
+
+def _stored(data, name):
+    return next(info for op in data["ops"] for info in op["stored"] if info["name"] == name)
+
+
+class TestDefaultExpressionLanguage:
+    def test_a_default_expression_is_hscript_unless_told(self, call, asset):
+        data = call("hda.set_hda_interface", node_path=asset.path(), parameters=FILE_NAME)
+        assert _stored(data, "out")["default_expression_language"] == ["hscript"]
+        assert data["instance_expression_errors"] == []
+        assert asset.parm("out").eval() == "River_Banks"
+
+    def test_the_wrong_language_is_named_and_the_right_one_clears_it(self, call, asset):
+        call("hda.set_hda_interface", node_path=asset.path(), parameters=FILE_NAME)
+        data = call(
+            "hda.edit_hda_interface",
+            node_path=asset.path(),
+            ops=[{"op": "modify", "name": "out", "default_expression_language": "python"}],
+        )
+        assert data["ops"][0]["changed"] == ["default_expression_language"]
+        assert [e["parm"] for e in data["instance_expression_errors"]] == ["out"]
+        assert "strsplit" in data["instance_expression_errors"][0]["error"]
+        # Back to Hscript: the node's old message must not be reported again.
+        data = call(
+            "hda.edit_hda_interface",
+            node_path=asset.path(),
+            ops=[{"op": "modify", "name": "out", "default_expression_language": "hscript"}],
+        )
+        assert data["instance_expression_errors"] == []
+        assert asset.parm("out").eval() == "River_Banks"
+
+    def test_revert_names_the_language_and_the_error(self, call, asset):
+        call("hda.set_hda_interface", node_path=asset.path(), parameters=FILE_NAME)
+        call(
+            "hda.edit_hda_interface",
+            node_path=asset.path(),
+            ops=[{"op": "modify", "name": "out", "default_expression_language": "python"}],
+        )
+        parm = asset.parm("out")
+        parm.deleteAllKeyframes()
+        parm.set("custom")
+        data = call("parameters.revert_parameter", node_path=asset.path(), parm_name="out")
+        assert data["default_expression_language"] == "python"
+        assert "strsplit" in data["expression_error"]

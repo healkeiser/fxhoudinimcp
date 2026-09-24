@@ -295,6 +295,10 @@ async def get_expression(ctx: Context, node_path: str, parm_name: str) -> dict:
 async def revert_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
     """Revert a parameter to its default value.
 
+    A default that is itself an expression comes back, named in
+    `default_expression` with its `default_expression_language`;
+    `expression_error` says when it does not evaluate.
+
     Args:
         node_path: Node path.
         parm_name: Parameter name.
