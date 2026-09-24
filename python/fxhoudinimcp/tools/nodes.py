@@ -91,14 +91,21 @@ async def copy_node(
     node_path: str,
     dest_parent: str | None = None,
     new_name: str | None = None,
+    offset: list[float] | None = None,
 ) -> dict:
     """Copy a node, optionally into a different parent network.
+
+    In the same network the copy lands one node width to the right of its
+    original instead of on top of it; in another network it keeps the
+    original's position. `offset` overrides both, and `position` in the reply
+    says where the copy is.
 
     Args:
         ctx: MCP context.
         node_path: Source node path.
         dest_parent: Destination parent path.
         new_name: Name for the copy.
+        offset: [dx, dy] from the original's position.
     """
     bridge = _get_bridge(ctx)
     params: dict = {"node_path": node_path}
@@ -106,6 +113,8 @@ async def copy_node(
         params["dest_parent"] = dest_parent
     if new_name is not None:
         params["new_name"] = new_name
+    if offset is not None:
+        params["offset"] = offset
     return await bridge.execute("nodes.copy_node", params)
 
 

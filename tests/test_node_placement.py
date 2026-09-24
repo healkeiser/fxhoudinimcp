@@ -485,3 +485,72 @@ class TestPlacementIsRecorded:
         node = parent.created[0]
         assert node.positions == [(0, 0)]
         assert node.placements == []
+
+
+class _Vec(tuple):
+    """Just enough of hou.Vector2 for the position arithmetic in copy_node."""
+
+    def __new__(cls, x, y):
+        return super().__new__(cls, (x, y))
+
+    def __add__(self, other):
+        return _Vec(self[0] + other[0], self[1] + other[1])
+
+
+class TestCopyNodePlacement:
+    """hou.copyNodesTo keeps the original's position, so copy_node put the
+    copy exactly on top of its original and said nothing about where it was.
+    Measured on Houdini 22.0.429: a node at (3, -2) was copied to (3, -2)."""
+
+    def _setup(self, monkeypatch, into_other_network=False):
+        network = _FakeNode("/obj/geo1")
+        other = _FakeNode("/obj/geo2")
+        original = _FakeNode("/obj/geo1/box1", pos=_Vec(3.0, -2.0), parent=network)
+        original.size = lambda: _Vec(1.13, 0.4)
+        target = other if into_other_network else network
+        copied = _FakeNode(f"{target.path()}/box2", pos=original.pos, parent=target)
+        calls = []
+
+        def copy_nodes_to(sources, parent):
+            calls.append(parent)
+            return (copied,)
+
+        monkeypatch.setattr(nodes.hou, "copyNodesTo", copy_nodes_to, raising=False)
+        monkeypatch.setattr(nodes.hou, "Vector2", _Vec, raising=False)
+        found = {"/obj/geo1/box1": original, "/obj/geo2": other}
+        monkeypatch.setattr(nodes, "_get_node", lambda path: found[path])
+        return copied, calls
+
+    def test_a_copy_in_the_same_network_lands_beside_its_original(self, monkeypatch):
+        copied, _ = self._setup(monkeypatch)
+        reply = nodes.copy_node("/obj/geo1/box1")
+        assert copied.pos == pytest.approx((5.13, -2.0))  # one node width + 1 to the right
+        assert reply["position"] == list(copied.position())
+        assert reply["offset_applied"] == pytest.approx([2.13, 0.0])
+
+    def test_an_explicit_offset_wins(self, monkeypatch):
+        copied, _ = self._setup(monkeypatch)
+        reply = nodes.copy_node("/obj/geo1/box1", offset=[0, -5])
+        assert copied.pos == (3.0, -7.0)
+        assert reply["position"] == [3.0, -7.0]
+        assert reply["offset_applied"] == [0.0, -5.0]
+
+    def test_a_copy_into_another_network_keeps_the_original_position(self, monkeypatch):
+        copied, _ = self._setup(monkeypatch, into_other_network=True)
+        reply = nodes.copy_node("/obj/geo1/box1", dest_parent="/obj/geo2")
+        assert copied.positions == []  # nothing to hide there
+        assert reply["position"] == [3.0, -2.0]
+        assert reply["offset_applied"] is None
+
+    def test_the_copy_is_recorded_as_placed(self, monkeypatch):
+        """Its position is decided, so the floor must not move it later."""
+        copied, _ = self._setup(monkeypatch, into_other_network=True)
+        nodes.copy_node("/obj/geo1/box1", dest_parent="/obj/geo2")
+        assert copied.userData(config._PLACED_TAG) is not None
+
+    @pytest.mark.parametrize("offset", [[1], [1, 2, 3], "12", 5, ["a", 0]])
+    def test_a_bad_offset_is_refused_before_anything_is_copied(self, monkeypatch, offset):
+        _, calls = self._setup(monkeypatch)
+        with pytest.raises(ValueError, match=r"offset must be \[dx, dy\]"):
+            nodes.copy_node("/obj/geo1/box1", offset=offset)
+        assert calls == []

@@ -62,6 +62,21 @@ class TestCreateDelete:
         assert copied.path() != box["node_path"]
         assert copied.type().name() == "box"
 
+    def test_copy_node_lands_beside_its_original(self, call):
+        geo = _make_geo(call)
+        box = call("nodes.create_node", parent_path=geo, node_type="box", position=[3.0, -2.0])
+        copy = call("nodes.copy_node", node_path=box["node_path"])
+        copied = hou.node(copy["copied_path"])
+        assert copied.position()[0] > 3.0  # not on top of the original
+        assert copied.position()[1] == -2.0
+        assert copy["position"] == list(copied.position())
+
+    def test_copy_node_honors_offset(self, call):
+        geo = _make_geo(call)
+        box = call("nodes.create_node", parent_path=geo, node_type="box", position=[3.0, -2.0])
+        copy = call("nodes.copy_node", node_path=box["node_path"], offset=[0.0, -5.0])
+        assert tuple(hou.node(copy["copied_path"]).position()) == (3.0, -7.0)
+
 
 class TestWiring:
     def test_connect_nodes_wires_claimed_inputs(self, call):

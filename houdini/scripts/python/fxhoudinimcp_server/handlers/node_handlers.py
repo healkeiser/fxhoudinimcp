@@ -167,27 +167,56 @@ def copy_node(
     node_path: str,
     dest_parent: str = None,
     new_name: str = None,
+    offset: list = None,
 ) -> dict:
     """Copy a node, optionally into a different parent network.
+
+    ``hou.copyNodesTo`` keeps the original's position, so a copy made in the
+    same network lands exactly on top of its original and hides it. There
+    the copy is moved one node width (plus a unit of gap) to the right; in
+    another network it keeps the original's position. ``offset`` overrides
+    both, and ``position`` in the reply says where the copy is.
 
     Args:
         node_path: Path to the source node.
         dest_parent: Destination parent path. If None, copies within the same parent.
         new_name: Optional name for the copied node.
+        offset: Optional [dx, dy] from the original's position.
     """
     node = _get_node(node_path)
     parent = _get_node(dest_parent) if dest_parent else node.parent()
+
+    # Checked before copying, so a bad offset does not leave a stray copy behind.
+    if offset is not None:
+        try:
+            if not isinstance(offset, (list, tuple)):
+                raise TypeError
+            dx, dy = (float(value) for value in offset)
+        except (TypeError, ValueError):
+            raise ValueError(f"offset must be [dx, dy], got {offset!r}.") from None
+        offset = [dx, dy]
 
     copied = hou.copyNodesTo([node], parent)[0]
 
     if new_name:
         copied.setName(new_name, unique_name=True)
 
+    if offset is None and parent == node.parent():
+        offset = [float(node.size()[0]) + 1.0, 0.0]
+    if offset is not None:
+        copied.setPosition(node.position() + hou.Vector2(offset[0], offset[1]))
+    # The copy's position is decided here, including a copy that keeps the
+    # original's (0, 0) in another network -- without the tag the floor would
+    # read that as "never positioned" and move it on a later call.
+    mark_placed(copied)
+
     return {
         "success": True,
         "source_path": node_path,
         "copied_path": copied.path(),
         "name": copied.name(),
+        "position": list(copied.position()),
+        "offset_applied": offset,
     }
 
 
