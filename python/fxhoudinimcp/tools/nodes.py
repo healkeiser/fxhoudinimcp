@@ -286,8 +286,12 @@ async def press_button(
 
     The call holds until the callback returns, with no deadline. A callback
     that opens a dialog blocks Houdini's main thread and this bridge with it;
-    read the button's script first if in doubt. For a Save to Disk or a
-    render use write_cache / start_render, which report a verdict.
+    read the button's script first if in doubt. A Python callback that
+    RAISES does not hang anything: the bridge runs it rather than
+    pressButton(), and its error comes back as this call's error.
+    `callback_route` says how the press ran: python, hscript or native (a
+    built-in action). For a Save to Disk or a render use write_cache /
+    start_render, which report a verdict.
 
     A press usually only dirties the node, so `errors`/`warnings` are from
     its last cook unless `cook=True`; without it `needs_cook` says whether

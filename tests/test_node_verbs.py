@@ -223,3 +223,26 @@ class TestPressButton:
         parm.pressButton.side_effect = RuntimeError("script error")
         with pytest.raises(ValueError, match="Callback of"):
             nodes.press_button("/obj/geo1/stash1", "stashinput")
+
+    def test_the_reply_names_the_route(self, monkeypatch):
+        _, parm = self._node_with_button(monkeypatch)
+        parm.parmTemplate.return_value.scriptCallback.return_value = ""
+        result = nodes.press_button("/obj/geo1/stash1", "stashinput")
+        parm.pressButton.assert_called_once_with()
+        assert result["callback_route"] == "native"
+
+    def test_a_raising_python_callback_is_the_reply_not_a_modal_window(self, monkeypatch):
+        # pressButton() would answer this exception with Houdini's modal "Error
+        # running callback" window and hold the main thread; the bridge runs the
+        # script itself and the exception is this call's error.
+        node, parm = self._node_with_button(monkeypatch)
+        parm.node.return_value = node
+        template = parm.parmTemplate.return_value
+        template.scriptCallback.return_value = "raise RuntimeError('boom')"
+        template.scriptCallbackLanguage.return_value = nodes.hou.scriptLanguage.Python
+        monkeypatch.setattr(nodes.hou, "pwd", lambda: None)
+        monkeypatch.setattr(nodes.hou, "setPwd", lambda _node: None)
+        monkeypatch.setattr(nodes.hou, "undos", MagicMock())
+        with pytest.raises(ValueError, match="stash1/stashinput raised RuntimeError: boom"):
+            nodes.press_button("/obj/geo1/stash1", "stashinput")
+        parm.pressButton.assert_not_called()

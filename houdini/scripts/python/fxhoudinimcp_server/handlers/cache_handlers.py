@@ -18,6 +18,7 @@ from typing import Any
 import hou
 
 # Internal
+from fxhoudinimcp_server.callbacks import press
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.outputs import (
     at_frame as _at_frame,
@@ -482,7 +483,7 @@ def _write_cache(
         if background:
             hou.hipFile.save()
             method = "cookoutputnode button (PDG, background process)"
-            bg_button.pressButton()
+            press(bg_button)
             return {
                 "node_path": node_path,
                 "frame_range": frame_range,
@@ -500,7 +501,9 @@ def _write_cache(
         # Try pressing the execute button first (filecache style)
         execute_parm = node.parm("execute")
         if execute_parm is not None:
-            execute_parm.pressButton()
+            # Its callback is Python (hou.phm().saveToDisk): run it without
+            # the modal error window a raising pressButton() opens.
+            press(execute_parm)
         else:
             # Fall back to render() for ROP-style nodes
             method = "render()"

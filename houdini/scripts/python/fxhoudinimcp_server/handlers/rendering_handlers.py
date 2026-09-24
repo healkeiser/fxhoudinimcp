@@ -20,6 +20,7 @@ from typing import Any
 import hou
 
 # Internal
+from fxhoudinimcp_server.callbacks import CallbackError, press
 from fxhoudinimcp_server.config import place_new_node
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
@@ -653,8 +654,10 @@ def start_render(
             method = "execute button"
             if frame_range is not None:
                 _apply_frame_range_parms(node, frame_range)
-            execute_parm.pressButton()
-    except hou.OperationFailed as e:
+            # Save to Disk is a Python callback: pressButton() would answer
+            # its exception with a modal window instead of raising.
+            press(execute_parm)
+    except (hou.OperationFailed, CallbackError) as e:
         with at_frame(first_frame):
             verdict = failure_verdict(node, before, e)
         return {"node_path": node_path, "category": category, "method": method, **verdict}
