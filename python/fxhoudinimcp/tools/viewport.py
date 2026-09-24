@@ -198,13 +198,17 @@ async def capture_network_editor(
 ) -> dict:
     """Capture a screenshot of the network editor.
 
+    With node_path the view is put on that node at once (no animated flight),
+    and the reply says what the frame shows: visible_bounds, node_bounds and
+    node_in_view, all in network space.
+
     The image is written to disk only; open ``output_path`` with your file
     reader to look at it. Prefer get_node_info or list_children for inspecting
     node connections unless visual confirmation of wiring is genuinely needed.
 
     Args:
         output_path: Image file path.
-        node_path: Node path to navigate to before capture.
+        node_path: Node path to frame before capture.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"output_path": output_path}

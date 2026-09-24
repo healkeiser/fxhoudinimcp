@@ -659,6 +659,51 @@ def capture_screenshot(
 
 ###### viewport.capture_network_editor
 
+# Network units of context around the framed node, each side: enough for its
+# immediate neighbours to show, few enough that the node is still readable.
+_FRAME_PAD_X = 5.0
+_FRAME_PAD_Y = 3.0
+
+
+def _bounds_list(bounds) -> list | None:
+    """``hou.BoundingRect`` -> ``[xmin, ymin, xmax, ymax]``, rounded."""
+    try:
+        return [round(v, 3) for v in (*bounds.min(), *bounds.max())]
+    except Exception:
+        return None
+
+
+def _frame_node(network_editor, node) -> list:
+    """Put *node* in the middle of the editor at once, not after a flight.
+
+    ``homeToSelection()`` animates the view over the next event-loop ticks,
+    while the capture runs in this same tick, so the image came out mid-flight:
+    the whole network, or an empty stretch between the previous node and this
+    one. ``setVisibleBounds(transition_time=0)`` moves the view before the grab.
+
+    ``set_center_when_scale_rejected``: a rect at the zoom the editor already
+    has counts as a rejected scale change, and without the flag the call then
+    changes nothing at all, so every capture after the first stayed on the
+    first node (measured on 22.0.429).
+
+    Returns the node's own rect in network space.
+    """
+    pos = node.position()
+    size = node.size()
+    xmin, ymin = pos[0], pos[1]
+    xmax, ymax = xmin + size[0], ymin + size[1]
+    network_editor.setVisibleBounds(
+        hou.BoundingRect(
+            xmin - _FRAME_PAD_X,
+            ymin - _FRAME_PAD_Y,
+            xmax + _FRAME_PAD_X,
+            ymax + _FRAME_PAD_Y,
+        ),
+        transition_time=0.0,
+        set_center_when_scale_rejected=True,
+    )
+    return [round(v, 3) for v in (xmin, ymin, xmax, ymax)]
+
 
 def capture_network_editor(
     output_path: str,
@@ -668,7 +713,11 @@ def capture_network_editor(
 
     Args:
         output_path: Destination image path.
-        node_path: Optional node path to navigate to before capture.
+        node_path: Optional node path to frame before capture.
+
+    The reply carries ``visible_bounds`` (the network space the image shows)
+    and, with *node_path*, ``node_bounds`` and ``node_in_view``, so what the
+    image holds can be checked without opening it.
     """
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
@@ -684,6 +733,7 @@ def capture_network_editor(
         raise RuntimeError("No Network Editor pane found.")
 
     # Navigate to the specified node if provided
+    node_bounds = None
     if node_path is not None:
         node = hou.node(node_path)
         if node is None:
@@ -692,17 +742,34 @@ def capture_network_editor(
         if parent is not None:
             network_editor.cd(parent.path())
         network_editor.setCurrentNode(node)
-        network_editor.homeToSelection()
+        node_bounds = _frame_node(network_editor, node)
 
     # Capture the network editor via Qt widget grab
     _capture_pane_tab_qt(network_editor, output_path)
 
-    return {
+    result = {
         "success": True,
         "output_path": output_path,
         "node_path": node_path,
         "file_exists": os.path.isfile(output_path),
+        "visible_bounds": None,
     }
+    with contextlib.suppress(Exception):
+        result["visible_bounds"] = _bounds_list(network_editor.visibleBounds())
+    if node_bounds is not None:
+        view = result["visible_bounds"]
+        result["node_bounds"] = node_bounds
+        result["node_in_view"] = (
+            None
+            if view is None
+            else (
+                view[0] <= node_bounds[0]
+                and view[1] <= node_bounds[1]
+                and node_bounds[2] <= view[2]
+                and node_bounds[3] <= view[3]
+            )
+        )
+    return result
 
 
 ###### viewport.set_current_network
