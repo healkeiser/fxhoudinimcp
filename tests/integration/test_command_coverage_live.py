@@ -434,6 +434,10 @@ class TestLopsModule:
         call("lops.get_usd_layers", node_path=stage)
         call("lops.inspect_usd_layer", node_path=stage, layer_index=0, allow_error=True)
         call("lops.get_usd_prim_stats", node_path=stage)
+        rows = call(
+            "lops.get_usd_attributes", node_path=stage, prims=["/geo/*"], attr_patterns=["radius"]
+        )
+        assert rows["prims_matched"] >= 1 and rows["rows"], rows
         call("lops.get_last_modified_prims", node_path=stage)
         found = call("lops.find_usd_prims", node_path=stage, pattern="*ball*")
         assert "ball" in str(found)

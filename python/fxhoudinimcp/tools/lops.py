@@ -41,6 +41,8 @@ async def get_usd_prim(
     prim_path: str,
     full: bool = False,
     traverse_instance_proxies: bool = False,
+    time: float | None = None,
+    attr_patterns: list[str] | None = None,
 ) -> dict:
     """Get detailed info about a USD prim.
 
@@ -51,6 +53,13 @@ async def get_usd_prim(
     full=True for every element, or read one array in windows with
     get_usd_attribute(offset=, limit=).
 
+    Values are read at `time`, or at the current frame when it is not given
+    -- what a render of that frame sees; the reply names both as `time` and
+    `time_source`. An attribute with time samples carries `time_samples`:
+    its value differs at other frames. Relationships (a RenderSettings'
+    `camera`) are listed with their `targets`. For the same attributes
+    across many prims, get_usd_attributes reads them in one call.
+
     Args:
         node_path: LOP node path.
         prim_path: USD prim path.
@@ -60,6 +69,9 @@ async def get_usd_prim(
             `children: []` and is flagged `is_instanceable` with a
             `hidden_descendants` count, so the empty list is not read as
             "nothing inside".
+        time: Time code (frame) to read at; default the current frame.
+        attr_patterns: Glob patterns on attribute and relationship names
+            (e.g. ["resolution", "karma:global:*"]); default all.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path, "prim_path": prim_path}
@@ -67,6 +79,10 @@ async def get_usd_prim(
         params["full"] = True
     if traverse_instance_proxies:
         params["traverse_instance_proxies"] = True
+    if time is not None:
+        params["time"] = time
+    if attr_patterns:
+        params["attr_patterns"] = attr_patterns
     return await bridge.execute("lops.get_usd_prim", params)
 
 
@@ -161,6 +177,60 @@ async def get_usd_attribute(
     if limit != 64:
         params["limit"] = limit
     return await bridge.execute("lops.get_usd_attribute", params)
+
+
+@mcp.tool()
+async def get_usd_attributes(
+    ctx: Context,
+    node_path: str,
+    prims: list[str],
+    attr_patterns: list[str] | None = None,
+    prim_type: str | None = None,
+    relationships: bool = True,
+    time: float | None = None,
+    full: bool = False,
+    traverse_instance_proxies: bool = False,
+    limit: int = 500,
+) -> dict:
+    """Read the same attributes across many prims as one table.
+
+    One row per prim and attribute: {prim, prim_type, name, type, value,
+    time_samples?} or, for a relationship, {prim, prim_type, name,
+    relationship: true, targets}. The call for "sourceName of every
+    RenderVar", "lpetag of every light", "the camera of the render
+    settings" -- instead of one get_usd_prim per prim. `matched` counts every
+    row found; `truncated` says the `limit` cut some off.
+
+    Args:
+        node_path: LOP node path.
+        prims: Prim paths or globs: `*` stays within one path element,
+            `**` crosses them (["/Render/Vars/*"], ["/lights/**"]).
+        attr_patterns: Glob patterns on attribute and relationship names
+            (["sourceName"], ["*lpetag"]); default all.
+        prim_type: Keep only prims of this type (glob, e.g. "*Light").
+        relationships: Include relationships as rows.
+        time: Time code (frame) to read at; default the current frame.
+        full: Return array values in full instead of summarised.
+        traverse_instance_proxies: Let globs match prims inside instances.
+        limit: Row cap.
+    """
+    bridge = _get_bridge(ctx)
+    params: dict[str, Any] = {"node_path": node_path, "prims": prims}
+    if attr_patterns:
+        params["attr_patterns"] = attr_patterns
+    if prim_type:
+        params["prim_type"] = prim_type
+    if not relationships:
+        params["relationships"] = False
+    if time is not None:
+        params["time"] = time
+    if full:
+        params["full"] = True
+    if traverse_instance_proxies:
+        params["traverse_instance_proxies"] = True
+    if limit != 500:
+        params["limit"] = limit
+    return await bridge.execute("lops.get_usd_attributes", params)
 
 
 @mcp.tool()

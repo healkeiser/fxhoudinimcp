@@ -89,6 +89,7 @@
     "lops.get_last_modified_prims",
     "lops.get_stage_info",
     "lops.get_usd_attribute",
+    "lops.get_usd_attributes",
     "lops.get_usd_bound_material",
     "lops.get_usd_composition",
     "lops.get_usd_layers",

@@ -109,6 +109,7 @@ STAND_INS: dict[str, object] = {
     "pattern": "*",
     "prim_path": "/root",
     "prim_paths": ["/root"],
+    "prims": ["/root"],
     "expression": "1",
     "vex_code": "@P.y += 1;",
     "chop_type": "null",
