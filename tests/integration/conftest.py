@@ -74,6 +74,19 @@ def fresh_scene():
 
 
 @pytest.fixture
+def unwritable_dir(tmp_path):
+    """A directory no OS can create: it sits under a regular file.
+
+    "Q:/nonexistent-drive" is unwritable only on Windows; on Linux and macOS it is
+    a relative path that Houdini creates happily in the working directory, so the
+    "unwritable" tests saw success there.
+    """
+    blocker = tmp_path / "not_a_directory"
+    blocker.write_text("", encoding="utf-8")
+    return str(blocker / "fxh").replace("\\", "/")
+
+
+@pytest.fixture
 def call():
     """Dispatch a command exactly as the HTTP bridge would.
 

@@ -86,11 +86,11 @@ class TestExportFileTellsTheTruth:
         assert os.path.isfile(out), f"claimed success, wrote nothing to {out}: {result}"
         assert not os.path.exists(str(tmp_path / "ignored.bgeo.sc"))
 
-    def test_an_unwritable_destination_is_reported_as_failure(self, call, rop):
+    def test_an_unwritable_destination_is_reported_as_failure(self, call, rop, unwritable_dir):
         result = call(
             "scene.export_file",
             node_path=rop.path(),
-            file_path="Q:/nonexistent-drive/fxh/nope.bgeo.sc",
+            file_path=f"{unwritable_dir}/nope.bgeo.sc",
         )
         assert result["success"] is False, result
         assert result.get("errors") or result.get("error"), result

@@ -111,14 +111,14 @@ class TestStartRenderReportsFailureHonestly:
     be found to run this application", and start_render said success: True.
     """
 
-    def test_unwritable_path_is_reported_as_failure(self, call, geo):
+    def test_unwritable_path_is_reported_as_failure(self, call, geo, unwritable_dir):
         node = hou.node(geo)
         box = node.createNode("box")
         rop = node.createNode("rop_geometry")
         rop.setFirstInput(box)
-        # A drive that cannot exist, so Houdini raises a real cook error rather
-        # than a simulated one.
-        rop.parm("sopoutput").set("Q:/nonexistent-drive/fxh/should_fail.bgeo.sc")
+        # A directory that cannot be created, so Houdini raises a real cook error
+        # rather than a simulated one.
+        rop.parm("sopoutput").set(f"{unwritable_dir}/should_fail.bgeo.sc")
 
         result = call("rendering.start_render", node_path=rop.path(), frame_range=[1, 1])
         assert result["success"] is False, result

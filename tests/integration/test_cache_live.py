@@ -44,10 +44,10 @@ def cache_node(call):
 
 
 class TestWriteCacheProvesItWrote:
-    def test_unwritable_path_is_not_reported_as_success(self, call, cache_node):
-        # A drive that cannot exist, so Houdini produces a real error rather than
-        # a simulated one.
-        cache = cache_node("Q:/nonexistent-drive/fxh/cache.$F4.bgeo.sc")
+    def test_unwritable_path_is_not_reported_as_success(self, call, cache_node, unwritable_dir):
+        # A directory that cannot be created, so Houdini produces a real error
+        # rather than a simulated one.
+        cache = cache_node(f"{unwritable_dir}/cache.$F4.bgeo.sc")
 
         result = call("cache.write_cache", node_path=cache.path(), frame_range=[1, 1])
         assert result["success"] is False, result
@@ -68,14 +68,14 @@ class TestWriteCacheProvesItWrote:
         assert written, f"reported success but nothing on disk: {result}"
         assert written[0].stat().st_size > 0
 
-    def test_status_and_success_never_disagree(self, call, cache_node, tmp_path):
+    def test_status_and_success_never_disagree(self, call, cache_node, tmp_path, unwritable_dir):
         """Two fields answering the same question must not contradict each other.
 
         `status` predates `success`, so it is kept for callers that read it -- but
         it is now derived from the same evidence rather than set independently.
         """
         for path in (
-            "Q:/nonexistent-drive/fxh/cache.$F4.bgeo.sc",
+            f"{unwritable_dir}/cache.$F4.bgeo.sc",
             str(tmp_path / "agree.$F4.bgeo.sc").replace("\\", "/"),
         ):
             cache = cache_node(path)
