@@ -143,6 +143,7 @@ async def start_render(
     node_path: str,
     frame_range: list[float] | None = None,
     background: bool = False,
+    overrides: dict[str, Any] | None = None,
 ) -> dict:
     """Execute any node that renders or writes files.
 
@@ -168,11 +169,20 @@ async def start_render(
             process, its log tail and the files. The user sees no progress
             in Houdini, so use it only when asked to keep working while a
             render runs.
+        overrides: {parm_name: value} for this render only, e.g. a draft
+            {"resolutionx": 640, "resolutiony": 360}; a parm tuple takes a
+            list. Put back afterwards, expressions and keyframes included,
+            even if the render fails (`overrides_applied`,
+            `overrides_restored`). Foreground only. A Karma LOP's "Wait for
+            Render to Complete" is switched on for the call when it is off
+            (`foreground_forced`).
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"node_path": node_path, "background": background}
     if frame_range is not None:
         params["frame_range"] = frame_range
+    if overrides:
+        params["overrides"] = overrides
     result = await bridge.execute("rendering.start_render", params, timeout=NO_TIMEOUT)
     if isinstance(result, dict) and result.get("success") is False and not result.get("errors"):
         # A usdrender_rop gets husk's exit error (a missing license, a bad
