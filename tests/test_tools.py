@@ -17,6 +17,7 @@ from fxhoudinimcp.tools.scene import (
     new_scene,
     undo,
 )
+from fxhoudinimcp.tools.viewport import set_viewport_display
 from fxhoudinimcp.tools.workflows import setup_pyro_sim
 
 
@@ -326,3 +327,10 @@ class TestParityTools:
     async def test_set_update_mode_with_no_mode_reads(self, mock_ctx, mock_bridge):
         await set_update_mode(mock_ctx)
         mock_bridge.execute.assert_called_once_with("code.set_update_mode", {})
+
+    @pytest.mark.asyncio
+    async def test_viewport_display_sends_only_what_was_given(self, mock_ctx, mock_bridge):
+        await set_viewport_display(mock_ctx, environment_background=False)
+        mock_bridge.execute.assert_called_once_with(
+            "viewport.set_viewport_display", {"environment_background": False}
+        )

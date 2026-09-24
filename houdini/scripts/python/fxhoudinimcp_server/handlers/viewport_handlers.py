@@ -359,16 +359,22 @@ def set_viewport_camera(
 
 
 def set_viewport_display(
-    display_mode: str,
+    display_mode: str = None,
     pane_name: str = None,
+    environment_background: bool = None,
 ) -> dict:
-    """Set the viewport display/shading mode.
+    """Set the viewport display/shading mode and the environment background.
 
     Args:
         display_mode: One of 'wireframe', 'shaded', 'smooth', 'smooth_wire',
             'hidden_line', 'flat', 'flat_wire', 'point'.
         pane_name: Optional pane tab name.
+        environment_background: Show (True) or hide (False) an environment
+            light's map behind the scene, on every view of the viewer.
     """
+    if display_mode is None and environment_background is None:
+        raise ValueError("Pass display_mode, environment_background, or both.")
+
     mode_map = {
         "wireframe": hou.glShadingType.Wire,
         "wire": hou.glShadingType.Wire,
@@ -382,24 +388,35 @@ def set_viewport_display(
         "matcap_wire": hou.glShadingType.MatCapWire,
     }
 
-    gl_mode = mode_map.get(display_mode.lower())
-    if gl_mode is None:
-        raise ValueError(
-            f"Unknown display mode: '{display_mode}'. Supported modes: {list(mode_map.keys())}"
-        )
+    gl_mode = None
+    if display_mode is not None:
+        gl_mode = mode_map.get(display_mode.lower())
+        if gl_mode is None:
+            raise ValueError(
+                f"Unknown display mode: '{display_mode}'. Supported modes: {list(mode_map.keys())}"
+            )
 
     scene_viewer = _find_scene_viewer(pane_name)
-    viewport = scene_viewer.curViewport()
+    result = {"success": True, "pane_name": scene_viewer.name()}
 
-    settings = viewport.settings()
-    display_set = settings.displaySet(hou.displaySetType.SceneObject)
-    display_set.setShadedMode(gl_mode)
+    if gl_mode is not None:
+        settings = scene_viewer.curViewport().settings()
+        display_set = settings.displaySet(hou.displaySetType.SceneObject)
+        display_set.setShadedMode(gl_mode)
+        result["display_mode"] = display_mode
 
-    return {
-        "success": True,
-        "display_mode": display_mode,
-        "pane_name": scene_viewer.name(),
-    }
+    if environment_background is not None:
+        # The flag is kept per view, not per viewer: a quad layout carries
+        # four, and setting it on curViewport() alone leaves the map behind
+        # the other three. Each view's state is read back, not echoed.
+        shown = {}
+        for view in scene_viewer.viewports():
+            settings = view.settings()
+            settings.setDisplayEnvironmentBackgroundImage(bool(environment_background))
+            shown[view.name()] = settings.displayEnvironmentBackgroundImage()
+        result["environment_background"] = shown
+
+    return result
 
 
 ###### viewport.set_viewport_direction

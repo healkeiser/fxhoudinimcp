@@ -66,20 +66,28 @@ async def set_viewport_camera(
 @mcp.tool()
 async def set_viewport_display(
     ctx: Context,
-    display_mode: str,
+    display_mode: str | None = None,
     pane_name: str | None = None,
+    environment_background: bool | None = None,
 ) -> dict:
-    """Set the viewport shading mode.
+    """Set the viewport shading mode and/or the environment background.
 
     Args:
         display_mode: One of 'wireframe', 'shaded', 'smooth', 'smooth_wire',
             'hidden_line', 'flat', 'flat_wire', 'matcap', 'matcap_wire'.
         pane_name: Pane tab name.
+        environment_background: False hides an environment (dome) light's
+            map behind the scene, True shows it. Set on every view of the
+            viewer; the reply reads it back per view.
     """
     bridge = _get_bridge(ctx)
-    params: dict[str, Any] = {"display_mode": display_mode}
+    params: dict[str, Any] = {}
+    if display_mode is not None:
+        params["display_mode"] = display_mode
     if pane_name is not None:
         params["pane_name"] = pane_name
+    if environment_background is not None:
+        params["environment_background"] = environment_background
     return await bridge.execute("viewport.set_viewport_display", params)
 
 
