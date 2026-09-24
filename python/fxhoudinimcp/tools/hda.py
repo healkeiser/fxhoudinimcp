@@ -146,6 +146,11 @@ async def create_hda(
 async def update_hda(ctx: Context, node_path: str) -> dict:
     """Save the current node contents back to its HDA definition.
 
+    The definition's library file is written by this call: `saved_to_disk`
+    and `library_file_mtime` say so, so no separate save is needed. An
+    embedded definition lives in the hip file and is kept when the scene is
+    saved.
+
     Args:
         ctx: MCP context.
         node_path: Node path.

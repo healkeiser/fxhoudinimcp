@@ -1428,18 +1428,48 @@ def update_hda(node_path: str) -> dict:
     """
     node = _get_node(node_path)
     definition = _get_definition(node)
+    library = definition.libraryFilePath()
+    embedded = _is_embedded(definition)
 
+    def _mtime() -> float | None:
+        if embedded:
+            return None
+        with contextlib.suppress(Exception):
+            return os.path.getmtime(library)
+        return None
+
+    before = _mtime()
     try:
         node.type().definition().updateFromNode(node)
     except Exception as e:
         raise ValueError(f"Failed to update HDA definition: {readable_message(e)}") from e
+    after = _mtime()
 
+    # updateFromNode() writes the library file itself (measured on 22.0.429:
+    # the mtime moves and a fresh instance carries the new contents). Saying
+    # so, with the file's mtime, spares a caller a second save() through
+    # execute_python "just in case". None means "could not tell", not "no".
+    saved = None if before is None or after is None else after != before
+    if embedded:
+        message = (
+            "HDA definition updated from node contents. It is embedded in the hip "
+            "file, so it is kept when the scene is saved."
+        )
+    else:
+        message = "HDA definition updated from node contents and written to the library file."
     return {
         "success": True,
         "node_path": node.path(),
         "type_name": definition.nodeTypeName(),
-        "library_file": definition.libraryFilePath(),
-        "message": "HDA definition updated from node contents.",
+        "library_file": library,
+        "library_file_mtime": after,
+        "saved_to_disk": saved,
+        "message": message,
+        "note": (
+            "To check the result with a fresh instance of the type: its children load "
+            "lazily, so cook it (or look one up with node.node('name')) before reading "
+            "children() -- an uncooked instance answers with an empty list."
+        ),
     }
 
 
