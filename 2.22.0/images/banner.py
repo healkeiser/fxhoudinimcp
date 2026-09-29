@@ -110,4 +110,5 @@ def build(phase=0.0):
 
 if __name__ == "__main__":
     phase = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
-    open("banner.html", "w", encoding="utf-8").write(build(phase))
+    with open("banner.html", "w", encoding="utf-8") as fh:
+        fh.write(build(phase))
