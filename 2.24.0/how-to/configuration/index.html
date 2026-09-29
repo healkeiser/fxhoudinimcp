@@ -602,10 +602,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#project-root-sandbox" class="md-nav__link">
+  <a href="#ports-and-several-sessions" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Project Root Sandbox
+        Ports and Several Sessions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transport
       </span>
     </span>
   </a>
@@ -617,56 +628,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Security
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#transport-modes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Transport Modes
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Transport Modes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#stdio-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        stdio (Default)
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#streamable-http" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        streamable-http
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-port" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Custom Port
       </span>
     </span>
   </a>
@@ -2433,10 +2394,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#project-root-sandbox" class="md-nav__link">
+  <a href="#ports-and-several-sessions" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Project Root Sandbox
+        Ports and Several Sessions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transport
       </span>
     </span>
   </a>
@@ -2448,56 +2420,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Security
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#transport-modes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Transport Modes
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Transport Modes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#stdio-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        stdio (Default)
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#streamable-http" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        streamable-http
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-port" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Custom Port
       </span>
     </span>
   </a>
@@ -2587,179 +2509,115 @@
 <tr>
 <th>Variable</th>
 <th>Default</th>
+<th>Read by</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>HOUDINI_HOST</code></td>
-<td><code>localhost</code></td>
-<td>Houdini host address</td>
-</tr>
-<tr>
-<td><code>HOUDINI_PORT</code></td>
-<td><code>8100</code></td>
-<td>Houdini hwebserver port</td>
-</tr>
-<tr>
-<td><code>HOUDINI_TIMEOUT</code></td>
-<td><code>FXHOUDINIMCP_TIMEOUT</code> + 15</td>
-<td>Seconds the MCP client waits for one command before reporting a timeout. Keep it above the plugin's deadline, and raise it alongside any <code>FXHOUDINIMCP_TIMEOUT_&lt;COMMAND&gt;</code> you set</td>
-</tr>
-<tr>
 <td><code>FXHOUDINIMCP_PORT</code></td>
 <td><code>8100</code></td>
-<td>Port for the Houdini plugin to listen on</td>
-</tr>
-<tr>
-<td><code>FXHOUDINIMCP_AUTOSTART</code></td>
-<td><code>1</code></td>
-<td>Set to <code>0</code> to disable auto-start</td>
+<td>Houdini</td>
+<td>Port the plugin listens on; a second Houdini takes the next free one</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_BIND</code></td>
 <td><code>127.0.0.1</code></td>
-<td>Address the Houdini plugin binds. Loopback by default; see <a href="#security">Security</a> before widening it</td>
+<td>Houdini</td>
+<td>Address the plugin binds. See <a href="#security">Security</a> before widening it</td>
+</tr>
+<tr>
+<td><code>FXHOUDINIMCP_AUTOSTART</code></td>
+<td><code>1</code></td>
+<td>Houdini</td>
+<td><code>0</code> disables auto-start</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_AUTO_LAYOUT</code></td>
 <td><code>0</code></td>
-<td>Off: tools never re-arrange existing nodes, new nodes are still placed. Set to <code>1</code> to have handlers lay out the parent network after each change</td>
+<td>both</td>
+<td><code>1</code> lets tools re-lay-out a network after changing it. Off, only new nodes are placed</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_PROJECT_ROOT</code></td>
 <td>unset</td>
-<td>Confine hip, import, export and HDA file operations to this directory tree</td>
+<td>Houdini</td>
+<td>Confine hip, import, export and HDA files to this directory</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_TIMEOUT</code></td>
 <td><code>120</code></td>
-<td>Seconds a command may run before the plugin reports a timeout</td>
+<td>Houdini</td>
+<td>Seconds a command may run</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_TIMEOUT_&lt;COMMAND&gt;</code></td>
 <td>unset</td>
-<td>Per-command override, e.g. <code>FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900</code></td>
+<td>Houdini</td>
+<td>Per-command override: <code>FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900</code></td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_OUTPUT_GRACE</code></td>
 <td><code>2</code></td>
-<td>Seconds a clean render or cache write may take to show its file before the tool reports that nothing was written. Raise it when output lands on a slow network share</td>
+<td>Houdini</td>
+<td>Seconds a render or cache may take to show its file before it counts as not written</td>
+</tr>
+<tr>
+<td><code>HOUDINI_HOST</code></td>
+<td><code>localhost</code></td>
+<td>client</td>
+<td>Houdini host</td>
+</tr>
+<tr>
+<td><code>HOUDINI_PORT</code></td>
+<td>scan 8100-8115</td>
+<td>client</td>
+<td>Pin one Houdini port; switches off the scan</td>
+</tr>
+<tr>
+<td><code>HOUDINI_TIMEOUT</code></td>
+<td>plugin timeout + 15</td>
+<td>client</td>
+<td>Seconds the client waits for a command</td>
 </tr>
 <tr>
 <td><code>MCP_TRANSPORT</code></td>
 <td><code>stdio</code></td>
-<td>MCP transport (<code>stdio</code> or <code>streamable-http</code>)</td>
+<td>client</td>
+<td><code>stdio</code> or <code>streamable-http</code></td>
 </tr>
 <tr>
 <td><code>LOG_LEVEL</code></td>
 <td><code>INFO</code></td>
+<td>client</td>
 <td>Logging level</td>
 </tr>
 </tbody>
 </table>
+<p>Houdini-side variables live in the package file <code>install</code> wrote, where every one sits at its default. They win over the same variables in your shell; <code>install</code> keeps your edits when it runs again. Client-side variables go in your MCP client's config.</p>
 <h2 id="auto-start">Auto-Start<a class="headerlink" href="#auto-start" title="Permanent link">&para;</a></h2>
-<p>The Houdini plugin auto-starts when the UI is ready via <code>uiready.py</code>, which
-stacks cleanly with other Houdini packages. Startup registers the MCP endpoints,
-starts Houdini's <code>hwebserver</code> when needed, and verifies that <code>mcp.health</code>
-answers from the current Houdini process before reporting readiness. Disable
-auto-start by setting:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTOSTART</span><span class="o">=</span><span class="m">0</span>
-</code></pre></div>
-<p>You can still control the server manually from Houdini's <strong>MCP</strong> menu, which
-provides Start Server, Stop Server and Server Status.</p>
-<p>If an assistant cannot reach Houdini, use <code>get_houdini_connection_status</code> to
-return structured diagnostics without raising a tool error. If port <code>8100</code> is
-owned by a different Houdini process, either close that process or set both
-<code>FXHOUDINIMCP_PORT</code> and <code>HOUDINI_PORT</code> to a matching free port.</p>
+<p>The plugin starts when Houdini's UI is ready (through <code>uiready.py</code>, which stacks with other packages) and reports ready once <code>mcp.health</code> answers from that Houdini process. <code>FXHOUDINIMCP_AUTOSTART=0</code> turns this off; the <strong>MCP</strong> menu still starts and stops the server.</p>
 <h2 id="node-placement-and-auto-layout">Node Placement and Auto-Layout<a class="headerlink" href="#node-placement-and-auto-layout" title="Permanent link">&para;</a></h2>
-<p>Two separate things happen to node positions, and one flag controls only one
-of them.</p>
-<p><strong>Placement of new nodes always happens.</strong> Every handler that creates a node
-gives it a sensible position before returning: a node with inputs lands under
-them, a node without inputs takes a free column beside the network, and a
-container created at <code>/obj</code> is placed next to its siblings. Nothing that
-already existed moves. An explicit <code>position=[x, y]</code> passed to a create tool
-always wins, including <code>[0, 0]</code>. Without this, a session run with auto-layout
-off used to leave every new node in one unreadable pile at the origin.</p>
-<p><strong>Auto-layout re-arranges the whole network</strong>, and is what
-<code>FXHOUDINIMCP_AUTO_LAYOUT</code> controls. It is off by default. When on,
-node-creation handlers and workflow tools call <code>layoutChildren()</code> on the
-parent network after they work, and the <code>layout_children</code> tool is available
-on demand. That moves <em>all</em> nodes in the affected network, including ones you
-placed by hand, which is why it is opt-in.</p>
-<p>To turn it on:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_AUTO_LAYOUT</span><span class="o">=</span><span class="m">1</span>
-</code></pre></div>
-<p>Set it both in the MCP client environment (where <code>python -m fxhoudinimcp</code>
-runs) and in the Houdini environment (the <code>FXHOUDINIMCP_AUTO_LAYOUT</code> entry
-already in the package file <code>install</code> wrote, or <code>houdini.env</code>), since each
-process reads it independently. A package value wins over the shell. Inside a running
-Houdini session you can also toggle it without restarting:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">hou</span><span class="o">.</span><span class="n">putenv</span><span class="p">(</span><span class="s2">"FXHOUDINIMCP_AUTO_LAYOUT"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">)</span>
-</code></pre></div>
-<p>When off (the default), the server instructions tell assistants never to move nodes,
-<code>layout_children</code> becomes a no-op, the Houdini-side handlers skip every
-automatic <code>layoutChildren()</code> call, and only freshly created nodes are placed.
-Tools that create nothing (<code>connect_nodes</code>, <code>connect_nodes_batch</code>,
-<code>set_node_flags</code>) never move anything in either mode.</p>
+<p>New nodes are always placed: under their inputs, or in a free column when they have none. Nothing that already exists moves, and an explicit <code>position=[x, y]</code> always wins.</p>
+<p><code>FXHOUDINIMCP_AUTO_LAYOUT=1</code> also re-lays-out the whole network after each change, moving nodes you placed by hand, which is why it is off by default. Both processes read it, so set it in the MCP client's environment and in the package file. In a running Houdini, <code>hou.putenv("FXHOUDINIMCP_AUTO_LAYOUT", "1")</code> toggles it without a restart.</p>
 <h2 id="timeouts">Timeouts<a class="headerlink" href="#timeouts" title="Permanent link">&para;</a></h2>
-<p>Each command is marshalled onto Houdini's main thread and given a deadline. The
-default is 120 seconds. Raise it for everything with <code>FXHOUDINIMCP_TIMEOUT</code>, or
-for one command with <code>FXHOUDINIMCP_TIMEOUT_&lt;COMMAND&gt;</code>, where <code>&lt;COMMAND&gt;</code> is the
-dotted command name uppercased with dots as underscores:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE</span><span class="o">=</span><span class="m">900</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER</span><span class="o">=</span><span class="m">1800</span>
+<p>A command gets 120 seconds (<code>FXHOUDINIMCP_TIMEOUT</code>). Override one command with <code>FXHOUDINIMCP_TIMEOUT_&lt;COMMAND&gt;</code>, the dotted name uppercased with dots as underscores:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE</span><span class="o">=</span><span class="m">900</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER</span><span class="o">=</span><span class="m">1800</span>
 </code></pre></div>
-<p>A command that hits its deadline returns a <code>TIMEOUT</code> error naming the exact
-variable to raise. These are read by the Houdini process, so they belong in
-the package file <code>install</code> wrote (which carries <code>FXHOUDINIMCP_TIMEOUT</code> at its
-default) or <code>houdini.env</code>, not the MCP client config.</p>
-<h2 id="project-root-sandbox">Project Root Sandbox<a class="headerlink" href="#project-root-sandbox" title="Permanent link">&para;</a></h2>
-<p>With <code>FXHOUDINIMCP_PROJECT_ROOT</code> set, the paths the handlers themselves open,
-save, load or install must resolve under that directory: hip files (save, load,
-merge), imports, exports, and HDA libraries (install, uninstall, reload,
-create). Anything outside is refused with an error that names the root.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FXHOUDINIMCP_PROJECT_ROOT</span><span class="o">=</span>/projects/showA
-</code></pre></div>
-<p>What it does <strong>not</strong> cover: a file path written into a parameter with
-<code>set_parameter</code> (a File SOP's <code>file</code>, a ROP's output) is evaluated later by the
-node, not by the plugin. Checking it would mean inspecting every string
-parameter on every set, so the gap is left open and stated rather than
-half-closed. <code>execute_python</code> and <code>execute_hscript</code> are not sandboxed at all.</p>
+<p>Houdini reads these, so they go in the package file. A command that times out names the variable to raise. The client waits for the plugin's deadline plus 15 seconds, unless <code>HOUDINI_TIMEOUT</code> says otherwise. Raise it to match a longer per-command override.</p>
+<h2 id="ports-and-several-sessions">Ports and Several Sessions<a class="headerlink" href="#ports-and-several-sessions" title="Permanent link">&para;</a></h2>
+<p>The plugin takes port 8100, or the next free one when another Houdini holds it. The client scans 8100-8115 and connects to the lowest that answers. <code>get_houdini_connection_status</code> lists every session and <code>connect_houdini(port)</code> switches. Setting <code>HOUDINI_PORT</code> pins one port and switches the scan off. If you change <code>FXHOUDINIMCP_PORT</code>, set <code>HOUDINI_PORT</code> to match.</p>
+<h2 id="transport">Transport<a class="headerlink" href="#transport" title="Permanent link">&para;</a></h2>
+<p><code>stdio</code> (the default): the AI client starts the server as a child process. <code>MCP_TRANSPORT=streamable-http</code> runs it as an HTTP endpoint instead, for remote or shared setups.</p>
 <h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
-<p>Treat a connection to this server as a shell inside your Houdini session.
-<code>execute_python</code> runs arbitrary code, and there is no authentication,
-authorization, per-tool permission model or audit log. The threat model is a
-single artist's workstation and an MCP client they trust.</p>
-<p>What the plugin does on its own:</p>
+<p>A connection to this server is a shell inside your Houdini session: <code>execute_python</code> runs arbitrary code, and there is no authentication or per-tool permission. It is built for one artist's workstation and an MCP client they trust.</p>
 <ul>
-<li><strong>Binds to loopback.</strong> Nothing on the network reaches the port unless you set
-  <code>FXHOUDINIMCP_BIND</code> wider on purpose.</li>
-<li><strong>Refuses browsers.</strong> A web page you have open is also on loopback, and it
-  can POST a form-encoded body to <code>127.0.0.1</code> without any CORS preflight. Any
-  request carrying an <code>Origin</code> header is refused with HTTP 403, and so is any
-  <code>Host</code> that is not a loopback name (DNS rebinding) while the bind is loopback.</li>
-<li><strong>Confines file operations when asked</strong>, via the project root sandbox above.</li>
+<li>The plugin binds to loopback unless <code>FXHOUDINIMCP_BIND</code> says otherwise.</li>
+<li>Requests with an <code>Origin</code> header (a web page) or a non-loopback <code>Host</code> (DNS rebinding) are refused.</li>
+<li><code>FXHOUDINIMCP_PROJECT_ROOT</code> confines the files the tools open, save, import, export or install. It does not check paths written into parameters (a File SOP, a ROP output), and <code>execute_python</code> / <code>execute_hscript</code> are not sandboxed.</li>
+<li>Recovery from a bad change is undo, one step per tool call.</li>
 </ul>
-<p>What it does not do: inspect parameter values, sandbox code execution, or ask
-for confirmation before a change. One undo step per tool call is the recovery
-path. If those limits do not fit your situation, run the plugin only on
-disposable scenes, or do not run it.</p>
-<h2 id="transport-modes">Transport Modes<a class="headerlink" href="#transport-modes" title="Permanent link">&para;</a></h2>
-<h3 id="stdio-default">stdio (Default)<a class="headerlink" href="#stdio-default" title="Permanent link">&para;</a></h3>
-<p>The AI client spawns the MCP server as a child process. Communication happens over stdin/stdout. This is the simplest setup, no ports or networking required on the MCP side.</p>
-<h3 id="streamable-http">streamable-http<a class="headerlink" href="#streamable-http" title="Permanent link">&para;</a></h3>
-<p>Runs the MCP server as an HTTP endpoint. Useful for remote or shared setups:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MCP_TRANSPORT</span><span class="o">=</span>streamable-http
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
-</code></pre></div>
-<h2 id="custom-port">Custom Port<a class="headerlink" href="#custom-port" title="Permanent link">&para;</a></h2>
-<p>If Houdini's hwebserver is already bound to port 8100, configure a different port:</p>
-<ol>
-<li>Set <code>FXHOUDINIMCP_PORT</code> in your Houdini environment</li>
-<li>Set <code>HOUDINI_PORT</code> in your MCP client config to match</li>
-</ol>
 
 
 

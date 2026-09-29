@@ -453,17 +453,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        How It Works
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2344,17 +2333,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        How It Works
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2388,9 +2366,8 @@
 
 <h1 id="home"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span> Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h1>
 <h2 id="fxhoudinimcp">fxhoudinimcp<a class="headerlink" href="#fxhoudinimcp" title="Permanent link">&para;</a></h2>
-<p>The most comprehensive <a href="https://modelcontextprotocol.io/">MCP</a> (Model Context Protocol) server for <a href="https://www.sidefx.com/">SideFX Houdini</a>.</p>
-<p><strong>215 tools</strong>, <strong>8 resources</strong>, and <strong>9 prompts</strong> serving <strong>31 written workflow guides</strong> out of the box.</p>
-<p>Connects AI assistants like Claude directly to Houdini's Python API, enabling natural language control over scene building, simulation setup, rendering, and more.</p>
+<p>An <a href="https://modelcontextprotocol.io/">MCP</a> server for <a href="https://www.sidefx.com/">SideFX Houdini</a>: it lets an AI assistant such as Claude build networks, set up simulations, inspect USD stages and render, through Houdini's own Python API.</p>
+<p><strong>215 tools</strong>, <strong>8 resources</strong>, and <strong>9 prompts</strong> serving <strong>31 written workflow guides</strong> out of the box. Start with <a href="installation/">Installation</a>.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2408,7 +2385,7 @@
 </tr>
 <tr>
 <td><strong>Documentation</strong></td>
-<td>2</td>
+<td>3</td>
 <td>Full-text search + page retrieval over Houdini's own shipped manual (version-exact)</td>
 </tr>
 <tr>
@@ -2417,24 +2394,29 @@
 <td>Open, save, import/export, scene info, connection status, undo/redo</td>
 </tr>
 <tr>
+<td><strong>Sessions</strong></td>
+<td>3</td>
+<td>Switch between open Houdini sessions, start a headless or GUI Houdini of the server's own, stop it</td>
+</tr>
+<tr>
 <td><strong>Node Operations</strong></td>
 <td>22</td>
 <td>Create, delete, copy, connect, layout, flags, network boxes, sticky notes, object transforms</td>
 </tr>
 <tr>
 <td><strong>Parameters</strong></td>
-<td>12</td>
+<td>14</td>
 <td>Get/set values in bulk, expressions, keyframes, spare parameters</td>
 </tr>
 <tr>
 <td><strong>Geometry (SOPs)</strong></td>
-<td>14</td>
-<td>Points, prims, attributes, attribute statistics, volume inspection, groups, sampling, nearest-point search</td>
+<td>16</td>
+<td>Points, prims, attributes, attribute statistics, volume statistics and sampling, groups, sampling, nearest-point search</td>
 </tr>
 <tr>
 <td><strong>LOPs/USD</strong></td>
-<td>18</td>
-<td>Stage inspection, prims, layers, composition, variants, lighting</td>
+<td>21</td>
+<td>Stage inspection, prims, world transforms over frames, layers, composition, variants, lighting</td>
 </tr>
 <tr>
 <td><strong>DOPs</strong></td>
@@ -2453,7 +2435,7 @@
 </tr>
 <tr>
 <td><strong>HDAs</strong></td>
-<td>11</td>
+<td>13</td>
 <td>Create, install, manage Digital Assets, their versions and sections</td>
 </tr>
 <tr>
@@ -2463,8 +2445,8 @@
 </tr>
 <tr>
 <td><strong>Rendering</strong></td>
-<td>9</td>
-<td>Viewport capture, render nodes, settings, render launch</td>
+<td>10</td>
+<td>Viewport capture, contact sheets of a frame range without a viewport, render nodes, settings, render launch</td>
 </tr>
 <tr>
 <td><strong>VEX</strong></td>
@@ -2473,7 +2455,7 @@
 </tr>
 <tr>
 <td><strong>Code Execution</strong></td>
-<td>6</td>
+<td>7</td>
 <td>Python, HScript, expressions, env variables, file references, update mode</td>
 </tr>
 <tr>
@@ -2545,26 +2527,21 @@
     Client -. "MCP Protocol · stdio" .-&gt; MCP
     MCP -. "HTTP / JSON · port 8100" .-&gt; Houdini
 
-    classDef clientNode fill:transparent,stroke:#6b8cce,stroke-width:1.5px,rx:8,ry:8
-    classDef mcpNode fill:transparent,stroke:#5ba67a,stroke-width:1.5px,rx:8,ry:8
-    classDef houdiniNode fill:transparent,stroke:#e07840,stroke-width:1.5px,rx:8,ry:8
+    classDef clientBox fill:#f0f4ff,stroke:#b8c9e8,stroke-width:1px,color:#2d3748,rx:12,ry:12
+    classDef mcpBox fill:#eef6f0,stroke:#a8d5b8,stroke-width:1px,color:#2d3748,rx:12,ry:12
+    classDef houdiniBox fill:#fff5f0,stroke:#e8c4a8,stroke-width:1px,color:#2d3748,rx:12,ry:12
 
+    classDef clientNode fill:#dbe4f8,stroke:#96b0dc,stroke-width:1px,color:#2d3748,rx:8,ry:8
+    classDef mcpNode fill:#d4edda,stroke:#82c896,stroke-width:1px,color:#2d3748,rx:8,ry:8
+    classDef houdiniNode fill:#fde4d0,stroke:#e0a87c,stroke-width:1px,color:#2d3748,rx:8,ry:8
+
+    class Client clientBox
+    class MCP mcpBox
+    class Houdini houdiniBox
     class A1,A2,A3 clientNode
     class B1,B2,B3 mcpNode
     class C1,C2,C3 houdiniNode</code></pre>
-<p>Uses Houdini's built-in <code>hwebserver</code>. No custom socket servers, no rpyc. Uses <code>hdefereval.executeInMainThreadWithResult()</code> to safely run <code>hou.*</code> calls on the main thread.</p>
-<h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
-<ol>
-<li>
-<p><strong>Houdini Plugin</strong> (<code>houdini/</code>): Runs inside Houdini's Python environment. Registers <code>@hwebserver.apiFunction</code> endpoints that receive JSON commands. Uses <code>hdefereval.executeInMainThreadWithResult()</code> to safely execute <code>hou.*</code> calls on the main thread.</p>
-</li>
-<li>
-<p><strong>MCP Server</strong> (<code>python/fxhoudinimcp/</code>): A standalone Python process using FastMCP. Exposes 215 tools, 8 resources, and 9 prompts via the MCP protocol. Forwards tool calls to Houdini over HTTP.</p>
-</li>
-<li>
-<p><strong>Bridge</strong> (<code>python/fxhoudinimcp/bridge.py</code>): Async HTTP client that sends commands to Houdini's hwebserver and deserializes responses. Handles connection errors and timeouts.</p>
-</li>
-</ol>
+<p>The plugin runs on Houdini's built-in <code>hwebserver</code> and executes every <code>hou.*</code> call on the main thread through <code>hdefereval</code>. The MCP server is a separate process your AI client starts; it relays tool calls to the plugin over loopback HTTP.</p>
 
 
 
