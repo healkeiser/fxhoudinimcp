@@ -34,8 +34,7 @@ def _path(name):
 
 def build(phase=0.0):
     symbols = "".join(
-        f'<symbol id="{n}" viewBox="0 0 24 24"><path d="{_path(n)}"/></symbol>'
-        for n in LOGOS
+        f'<symbol id="{n}" viewBox="0 0 24 24"><path d="{_path(n)}"/></symbol>' for n in LOGOS
     )
     # Three glow bands so the core burns brighter than the tail.
     bands = {"core": [], "mid": [], "tail": []}
@@ -73,7 +72,7 @@ def build(phase=0.0):
     <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
   </filter>"""
 
-    font = "font-family=\"Space Grotesk\" font-weight=\"500\" font-size=\"96\" letter-spacing=\"-4\""
+    font = 'font-family="Space Grotesk" font-weight="500" font-size="96" letter-spacing="-4"'
     # dx pulls the h in: at this size the default fx-h gap reads loose.
     word = '<tspan fill="#ff4713">fx</tspan><tspan dx="-1">houdinimcp</tspan>'
     return f"""<!doctype html><html><head><meta charset="utf-8">
