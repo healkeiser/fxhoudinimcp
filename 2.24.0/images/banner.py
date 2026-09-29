@@ -12,7 +12,7 @@ Render (2x, from a 1280x640 layout):
 
 Animate (banner.webp, 4 s loop): write banner.build(i / 96) for i in 0..95,
 screenshot each at 1x, then
-    ffmpeg -framerate 24 -i %03d.png -c:v libwebp -quality 65 \\
+    ffmpeg -framerate 24 -i %03d.png -c:v libwebp -quality 90 \\
         -compression_level 6 -loop 0 banner.webp
 """
 
