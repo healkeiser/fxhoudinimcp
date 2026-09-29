@@ -7237,8 +7237,12 @@ asset's own Build button — and read the node's errors and warnings
 afterwards.</p>
 <p>The call holds until the callback returns, with no deadline. A callback
 that opens a dialog blocks Houdini's main thread and this bridge with it;
-read the button's script first if in doubt. For a Save to Disk or a
-render use write_cache / start_render, which report a verdict.</p>
+read the button's script first if in doubt. A Python callback that
+RAISES does not hang anything: the bridge runs it rather than
+pressButton(), and its error comes back as this call's error.
+<code>callback_route</code> says how the press ran: python, hscript or native (a
+built-in action). For a Save to Disk or a render use write_cache /
+start_render, which report a verdict.</p>
 <p>A press usually only dirties the node, so <code>errors</code>/<code>warnings</code> are from
 its last cook unless <code>cook=True</code>; without it <code>needs_cook</code> says whether
 they are stale (a cook that failed leaves it True too). <code>has_script_callback</code> is False for built-in buttons that still

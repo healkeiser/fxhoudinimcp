@@ -2016,6 +2016,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.graph.verify_network(force_cook)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;force_cook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2857,6 +2868,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;parent_path
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.graph.verify_network(force_cook)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;force_cook
       </span>
     </span>
   </a>
@@ -3744,7 +3766,9 @@ parameters. Pass True or False to decide.</p>
   </span>
 
 <a href="#fxhoudinimcp.tools.graph.verify_network" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">verify_network</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.tools.graph.verify_network(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;parent_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.graph.verify_network(parent_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.graph.verify_network(parent_path)">parent_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">verify_network</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.tools.graph.verify_network(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;parent_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.graph.verify_network(parent_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.graph.verify_network(parent_path)">parent_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;force_cook&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.graph.verify_network(force_cook)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.graph.verify_network(force_cook)">force_cook</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3758,6 +3782,10 @@ Each node lists <code>errors</code>, <code>warnings</code>, <code>bypassed</code
 it has them; absent means none. For a LOP network the evidence is the
 stage (prims, cameras, lights, gprims without a material), for a COP
 network the image layer (resolution, channel ranges).</p>
+<p>A node's errors are its LAST cook's verdict. A node that nothing has
+cooked since its cause was fixed is reported <code>stale</code> and listed in
+<code>stale_error_nodes</code>; pass force_cook=True to recook before judging.
+The default cooks only the display node, so a heavy scene is left alone.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3785,6 +3813,23 @@ network the image layer (resolution, channel ranges).</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.graph.verify_network(force_cook)" class="doc doc-heading doc-heading-parameter">                  <code>force_cook</code>
+<a href="#fxhoudinimcp.tools.graph.verify_network(force_cook)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Cook the display node with force and recook every node
+that has errors, so the verdict is about the network as it is now.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>

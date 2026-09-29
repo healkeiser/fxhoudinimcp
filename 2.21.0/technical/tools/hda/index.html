@@ -4151,21 +4151,27 @@ changes nothing. Read the interface first with get_parm_template_tree.</p>
         spec is a set_hda_interface spec, plus types button (with
         "callback", Python by default), separator, label, vector, color,
         file, oppath; and fields naming_scheme (base1|xyzw|rgba|minmax|
-        startend|uvw), default_expression, hidden, join_with_next,
-        callback, tags; folder_type "multiparm" for a multiparm block
-        (children named "item#").
+        startend|uvw), default_expression (+ default_expression_language),
+        hidden, join_with_next, callback, tags; folder_type "multiparm"
+        for a multiparm block (children named "item#").
     {"op": "remove", "name": name_or_folder_label}
     {"op": "hide" | "show", "name": ...}
     {"op": "replace", "name": ..., "spec": {...}}
     {"op": "modify", "name": ..., <label | help | default |
-        default_expression | min | max | min_strict | max_strict |
-        hide_when | disable_when ("" clears) | hidden | join_with_next |
-        menu_items | callback | naming_scheme | new_name | tags>}
+        default_expression | default_expression_language | min | max |
+        min_strict | max_strict | hide_when | disable_when ("" clears) |
+        hidden | join_with_next | menu_items | callback | naming_scheme |
+        new_name | tags>}
         ("rename", "set_conditional", "set_default" are aliases)</p>
 <p>Names are template names (<code>t</code>, not <code>tx</code>; <code>stud_count</code>); folders are
 addressed by label ("Controls"). Built-in parameters of the node type
 (an Object's Transform) cannot be removed — Houdini re-adds them at the
 top level and the reply says so in <code>reinstated_by_houdini</code>; hide them.</p>
+<p><code>default_expression_language</code> is "hscript" (Houdini's default) or
+"python"; given alone in a modify, it changes the language of the
+expression already there. <code>stored</code> reads both back, and
+<code>instance_expression_errors</code> names a default expression that does not
+evaluate on the instance.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4884,8 +4890,8 @@ thing: it adds parameters to one node instance and never reaches the type.</p>
 <p>It is edit_hda_interface with one insert per entry: names already in the
 interface are refused before anything is written, and the reply is read
 back off the definition — <code>ops[].stored</code>, <code>renamed_by_houdini</code> (a tab
-folder joins the existing tab set's naming series), <code>not_found_after_write</code>
-and <code>instance_parms_missing</code>.</p>
+folder joins the existing tab set's naming series), <code>not_found_after_write</code>,
+<code>instance_parms_missing</code> and <code>instance_expression_errors</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5184,6 +5190,10 @@ type cannot be removed: Houdini puts them back
     <div class="doc doc-contents ">
 
         <p>Save the current node contents back to its HDA definition.</p>
+<p>The definition's library file is written by this call: <code>saved_to_disk</code>
+and <code>library_file_mtime</code> say so, so no separate save is needed. An
+embedded definition lives in the hip file and is kept when the scene is
+saved.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

@@ -2513,6 +2513,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;environment_background
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3205,6 +3216,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;environment_background
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3605,7 +3627,7 @@ navigation, and error node discovery.</p>
   &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display">set_viewport_display</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Set the viewport shading mode.</p>
+                  <p>Set the viewport shading mode and/or the environment background.</p>
                 </div>
               </td>
             </tr>
@@ -3660,6 +3682,9 @@ navigation, and error node discovery.</p>
     <div class="doc doc-contents ">
 
         <p>Capture a screenshot of the network editor.</p>
+<p>With node_path the view is put on that node at once (no animated flight),
+and the reply says what the frame shows: visible_bounds, node_bounds and
+node_in_view, all in network space.</p>
 <p>The image is written to disk only; open <code>output_path</code> with your file
 reader to look at it. Prefer get_node_info or list_children for inspecting
 node connections unless visual confirmation of wiring is genuinely needed.</p>
@@ -3701,7 +3726,7 @@ node connections unless visual confirmation of wiring is genuinely needed.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Node path to navigate to before capture.</p>
+                <p>Node path to frame before capture.</p>
               </div>
             </td>
             <td>
@@ -4469,13 +4494,16 @@ actually looking through, and fails if it did not take.</p>
 
 <a href="#fxhoudinimcp.tools.viewport.set_viewport_display" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_viewport_display</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.tools.viewport.set_viewport_display(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;display_mode&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)">display_mode</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;pane_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display(pane_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display(pane_name)">pane_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp.tools.viewport.set_viewport_display(ctx)">ctx</span></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;display_mode&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)">display_mode</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;pane_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display(pane_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display(pane_name)">pane_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;environment_background&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)">environment_background</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Set the viewport shading mode.</p>
+        <p>Set the viewport shading mode and/or the environment background.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4494,7 +4522,7 @@ actually looking through, and fails if it did not take.</p>
 <h5 id="fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)" class="doc doc-heading doc-heading-parameter">                  <code>display_mode</code>
 <a href="#fxhoudinimcp.tools.viewport.set_viewport_display(display_mode)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
             <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4503,7 +4531,7 @@ actually looking through, and fails if it did not take.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -4516,6 +4544,24 @@ actually looking through, and fails if it did not take.</p>
             <td>
               <div class="doc-md-description">
                 <p>Pane tab name.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)" class="doc doc-heading doc-heading-parameter">                  <code>environment_background</code>
+<a href="#fxhoudinimcp.tools.viewport.set_viewport_display(environment_background)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>False hides an environment (dome) light's
+map behind the scene, True shows it. Set on every view of the
+viewer; the reply reads it back per view.</p>
               </div>
             </td>
             <td>
