@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../images/favicon.svg">
-      <meta name="generator" content="zensical-0.0.64">
+      <meta name="generator" content="zensical-0.0.66">
     
     
       
@@ -32,7 +32,7 @@
       
         
       
-      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.40d3fdbb.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.1502b751.min.css">
       
         
           
@@ -2787,7 +2787,7 @@ via the HTTP bridge.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="./#fxhoudinimcp.tools.materials.create_material_network">create_material_network</a></code></td>
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.create_material_network&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.create_material_network">create_material_network</a></code></td>
               <td>
                 <div class="doc-md-description">
                   <p>Create a new material network in /mat.</p>
@@ -2800,7 +2800,7 @@ via the HTTP bridge.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="./#fxhoudinimcp.tools.materials.get_material_info">get_material_info</a></code></td>
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.get_material_info&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.get_material_info">get_material_info</a></code></td>
               <td>
                 <div class="doc-md-description">
                   <p>Get detailed information about a material node.</p>
@@ -2813,7 +2813,7 @@ via the HTTP bridge.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="./#fxhoudinimcp.tools.materials.list_material_types">list_material_types</a></code></td>
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_material_types&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_material_types">list_material_types</a></code></td>
               <td>
                 <div class="doc-md-description">
                   <p>List available VOP/material node types.</p>
@@ -2826,7 +2826,7 @@ via the HTTP bridge.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="./#fxhoudinimcp.tools.materials.list_materials">list_materials</a></code></td>
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_materials&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_materials">list_materials</a></code></td>
               <td>
                 <div class="doc-md-description">
                   <p>List all material nodes under a root path.</p>
@@ -2864,10 +2864,10 @@ via the HTTP bridge.</p>
 
 <a href="#fxhoudinimcp.tools.materials.create_material_network" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_material_network</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.create_material_network(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.create_material_network(name)">name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.create_material_network(shader_type)">shader_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"principled"</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.create_material_network(params)">params</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.create_material_network(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.create_material_network(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.create_material_network(name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.create_material_network(name)">name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;shader_type&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.create_material_network(shader_type)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.create_material_network(shader_type)">shader_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">"principled"</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;params&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.create_material_network(params)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.create_material_network(params)">params</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
@@ -2948,7 +2948,7 @@ matched no parameter, with the reason.</p>
 <h5 id="fxhoudinimcp.tools.materials.create_material_network(params)" class="doc doc-heading doc-heading-parameter">                  <code>params</code>
 <a href="#fxhoudinimcp.tools.materials.create_material_network(params)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
             <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>] | None</code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2979,7 +2979,7 @@ matched no parameter, with the reason.</p>
   </span>
 
 <a href="#fxhoudinimcp.tools.materials.get_material_info" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_material_info</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.get_material_info(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.get_material_info(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_material_info</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.get_material_info(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.get_material_info(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.get_material_info(node_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.get_material_info(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3054,7 +3054,7 @@ reports how many nodes were visited).</p>
   </span>
 
 <a href="#fxhoudinimcp.tools.materials.list_material_types" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_material_types</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.list_material_types(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.list_material_types(filter)">filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_material_types</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_material_types(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_material_types(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;filter&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_material_types(filter)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_material_types(filter)">filter</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3125,7 +3125,7 @@ reports how many nodes were visited).</p>
   </span>
 
 <a href="#fxhoudinimcp.tools.materials.list_materials" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_materials</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.list_materials(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" href="./#fxhoudinimcp.tools.materials.list_materials(root_path)">root_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'/mat'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_materials</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_materials(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_materials(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;root_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.materials.list_materials(root_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.materials.list_materials(root_path)">root_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'/mat'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3261,7 +3261,7 @@ reports how many nodes were visited).</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["announce.dismiss","navigation.tabs","navigation.sections","navigation.expand","navigation.top","navigation.path","navigation.instant","navigation.instant.prefetch","search.suggest","search.highlight","toc.follow","content.code.annotate","content.code.copy","content.tooltips","content.tabs.link","content.action.edit"],"redirect":null,"search":"../../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.c04ba553.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.b7d3f789.min.js"></script>
       
     
   </body>
