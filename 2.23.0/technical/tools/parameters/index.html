@@ -5896,6 +5896,8 @@ done. Pass override_expression=True to clear the expression first.</p>
 <p>A parameter holding a BARE ch() reference is the opposite trap: Houdini
 writes THROUGH it into the parameter it reads, so the value lands on
 another node. The reply names that parameter in <code>written_through</code>.</p>
+<p>Inside a DOP network a write does not reset frames already simulated:
+<code>simulation_cache</code> names the network to pass to reset_simulation.</p>
 <p>A String parameter echoes <code>raw_value</code> (the unexpanded text, <code>$JOB/...</code>)
 next to the expanded <code>new_value</code>.</p>
 <p>A LOCKED parameter (karmarendersettings resolutiony under res_mode
@@ -6030,6 +6032,8 @@ as editing it in the UI does (<code>callback_run</code> in the reply, and
     <div class="doc doc-contents ">
 
         <p>Batch-set multiple parameters on a node, in the order given.</p>
+<p>Inside a DOP network a write does not reset frames already simulated:
+<code>simulation_cache</code> names the network to pass to reset_simulation.</p>
 <p>Parameters that held an expression and therefore ignored the literal are
 listed in <code>expressions_kept</code>, with a top-level <code>warning</code>: a batch whose
 <code>errors</code> is empty can still contain a write that did not take. Values that

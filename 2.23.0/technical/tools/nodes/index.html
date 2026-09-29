@@ -2892,6 +2892,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.press_button(action)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;action
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4722,6 +4733,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;cook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.press_button(action)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;action
       </span>
     </span>
   </a>
@@ -7308,7 +7330,8 @@ exceed 800 in a production install). Always pass a <code>filter</code> keyword
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;parm_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.press_button(parm_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.press_button(parm_name)">parm_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;arguments&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.press_button(arguments)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.press_button(arguments)">arguments</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;cook&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.press_button(cook)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.press_button(cook)">cook</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;action&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.press_button(action)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.press_button(action)">action</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -7328,6 +7351,10 @@ start_render, which report a verdict.</p>
 its last cook unless <code>cook=True</code>; without it <code>needs_cook</code> says whether
 they are stale (a cook that failed leaves it True too). <code>has_script_callback</code> is False for built-in buttons that still
 do work (File's Reload, Stash's Stash Input).</p>
+<p>A parm that is not a button and has no callback is refused: pressing it
+does nothing. The small action button beside a field ("Create spare
+parameters" on a VEXpression) runs with action=True; an action that
+opens a picker holds the bridge like a dialog does.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7400,6 +7427,23 @@ must be int, bool, float or str.</p>
             <td>
               <div class="doc-md-description">
                 <p>Cook the node after the press so errors describe the result.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.nodes.press_button(action)" class="doc doc-heading doc-heading-parameter">                  <code>action</code>
+<a href="#fxhoudinimcp.tools.nodes.press_button(action)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Run the parm's action button (script_action) instead of its
+callback.</p>
               </div>
             </td>
             <td>
