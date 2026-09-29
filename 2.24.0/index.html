@@ -2366,7 +2366,7 @@
 
 <h1 id="home"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span> Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h1>
 <h2 id="fxhoudinimcp">fxhoudinimcp<a class="headerlink" href="#fxhoudinimcp" title="Permanent link">&para;</a></h2>
-<p>An <a href="https://modelcontextprotocol.io/">MCP</a> server for <a href="https://www.sidefx.com/">SideFX Houdini</a>: it lets an AI assistant such as Claude build networks, set up simulations, inspect USD stages and render, through Houdini's own Python API.</p>
+<p>An <a href="https://modelcontextprotocol.io/">MCP</a> server for <a href="https://www.sidefx.com/">SideFX Houdini</a>: it lets an AI assistant build networks, set up simulations, inspect USD stages and render, through Houdini's own Python API. It works with any MCP client: Claude, Codex, Copilot, Gemini, Cursor, Windsurf, VS Code, Cline and others.</p>
 <p><strong>215 tools</strong>, <strong>8 resources</strong>, and <strong>9 prompts</strong> serving <strong>31 written workflow guides</strong> out of the box. Start with <a href="installation/">Installation</a>.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <table>
@@ -2504,9 +2504,9 @@
 <pre class="mermaid"><code>flowchart LR
     subgraph Client[" 🤖 AI Client "]
         direction TB
-        A1("Claude Desktop")
-        A2("Cursor / VS Code")
-        A3("Claude Code")
+        A1("Claude · Codex · Copilot · Gemini")
+        A2("Cursor · Windsurf · VS Code · Cline")
+        A3("any stdio MCP client")
     end
 
     subgraph MCP[" ⚡ FXHoudini MCP Server "]

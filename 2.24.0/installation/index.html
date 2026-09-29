@@ -2537,19 +2537,16 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"env"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"FXHOUDINIMCP"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:/Users/you/code/fxhoudinimcp/houdini"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$FXHOUDINIMCP"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<p><strong>2. Point your MCP client at the server</strong>, with the absolute path of the Python that has <code>fxhoudinimcp</code> (<code>python -c "import sys; print(sys.executable)"</code>). Clients don't inherit your shell's PATH, and a bare <code>python</code> just shows as "disconnected".</p>
-<p>Claude Code:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>fxhoudini<span class="w"> </span>--<span class="w"> </span><span class="s2">"C:\Program Files\Python311\python.exe"</span><span class="w"> </span>-m<span class="w"> </span>fxhoudinimcp
-</code></pre></div>
-<p>Claude Desktop (<code>claude_desktop_config.json</code>, then quit from the system tray and relaunch):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">"fxhoudini"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:\\Program Files\\Python311\\python.exe"</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">"args"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"-m"</span><span class="p">,</span><span class="w"> </span><span class="s2">"fxhoudinimcp"</span><span class="p">]</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">}</span>
+<p><strong>2. Point your MCP client at the server.</strong> Every client runs the same command, <code>&lt;python&gt; -m fxhoudinimcp</code>, where <code>&lt;python&gt;</code> is the absolute path of the Python that has <code>fxhoudinimcp</code> (<code>python -c "import sys; print(sys.executable)"</code>). Clients don't inherit your shell's PATH, and a bare <code>python</code> just shows as "disconnected".</p>
+<p>CLI clients register it with their own command. File-based clients take this entry in their config file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">"fxhoudini"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:\Program Files\Python311\python.exe"</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="nt">"args"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"-m"</span><span class="p">,</span><span class="w"> </span><span class="s2">"fxhoudinimcp"</span><span class="p">]</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2560,6 +2557,11 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>Claude Code</td>
+<td><code>claude mcp add --scope user fxhoudini -- &lt;python&gt; -m fxhoudinimcp</code></td>
+<td><code>claude mcp remove fxhoudini -s user</code></td>
+</tr>
 <tr>
 <td>Codex</td>
 <td><code>codex mcp add fxhoudini -- &lt;python&gt; -m fxhoudinimcp</code></td>
@@ -2574,6 +2576,11 @@
 <td>Gemini CLI</td>
 <td><code>gemini mcp add -s user fxhoudini &lt;python&gt; -m fxhoudinimcp</code></td>
 <td><code>gemini mcp remove -s user fxhoudini</code></td>
+</tr>
+<tr>
+<td>Claude Desktop</td>
+<td><code>claude_desktop_config.json</code> in the app-data <code>Claude/</code> folder, key <code>mcpServers</code>; quit from the tray and relaunch</td>
+<td>delete the entry</td>
 </tr>
 <tr>
 <td>Cursor</td>
@@ -2613,9 +2620,9 @@
 <h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
 <h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
 <p>The site is built with <a href="https://zensical.org/">Zensical</a>. To build it locally:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.docs.txt
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>docs/.scripts/generate_technical_docs.py
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>python<span class="w"> </span>-m<span class="w"> </span>zensical<span class="w"> </span>serve
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.docs.txt
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>docs/.scripts/generate_technical_docs.py
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>python<span class="w"> </span>-m<span class="w"> </span>zensical<span class="w"> </span>serve
 </code></pre></div>
 <p>The first line also installs the fork of <code>mike</code> that Zensical uses for
 versioned deploys; <code>pip install -e ".[docs]"</code> alone skips it. The second
