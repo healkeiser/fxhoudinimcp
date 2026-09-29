@@ -2725,6 +2725,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;run_callbacks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2769,6 +2780,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;override_expression
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;run_callbacks
       </span>
     </span>
   </a>
@@ -3980,6 +4002,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;run_callbacks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4024,6 +4057,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;override_expression
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;run_callbacks
       </span>
     </span>
   </a>
@@ -4392,7 +4436,7 @@ references, locking, schema inspection, and spare parameter creation.</p>
   &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameters&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameters">set_parameters</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Batch-set multiple parameters on a node.</p>
+                  <p>Batch-set multiple parameters on a node, in the order given.</p>
                 </div>
               </td>
             </tr>
@@ -5613,6 +5657,7 @@ through ch() is refused as a cycle in every case.</p>
 <p>A default that is itself an expression comes back, named in
 <code>default_expression</code> with its <code>default_expression_language</code>;
 <code>expression_error</code> says when it does not evaluate.</p>
+<p>A locked parameter cannot be reverted; the error names what sets the lock.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5793,7 +5838,8 @@ through ch() is refused as a cycle in every case.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;parm_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameter(parm_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameter(parm_name)">parm_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;value&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameter(value)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameter(value)">value</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._types.Value">Value</span></span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;override_expression&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameter(override_expression)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameter(override_expression)">override_expression</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;run_callbacks&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)">run_callbacks</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5810,6 +5856,10 @@ writes THROUGH it into the parameter it reads, so the value lands on
 another node. The reply names that parameter in <code>written_through</code>.</p>
 <p>A String parameter echoes <code>raw_value</code> (the unexpanded text, <code>$JOB/...</code>)
 next to the expanded <code>new_value</code>.</p>
+<p>A LOCKED parameter (karmarendersettings resolutiony under res_mode
+autoheight) takes nothing at all; the error names the menu whose callback
+sets the lock. Houdini runs such callbacks only from the UI: set that menu
+with run_callbacks=True first, then the locked parameter.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5888,6 +5938,24 @@ instead of reporting that the write did not take.</p>
                   <code>False</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)" class="doc doc-heading doc-heading-parameter">                  <code>run_callbacks</code>
+<a href="#fxhoudinimcp.tools.parameters.set_parameter(run_callbacks)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Run the parameter's callback script after the write,
+as editing it in the UI does (<code>callback_run</code> in the reply, and
+<code>callback_error</code> when the callback raised).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -5913,12 +5981,13 @@ instead of reporting that the write did not take.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameters(node_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameters(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;params&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameters(params)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameters(params)">params</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;override_expression&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameters(override_expression)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameters(override_expression)">override_expression</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;run_callbacks&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)">run_callbacks</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Batch-set multiple parameters on a node.</p>
+        <p>Batch-set multiple parameters on a node, in the order given.</p>
 <p>Parameters that held an expression and therefore ignored the literal are
 listed in <code>expressions_kept</code>, with a top-level <code>warning</code>: a batch whose
 <code>errors</code> is empty can still contain a write that did not take. Values that
@@ -5926,6 +5995,11 @@ landed on ANOTHER node, because the parameter is a bare ch() reference
 Houdini writes through, are in <code>written_through</code>. Each entry in <code>set</code>
 carries the same keys as set_parameter's reply. Pass
 override_expression=True to clear those expressions and links instead.</p>
+<p>Locked parameters are in <code>errors</code> with <code>locked: true</code> and listed in
+<code>locked_parms</code>; the error names the menu whose callback sets the lock.
+With run_callbacks=True each parameter's callback runs after its write, so
+<code>{"res_mode": "manual", "resolutiony": 1080}</code> unlocks and then writes; a
+callback that raised is listed in <code>callbacks_not_run</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5964,9 +6038,9 @@ override_expression=True to clear those expressions and links instead.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Mapping of parameter names to values. A value written
-{"expr": "...", "language": "hscript" | "python"} is set as an
-expression, as in build_network.</p>
+                <p>Mapping of parameter names to values, written in this order.
+A value written {"expr": "...", "language": "hscript" | "python"}
+is set as an expression, as in build_network.</p>
               </div>
             </td>
             <td>
@@ -5983,6 +6057,23 @@ expression, as in build_network.</p>
             <td>
               <div class="doc-md-description">
                 <p>Remove expressions standing in the way.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)" class="doc doc-heading doc-heading-parameter">                  <code>run_callbacks</code>
+<a href="#fxhoudinimcp.tools.parameters.set_parameters(run_callbacks)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Run each parameter's callback script after its write,
+as the UI does.</p>
               </div>
             </td>
             <td>
