@@ -2287,6 +2287,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_locked_assets
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3558,6 +3569,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;node_type
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_locked_assets
       </span>
     </span>
   </a>
@@ -4989,7 +5011,8 @@ label (str), default_value (optional), min_val (optional), max_val (optional).</
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;inside&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(inside)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(inside)">inside</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;recursive&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(recursive)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(recursive)">recursive</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_type&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(node_type)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(node_type)">node_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;include_locked_assets&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)">include_locked_assets</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5059,7 +5082,8 @@ everything, up to the cap. Required with <code>inside</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Also report whether each value is still the default.</p>
+                <p>Also report whether each value is still the default,
+and, where it differs, the default (<code>default</code>, <code>default_expression</code>).</p>
               </div>
             </td>
             <td>
@@ -5091,7 +5115,9 @@ everything, up to the cap. Required with <code>inside</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>With <code>inside</code>, include every descendant, not only children.</p>
+                <p>With <code>inside</code>, include every descendant, not only children.
+Nodes inside locked HDAs (a solver's own internals) are skipped
+and counted in <code>skipped_inside_locked_assets</code>.</p>
               </div>
             </td>
             <td>
@@ -5112,6 +5138,22 @@ everything, up to the cap. Required with <code>inside</code>.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)" class="doc doc-heading doc-heading-parameter">                  <code>include_locked_assets</code>
+<a href="#fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With <code>recursive</code>, read inside locked HDAs too.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
