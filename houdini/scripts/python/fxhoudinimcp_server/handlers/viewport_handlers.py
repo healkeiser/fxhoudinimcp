@@ -17,7 +17,12 @@ import hou
 
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
-from fxhoudinimcp_server.ui import keep_viewer_state, require_ui, set_other_objects
+from fxhoudinimcp_server.ui import (
+    keep_viewer_state,
+    require_ui,
+    selection_hidden,
+    set_other_objects,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -911,7 +916,9 @@ def capture_screenshot(
         settings.frameRange((cur_frame, cur_frame))
         settings.output(output_path)
         _no_mplay(settings)
-        pane_tab.flipbook(viewport, settings)
+        # A selected object would be drawn with its selection outline.
+        with selection_hidden():
+            pane_tab.flipbook(viewport, settings)
 
         # Handle frame number that flipbook may insert
         from fxhoudinimcp_server.handlers.rendering_handlers import _find_flipbook_output

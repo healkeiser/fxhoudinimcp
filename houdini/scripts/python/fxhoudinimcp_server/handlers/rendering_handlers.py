@@ -32,7 +32,7 @@ from fxhoudinimcp_server.outputs import (
     reported_outputs,
     write_verdict,
 )
-from fxhoudinimcp_server.ui import keep_viewer_state, require_ui
+from fxhoudinimcp_server.ui import keep_viewer_state, require_ui, selection_hidden
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,9 @@ def render_viewport(
         settings.resolution(tuple(resolution))
 
     # Use the flipbook approach for a single-frame capture
-    scene_viewer.flipbook(viewport, settings)
+    # A selected object would be drawn with its selection outline.
+    with selection_hidden():
+        scene_viewer.flipbook(viewport, settings)
 
     # Handle frame number that flipbook may insert into the filename
     actual_path = _find_flipbook_output(output_path, cur_frame)
@@ -201,7 +203,8 @@ def render_quad_view(
                 settings.useResolution(True)
                 settings.resolution(tuple(resolution))
 
-            scene_viewer.flipbook(vp, settings)
+            with selection_hidden():
+                scene_viewer.flipbook(vp, settings)
             vp_output = _find_flipbook_output(vp_output, hou.frame())
             saved_files.append(
                 {
