@@ -13,6 +13,7 @@ from typing import Any
 from fxhoudinimcp._sdk import Context
 
 # Internal
+from fxhoudinimcp.bridge import NO_TIMEOUT
 from fxhoudinimcp.server import _get_bridge, mcp
 
 
@@ -232,6 +233,12 @@ async def cook_frame_range(
     check is one call rather than 100. The frame is left where the cook ended,
     ready to screenshot.
 
+    No deadline: a heavy sim runs under Houdini's progress bar for as long as it
+    takes; wait for the verdict and call nothing else meanwhile. Stopped from
+    that bar, it answers `interrupted: true` with the frames cooked so far. A
+    node that keeps a cache across frames (Trail, SOP Solver) starts from what it
+    holds: press_button its reset (Trail: `clear`) or reset_simulation first.
+
     Args:
         node_path: Node to cook; its output is what gets measured.
         start: First frame. Defaults to the playbar start.
@@ -253,7 +260,7 @@ async def cook_frame_range(
         params["end"] = end
     if attribs is not None:
         params["attribs"] = attribs
-    return await bridge.execute("graph.cook_frame_range", params)
+    return await bridge.execute("graph.cook_frame_range", params, timeout=NO_TIMEOUT)
 
 
 @mcp.tool()

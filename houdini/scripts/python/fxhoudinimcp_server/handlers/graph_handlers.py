@@ -2199,6 +2199,13 @@ def cook_frame_range(
     The frame is left at the last one cooked, because that is what stepping a
     solver means; the caller usually wants to screenshot or read it afterwards.
 
+    There is no deadline: the range runs under Houdini's progress bar, and when
+    it is stopped from there the frames cooked so far come back with
+    ``interrupted``. A node that keeps its own cache across frames (Trail, a
+    SOP Solver) starts from what it already holds: press its reset button
+    (press_button, e.g. Trail's ``clear``) or reset_simulation first, then
+    cook from the first frame.
+
     Args:
         node_path: Node to cook. Its output is what gets measured.
         start: First frame. Defaults to the playbar start.
@@ -2234,38 +2241,57 @@ def cook_frame_range(
     total_ms = 0.0
     first_error_frame: float | None = None
 
-    for index in range(count):
-        frame = start + index * step
-        hou.setFrame(frame)
-        began = time.time()
-        try:
-            node.cook(force=False)
-            cook_error = None
-        except hou.OperationFailed as exc:
-            # A cook failure is data, not a reason to abandon the range: a solver
-            # that fails on one frame and recovers is exactly what the caller is
-            # trying to see.
-            cook_error = str(exc).splitlines()[0][:200]
-        elapsed_ms = round((time.time() - began) * 1000, 1)
-        total_ms += elapsed_ms
+    interrupted_at: float | None = None
+    # No deadline (dispatcher): a heavy sim takes as long as it takes, so the
+    # range runs under Houdini's progress bar and is stopped from there; the
+    # frames cooked by then are the answer.
+    with hou.InterruptableOperation(
+        "Cooking frames",
+        long_operation_name=f"cook_frame_range {node_path}",
+        open_interrupt_dialog=True,
+    ) as operation:
+        for index in range(count):
+            frame = start + index * step
+            try:
+                operation.updateLongProgress(
+                    index / count, f"Frame {frame:g} ({index + 1}/{count})"
+                )
+            except hou.OperationInterrupted:
+                interrupted_at = frame
+                break
+            hou.setFrame(frame)
+            began = time.time()
+            try:
+                node.cook(force=False)
+                cook_error = None
+            except hou.OperationInterrupted:
+                interrupted_at = frame
+                break
+            except hou.OperationFailed as exc:
+                # A cook failure is data, not a reason to abandon the range: a solver
+                # that fails on one frame and recovers is exactly what the caller is
+                # trying to see.
+                cook_error = str(exc).splitlines()[0][:200]
+            elapsed_ms = round((time.time() - began) * 1000, 1)
+            total_ms += elapsed_ms
 
-        row: dict[str, Any] = {"frame": frame, "cook_ms": elapsed_ms}
-        if cook_error:
-            row["cook_error"] = cook_error
-        with contextlib.suppress(hou.OperationFailed):
-            # Only when there are any: an empty pair per frame is most of a
-            # 240-frame answer.
-            if errors := [e.splitlines()[0][:200] for e in node.errors()]:
-                row["errors"] = errors
-            if warnings := [w.splitlines()[0][:200] for w in node.warnings()]:
-                row["warnings"] = warnings
-        if row.get("errors") and first_error_frame is None:
-            first_error_frame = frame
-        try:
-            row.update(_frame_measurement(node, attribs, volumes))
-        except hou.OperationFailed as exc:
-            row["measure_error"] = str(exc).splitlines()[0][:200]
-        frames.append(row)
+            row: dict[str, Any] = {"frame": frame, "cook_ms": elapsed_ms}
+            if cook_error:
+                row["cook_error"] = cook_error
+            with contextlib.suppress(hou.OperationFailed):
+                # Only when there are any: an empty pair per frame is most of a
+                # 240-frame answer.
+                if errors := [e.splitlines()[0][:200] for e in node.errors()]:
+                    row["errors"] = errors
+                if warnings := [w.splitlines()[0][:200] for w in node.warnings()]:
+                    row["warnings"] = warnings
+            if row.get("errors") and first_error_frame is None:
+                first_error_frame = frame
+            try:
+                row.update(_frame_measurement(node, attribs, volumes))
+            except hou.OperationFailed as exc:
+                row["measure_error"] = str(exc).splitlines()[0][:200]
+            frames.append(row)
 
     shown = _thin_frame_rows(frames)
     result: dict[str, Any] = {
@@ -2284,6 +2310,13 @@ def cook_frame_range(
         "current_frame": hou.frame(),
         "frames": shown,
     }
+    if interrupted_at is not None:
+        result["interrupted"] = True
+        result["interrupted_at_frame"] = interrupted_at
+        result["interrupted_note"] = (
+            f"Stopped from Houdini's progress bar at frame {interrupted_at:g}; the rows "
+            "above are the frames cooked before that."
+        )
     if frames:
         slowest = max(frames, key=lambda row: row["cook_ms"])
         result["slowest_frame"] = {"frame": slowest["frame"], "cook_ms": slowest["cook_ms"]}

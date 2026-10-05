@@ -44,7 +44,15 @@ _NO_UNDO_GROUP = frozenset({"scene.undo", "scene.redo"})
 # while Houdini keeps working. FXHOUDINIMCP_TIMEOUT_<COMMAND> can still put
 # one back per command.
 _UNBOUNDED_COMMANDS = frozenset(
-    {"cache.write_cache", "rendering.start_render", "nodes.press_button"}
+    {
+        "cache.write_cache",
+        "rendering.start_render",
+        "nodes.press_button",
+        # A frame loop under Houdini's progress bar: a sparse pyro sim at 13 s a
+        # frame ran past 120 s while Houdini kept cooking, and the next command
+        # timed out queued behind it.
+        "graph.cook_frame_range",
+    }
 )
 
 # What to do when a command does time out, where the answer is not simply a
@@ -64,6 +72,12 @@ _TIMEOUT_HINTS = {
         "The button's callback is still running in Houdini. This command has no deadline "
         "unless FXHOUDINIMCP_TIMEOUT_NODES_PRESS_BUTTON set one; for a Save to Disk or a "
         "render, write_cache / start_render report a verdict."
+    ),
+    "graph.cook_frame_range": (
+        "Houdini is still cooking the range under its progress bar. Wait for the "
+        "verdict; it can be stopped from that bar and answers with the frames cooked "
+        "so far. This command has no deadline unless "
+        "FXHOUDINIMCP_TIMEOUT_GRAPH_COOK_FRAME_RANGE set one."
     ),
     "code.execute_python": (
         "If this was a cook, a render or a Save to Disk, use write_cache / start_render "
