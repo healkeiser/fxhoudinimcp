@@ -241,3 +241,94 @@ def test_build_network_in_a_dop_network_names_it(monkeypatch, pop_source):
     result = graph.build_network(dopnet.path(), [{"type": "popforce"}])
     assert result["success"] is True
     assert result["simulation_cache"]["networks"] == [popnet.path()]
+
+
+class _WiredNode(_Node):
+    """A _Node with readers (outputs() + dependents(), in one list) and a lock flag."""
+
+    def __init__(self, path, category="Sop", parent=None, resimulate=False, locked=False):
+        super().__init__(path, category=category, parent=parent, resimulate=resimulate)
+        self._locked = locked
+        self.readers: list = []
+
+    def isInsideLockedHDA(self):  # noqa: N802
+        return self._locked
+
+    def outputs(self):
+        siblings = self._path.rsplit("/", 1)[0]
+        return [n for n in self.readers if n.path().rsplit("/", 1)[0] == siblings]
+
+    def dependents(self):
+        return [n for n in self.readers if n not in self.outputs()]
+
+
+@pytest.fixture
+def pop_scene():
+    """/obj/pz/bx read by path by /obj/d/popsource1 (the POP Source's SOP Path)."""
+    obj = _WiredNode("/obj", category="Manager")
+    geo = _WiredNode("/obj/pz", category="Object", parent=obj)
+    box = _WiredNode("/obj/pz/bx", parent=geo)
+    dopnet = _WiredNode("/obj/d", category="Object", parent=obj, resimulate=True)
+    source = _WiredNode("/obj/d/popsource1", category="Dop", parent=dopnet)
+    box.readers = [source]
+    return box, dopnet
+
+
+class TestAnEditUpstreamOfASimulation:
+    """A box a POP Source reads by path left frame 25 stale until a reset (22.0.429)."""
+
+    def test_the_simulation_that_reads_it_is_named(self, pop_scene):
+        box, dopnet = pop_scene
+        note = dops.dop_cache_note([box])
+        assert note["networks"] == [dopnet.path()]
+        assert "upstream" in note["note"]
+
+    def test_a_node_nothing_simulates_gets_no_note(self, pop_scene):
+        box, _ = pop_scene
+        box.readers = []
+        assert dops.dop_cache_note([box]) is None
+
+    def test_a_solver_inside_a_locked_asset_is_named_by_its_instance(self):
+        # grid -> vellumconstraints -> vellumsolver; the constraints are read by
+        # a DOP inside the solver asset, whose own dopnet has a reset button.
+        geo = _WiredNode("/obj/vel", category="Object")
+        grid = _WiredNode("/obj/vel/gr", parent=geo)
+        constraints = _WiredNode("/obj/vel/vc", parent=geo)
+        solver = _WiredNode("/obj/vel/vs", parent=geo, resimulate=True)
+        inner = _WiredNode("/obj/vel/vs/dopnet1", parent=solver, resimulate=True, locked=True)
+        source = _WiredNode("/obj/vel/vs/dopnet1/defaultsource", "Dop", parent=inner, locked=True)
+        grid.readers = [constraints]
+        constraints.readers = [solver, source]
+        assert dops.dop_cache_note([grid])["networks"] == ["/obj/vel/vs"]
+
+    def test_the_solver_itself_is_not_its_own_reason(self):
+        # Its own parameters re-simulate (your check on timescale).
+        solver = _WiredNode("/obj/vel/vs", resimulate=True)
+        assert dops.dop_cache_note([solver]) is None
+
+    def test_the_edited_nodes_own_insides_are_not_readers(self):
+        hda = _WiredNode("/obj/geo/asset")
+        dopnet = _WiredNode("/obj/geo/asset/dopnet", resimulate=True)
+        hda.readers = [_WiredNode("/obj/geo/asset/dopnet/x", "Dop", parent=dopnet)]
+        assert dops.dop_cache_note([hda]) is None
+
+    def test_the_walk_stops_at_its_limit(self, pop_scene, monkeypatch):
+        box, _ = pop_scene
+        chain = [_WiredNode(f"/obj/pz/n{i}", parent=box.parent()) for i in range(5)]
+        box.readers = [chain[0]]
+        for a, b in zip(chain, chain[1:], strict=False):
+            a.readers = [b]
+        dopnet = _WiredNode("/obj/d", resimulate=True)
+        chain[-1].readers = [_WiredNode("/obj/d/popsource1", "Dop", parent=dopnet)]
+        monkeypatch.setattr(dops, "_DOWNSTREAM_LIMIT", 3)
+        assert dops.dop_cache_note([box]) is None
+
+
+class TestAnEditInsideASopSolver:
+    """A SOP inside a SOP Solver DOP is inside the simulation too."""
+
+    def test_its_dop_network_is_named(self):
+        dopnet = _WiredNode("/obj/d2", category="Object", resimulate=True)
+        solver = _WiredNode("/obj/d2/ss", category="Dop", parent=dopnet)
+        shift = _WiredNode("/obj/d2/ss/shift", parent=solver)
+        assert dops.dop_cache_note([shift])["networks"] == ["/obj/d2"]
