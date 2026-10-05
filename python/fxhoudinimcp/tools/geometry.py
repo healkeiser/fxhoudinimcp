@@ -350,6 +350,9 @@ async def get_attrib_stats(
     frames: list[float] | None = None,
     node_paths: list[str] | None = None,
     percentiles: list[float] | None = None,
+    group: str | None = None,
+    unique: bool = False,
+    distance_to: str | None = None,
 ) -> dict:
     """Aggregate statistics for numeric attributes: min, max, mean, sum.
 
@@ -361,7 +364,9 @@ async def get_attrib_stats(
 
     Args:
         node_path: SOP node path.
-        attribs: Attribute names. Omit for every attribute of the class.
+        attribs: Attribute names. Omit for every attribute of the class. A
+            name written "age/life" is the ratio of two attributes, per
+            element (elements dividing by zero are counted, not used).
         attrib_class: "point", "prim", "vertex" (uv and N usually live
             there) or "detail".
         frames: Measure at each of these frames: a row per node per frame,
@@ -371,9 +376,25 @@ async def get_attrib_stats(
         node_paths: Several nodes (variants) in the same call, instead of
             node_path.
         percentiles: e.g. [5, 50, 95] for the distribution (50 = median).
+        group: Only the elements in this group pattern, as a SOP group field
+            takes it: "grp", "@id>=0", "0-99"; space-separated parts add up.
+            Point and prim classes.
+        unique: Count distinct values of integer and string attributes
+            (`unique_count`, `most_common`); for the prim class also
+            `vertices_per_prim`, a trail's length and its distribution.
+        distance_to: A SOP whose surface each point's distance is measured
+            to (`distance_to` in the reply: min / max / mean, percentiles):
+            particles crawling on or hovering over a mesh. Point class; the
+            scene is not changed.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"attrib_class": attrib_class}
+    if group is not None:
+        params["group"] = group
+    if unique:
+        params["unique"] = True
+    if distance_to is not None:
+        params["distance_to"] = distance_to
     for key, value in (
         ("node_path", node_path),
         ("attribs", attribs),

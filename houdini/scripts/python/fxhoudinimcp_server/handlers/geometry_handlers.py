@@ -7,6 +7,7 @@ All functions run on the main thread via the dispatcher.
 from __future__ import annotations
 
 # Built-in
+import collections
 import contextlib
 import random
 from typing import Any
@@ -1096,6 +1097,9 @@ def _get_attrib_stats(
     frames: list | None = None,
     node_paths: list[str] | None = None,
     percentiles: list | None = None,
+    group: str | None = None,
+    unique: bool = False,
+    distance_to: str | None = None,
 ) -> dict[str, Any]:
     """The statistics below, for one node now, or for several nodes over several frames.
 
@@ -1106,6 +1110,10 @@ def _get_attrib_stats(
     (a simulation cooks forward), and the current frame put back afterwards. A
     node that fails is a row with its error, not a failed call. *percentiles*
     (e.g. [5, 50, 95]) adds the distribution a median or a framing needs.
+    *group* narrows the elements to a group pattern (`grp`, `@id>=0`, `0-99`),
+    *unique* counts distinct values of integer and string attributes, and
+    *distance_to* measures each point's distance to another SOP's surface. An
+    attribute name written "age/life" is the ratio of two attributes.
     """
     if node_path is not None and node_paths:
         # node_paths used to win and node_path was dropped without a word.
@@ -1116,8 +1124,14 @@ def _get_attrib_stats(
     quantiles = _check_percentiles(percentiles)
     # node_paths always answers rows, even with one entry: a caller looping
     # over variants should not get a different shape when only one is left.
+    # The narrowing options are passed only when asked for.
+    narrowing = {
+        key: value
+        for key, value in (("group", group), ("unique", unique), ("distance_to", distance_to))
+        if value
+    }
     if frames is None and node_paths is None:
-        return _attrib_stats_once(nodes[0], attribs, attrib_class, quantiles)
+        return _attrib_stats_once(nodes[0], attribs, attrib_class, quantiles, **narrowing)
     wanted_frames = sorted({float(f) for f in frames}) if frames else [hou.frame()]
     current = hou.frame()
     rows: list[dict[str, Any]] = []
@@ -1126,7 +1140,7 @@ def _get_attrib_stats(
             hou.setFrame(frame)
             for path in nodes:
                 try:
-                    row = _attrib_stats_once(path, attribs, attrib_class, quantiles)
+                    row = _attrib_stats_once(path, attribs, attrib_class, quantiles, **narrowing)
                 except Exception as exc:
                     row = {"node_path": path, "error": str(exc)}
                 row["frame"] = frame
@@ -1165,6 +1179,9 @@ def _attrib_stats_once(
     attribs: list[str] | str | None,
     attrib_class: str,
     percentiles: list[float] | None = None,
+    group: str | None = None,
+    unique: bool = False,
+    distance_to: str | None = None,
 ) -> dict[str, Any]:
     """Aggregate statistics for numeric attributes: min, max, mean, sum.
 
@@ -1193,11 +1210,21 @@ def _attrib_stats_once(
         attribs = [attribs]
     available = {a.name(): a for a in lister()}
     wanted = attribs or sorted(available)
+    # "age/life": how far through its life each particle is has no attribute
+    # of its own. A name with a slash that is not an attribute is a ratio.
+    ratios = [name for name in wanted if "/" in name and name not in available]
+    wanted = [name for name in wanted if name not in ratios]
 
     missing = [name for name in wanted if name not in available]
     wanted = [name for name in wanted if name in available][:_STATS_ATTRIB_CAP]
 
     if cls in ("detail", "global"):
+        if group or distance_to or ratios:
+            # Refused rather than dropped: there is one detail element.
+            raise ValueError(
+                "group, distance_to and attribute ratios apply to point and prim "
+                "statistics, not detail"
+            )
         # A detail attribute is a single value, so "statistics" is the value.
         stats = {name: {"value": _vec_to_list(geo.attribValue(available[name]))} for name in wanted}
         return {
@@ -1214,16 +1241,25 @@ def _attrib_stats_once(
             "use point, prim, vertex or detail"
         )
 
+    # Element numbers in the group, or None for all: counting only the
+    # particles, without a collider's points merged into the same geometry.
+    rows = _group_rows(geo, cls, group)
+
     elements = None  # built only when a fast path is missing: vertices are costly
     stats: dict[str, Any] = {}
     for name in wanted:
         attrib = available[name]
-        if attrib.isArrayType() or attrib.dataType() == hou.attribData.String:
+        if attrib.isArrayType():
             stats[name] = {"skipped": "not numeric"}
+            continue
+        if attrib.dataType() == hou.attribData.String:
+            stats[name] = (
+                _string_counts(geo, cls, name, rows) if unique else {"skipped": "not numeric"}
+            )
             continue
         size = attrib.size()
         kind = "Int" if attrib.dataType() == hou.attribData.Int else "Float"
-        fast = _numpy_stats(geo, cls, kind, name, size, percentiles)
+        fast = _numpy_stats(geo, cls, kind, name, size, percentiles, rows, unique)
         if fast is not None:
             stats[name] = fast
             continue
@@ -1239,6 +1275,9 @@ def _attrib_stats_once(
             flat = []
             for element in elements:
                 flat.extend(_numeric_components(element.attribValue(attrib)))
+        if rows is not None:
+            width = max(size, 1)
+            flat = [v for row in rows for v in flat[row * width : (row + 1) * width]]
         if not flat:
             stats[name] = {"count": 0}
             continue
@@ -1271,20 +1310,159 @@ def _attrib_stats_once(
                 )
                 for q in percentiles
             }
+        if unique and kind == "Int" and size == 1:
+            entry.update(_value_counts(flat))
         stats[name] = entry
 
-    return {
+    result = {
         "node_path": node_path,
         "attrib_class": attrib_class,
-        "element_count": _element_count(geo, cls, element_getter),
+        "element_count": (_element_count(geo, cls, element_getter) if rows is None else len(rows)),
         "stats": stats,
         "missing": missing,
         "truncated": bool(attribs is None and len(available) > _STATS_ATTRIB_CAP),
     }
+    if rows is not None:
+        result["group"] = group
+    for ratio in ratios:
+        stats[ratio] = _ratio_stats(geo, cls, available, ratio, rows, percentiles)
+    if cls == "prim" and unique:
+        # A trail's length is its vertex count; there is no attribute for it.
+        # Asked for only: it walks every primitive in Python.
+        result["vertices_per_prim"] = _vertices_per_prim(geo, rows)
+    if distance_to:
+        result["distance_to"] = _distance_stats(geo, cls, distance_to, rows, percentiles)
+    return result
+
+
+def _group_rows(geo, cls: str, group: str | None) -> list[int] | None:
+    """Numbers of the *cls* elements in the group pattern *group*, or None for all."""
+    if not group:
+        return None
+    if cls == "point":
+        found = geo.globPoints(group)
+    elif cls == "prim":
+        found = geo.globPrims(group)
+    else:
+        raise ValueError(f"group applies to point and prim statistics, not {cls!r}")
+    return sorted(element.number() for element in found)
+
+
+def _value_counts(values: list, cap: int = 10) -> dict[str, Any]:
+    """How many distinct values, and the most frequent ones with their counts."""
+    counts = collections.Counter(values)
+    return {
+        "unique_count": len(counts),
+        "most_common": [[value, count] for value, count in counts.most_common(cap)],
+    }
+
+
+def _string_counts(geo, cls: str, name: str, rows: list[int] | None) -> dict[str, Any]:
+    """count / unique_count / most_common of a string attribute."""
+    values = list(getattr(geo, f"{cls}StringAttribValues")(name))
+    if rows is not None:
+        values = [values[row] for row in rows]
+    return {"count": len(values), **_value_counts(values)}
+
+
+def _vertices_per_prim(geo, rows: list[int] | None) -> dict[str, Any]:
+    """Distribution of vertex counts per primitive (a trail's length)."""
+    prims = geo.prims()
+    counts = (
+        [prims[row].numVertices() for row in rows]
+        if rows is not None
+        else [prim.numVertices() for prim in prims]
+    )
+    if not counts:
+        return {"count": 0}
+    return {
+        "min": min(counts),
+        "max": max(counts),
+        "mean": sum(counts) / len(counts),
+        **_value_counts(counts),
+    }
+
+
+def _list_stats(values: list[float], percentiles: list[float] | None) -> dict[str, Any]:
+    """count / min / max / mean (and percentiles) of plain numbers."""
+    if not values:
+        return {"count": 0}
+    entry: dict[str, Any] = {
+        "count": len(values),
+        "min": min(values),
+        "max": max(values),
+        "mean": sum(values) / len(values),
+    }
+    if percentiles:
+        entry["percentiles"] = {f"{q:g}": _python_percentile(values, q) for q in percentiles}
+    return entry
+
+
+def _ratio_stats(
+    geo, cls: str, available: dict, ratio: str, rows: list[int] | None, percentiles
+) -> dict[str, Any]:
+    """Statistics of one attribute divided by another, element by element.
+
+    An element whose denominator is zero is counted in `zero_denominator`,
+    not used. A missing or non-scalar attribute is an `error` in the entry,
+    not a failed call.
+    """
+    names = [part.strip() for part in ratio.split("/", 1)]
+    columns = []
+    for name in names:
+        attrib = available.get(name)
+        if attrib is None:
+            return {"error": f"no {cls} attribute '{name}'"}
+        if attrib.isArrayType() or attrib.dataType() == hou.attribData.String or attrib.size() != 1:
+            return {"error": f"'{name}' is not a single number per element"}
+        kind = "Int" if attrib.dataType() == hou.attribData.Int else "Float"
+        column = list(getattr(geo, f"{cls}{kind}AttribValues")(name))
+        columns.append([column[row] for row in rows] if rows is not None else column)
+    numerators, denominators = columns
+    values = [n / d for n, d in zip(numerators, denominators, strict=True) if d != 0]
+    entry = {"ratio_of": names, **_list_stats(values, percentiles)}
+    if len(values) < len(numerators):
+        entry["zero_denominator"] = len(numerators) - len(values)
+    return entry
+
+
+def _distance_stats(
+    geo, cls: str, target_path: str, rows: list[int] | None, percentiles
+) -> dict[str, Any]:
+    """How far each point is from another SOP's surface: crawling, hovering, sticking.
+
+    nearestPrim in a Python loop costs about 4 ms a point. The Ray SOP's
+    Minimum Distance runs as a verb on a copy in memory instead (20 000
+    points in 8 ms on 22.0.429, the same distances); the scene is not
+    touched and no node is created.
+    """
+    if cls != "point":
+        raise ValueError(f"distance_to measures points, not {cls!r} elements")
+    target = _get_sop_geo(target_path)
+    if not target.prims():
+        raise ValueError(f"'{target_path}' has no primitives to measure the distance to")
+    verb = hou.sopNodeTypeCategory().nodeVerb("ray")
+    parms = verb.parms()
+    parms.update({"method": 0, "dotrans": 0, "putdist": 1})  # Minimum Distance, points stay
+    verb.setParms(parms)
+    work = hou.Geometry()
+    work.merge(geo)
+    verb.execute(work, [work.freeze(), target])
+    distances = list(work.pointFloatAttribValues("dist"))
+    if rows is not None:
+        distances = [distances[row] for row in rows]
+    return {"target": target_path, **_list_stats(distances, percentiles)}
 
 
 def _numpy_stats(
-    geo, cls: str, kind: str, name: str, size: int, percentiles: list[float] | None = None
+    geo,
+    cls: str,
+    kind: str,
+    name: str,
+    size: int,
+    percentiles: list[float] | None = None,
+    rows: list[int] | None = None,
+    unique: bool = False,
 ) -> dict[str, Any] | None:
     """min/max/sum/mean (and per component) from the raw buffer, or None.
 
@@ -1303,10 +1481,22 @@ def _numpy_stats(
             values = np.frombuffer(raw, dtype=np.float32)
     except Exception:
         return None
-    if values.size == 0:
-        return {"count": 0}
     size = max(size, 1)
-    table = values.reshape(-1, size).astype(np.float64)
+    table = values.reshape(-1, size)
+    if rows is not None:
+        table = table[np.asarray(rows, dtype=np.int64)]
+    if table.size == 0:
+        return {"count": 0}
+    counted = None
+    if unique and kind == "Int" and size == 1:
+        # sourceptnum, id: how many distinct, and which come up most.
+        found, counts = np.unique(table[:, 0], return_counts=True)
+        order = np.argsort(-counts, kind="stable")[:10]
+        counted = {
+            "unique_count": int(found.size),
+            "most_common": [[int(found[i]), int(counts[i])] for i in order],
+        }
+    table = table.astype(np.float64)
     cast = int if kind == "Int" else float
     entry: dict[str, Any] = {
         "count": int(table.shape[0]),
@@ -1329,6 +1519,8 @@ def _numpy_stats(
             f"{q:g}": float(row[0]) if size == 1 else [float(v) for v in row]
             for q, row in zip(percentiles, found, strict=True)
         }
+    if counted is not None:
+        entry.update(counted)
     return entry
 
 
