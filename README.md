@@ -260,7 +260,7 @@ Every tool call is one undo step. Tools leave your selection, viewport camera an
 | `FXHOUDINIMCP_AUTOSTART` | `1` | Houdini | `0` disables auto-start |
 | `FXHOUDINIMCP_AUTO_LAYOUT` | `0` | both | `1` lets tools re-lay-out a network after changing it. Off, only new nodes are placed |
 | `FXHOUDINIMCP_PROJECT_ROOT` | unset | Houdini | Confine hip, import, export and HDA files to this directory |
-| `FXHOUDINIMCP_TIMEOUT` | `120` | Houdini | Seconds a command may run |
+| `FXHOUDINIMCP_TIMEOUT` | `120` | Houdini | Seconds a command may run; `write_cache`, `start_render` and `press_button` have no deadline |
 | `FXHOUDINIMCP_TIMEOUT_<COMMAND>` | unset | Houdini | Per-command override: `FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900` |
 | `FXHOUDINIMCP_OUTPUT_GRACE` | `2` | Houdini | Seconds a render or cache may take to show its file before it counts as not written |
 | `HOUDINI_HOST` | `localhost` | client | Houdini host |
