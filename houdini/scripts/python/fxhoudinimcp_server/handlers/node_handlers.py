@@ -449,6 +449,7 @@ def list_children(
     parent_path: str,
     recursive: bool = False,
     filter_type: str = None,
+    include_locked_assets: bool = False,
 ) -> dict:
     """List children of a network node.
 
@@ -456,17 +457,32 @@ def list_children(
         parent_path: Path to the parent network.
         recursive: If True, list all descendants, not just direct children.
         filter_type: Optional node type name to filter by (e.g. "box", "merge").
+        include_locked_assets: With *recursive*, also descend into locked
+            assets. Off by default: a POP network's solver assets filled the
+            500-node cap with their own insides, and the user's nodes were
+            lost among them. A locked asset is still listed, flagged
+            ``locked_asset``.
     """
     parent = _get_node(parent_path)
 
-    children = parent.allSubChildren() if recursive else parent.children()
+    children = (
+        parent.allSubChildren(recurse_in_locked_nodes=bool(include_locked_assets))
+        if recursive
+        else parent.children()
+    )
 
     _MAX_CHILDREN = 500
     results = []
     for child in children:
         if filter_type and child.type().name() != filter_type:
             continue
-        results.append(_node_summary(child))
+        summary = _node_summary(child)
+        if recursive and not include_locked_assets:
+            # Say where the listing stopped, so the caller knows there is more.
+            with contextlib.suppress(Exception):
+                if child.isLockedHDA() is True and len(child.children()) > 0:
+                    summary["locked_asset"] = True
+        results.append(summary)
         if len(results) >= _MAX_CHILDREN:
             break
 

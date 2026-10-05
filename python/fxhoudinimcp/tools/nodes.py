@@ -158,17 +158,22 @@ async def list_children(
     parent_path: str,
     recursive: bool = False,
     filter_type: str | None = None,
+    include_locked_assets: bool = False,
 ) -> dict:
     """List children of a network node.
 
     Avoid `recursive=True` on large networks — it can return hundreds or
     thousands of nodes. Prefer `find_nodes` with a specific pattern instead.
+    A recursive listing does not enter locked assets (a POP or FLIP solver's
+    insides): the asset itself is listed, flagged `locked_asset`.
 
     Args:
         ctx: MCP context.
         parent_path: Parent network path.
         recursive: Include all descendants (use sparingly on large scenes).
         filter_type: Node type filter (e.g. 'box', 'merge').
+        include_locked_assets: With recursive, also list what locked assets
+            contain.
     """
     bridge = _get_bridge(ctx)
     params: dict = {
@@ -177,6 +182,8 @@ async def list_children(
     }
     if filter_type is not None:
         params["filter_type"] = filter_type
+    if include_locked_assets:
+        params["include_locked_assets"] = True
     return await bridge.execute("nodes.list_children", params)
 
 
