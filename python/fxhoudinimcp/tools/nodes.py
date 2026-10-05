@@ -99,8 +99,9 @@ async def copy_node(
     original instead of on top of it; in another network it keeps the
     original's position. `offset` overrides both, and `position` in the reply
     says where the copy is. `inputs` lists the wires the copy kept
-    ({index, from}); `inputs_not_copied` the original's wires it could not
-    keep, as in a copy into another network.
+    ({index, from}, or {index, indirect_input} for a subnet's own input
+    connector); `inputs_not_copied` the original's wires it could not keep,
+    as in a copy into another network.
 
     Args:
         ctx: MCP context.

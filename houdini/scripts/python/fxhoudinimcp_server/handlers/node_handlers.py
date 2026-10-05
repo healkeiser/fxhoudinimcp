@@ -233,16 +233,30 @@ def copy_node(
     # network cannot keep a wire from this one, and that is said rather than
     # left to be discovered.
     with contextlib.suppress(Exception):
-        kept = {i: n.path() for i, n in enumerate(copied.inputs()) if n is not None}
-        result["inputs"] = [{"index": i, "from": path} for i, path in sorted(kept.items())]
-        lost = [
-            {"index": i, "from": n.path()}
-            for i, n in enumerate(node.inputs())
-            if n is not None and i not in kept
-        ]
+        kept = _wires(copied)
+        result["inputs"] = [{"index": i, **kept[i]} for i in sorted(kept)]
+        original = _wires(node)
+        lost = [{"index": i, **original[i]} for i in sorted(original) if i not in kept]
         if lost:
             result["inputs_not_copied"] = lost
     return result
+
+
+def _wires(node: hou.Node) -> dict[int, dict[str, Any]]:
+    """Each input of *node* by index: {"from": path}, or {"indirect_input": n}.
+
+    inputConnections(), not inputs(): measured on 22.0, a wire from a
+    subnet's input connector read in inputs() as the node feeding the subnet
+    from outside, a node the copy is not wired to.
+    """
+    wires: dict[int, dict[str, Any]] = {}
+    for conn in node.inputConnections():
+        item = conn.inputItem()
+        if isinstance(item, hou.SubnetIndirectInput):
+            wires[conn.inputIndex()] = {"indirect_input": item.number()}
+        else:
+            wires[conn.inputIndex()] = {"from": item.path()}
+    return wires
 
 
 ###### nodes.move_node

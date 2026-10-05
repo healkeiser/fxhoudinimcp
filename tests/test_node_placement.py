@@ -88,6 +88,13 @@ class _FakeNode:
     def inputs(self):
         return self.wired
 
+    def inputConnections(self):  # noqa: N802 - HOM's name
+        return [
+            MagicMock(**{"inputIndex.return_value": i, "inputItem.return_value": item})
+            for i, item in enumerate(self.wired)
+            if item is not None
+        ]
+
     def path(self):
         return self._path
 
@@ -96,6 +103,16 @@ class _FakeNode:
 
     def type(self):
         return MagicMock(**{"name.return_value": "box"})
+
+
+class _IndirectInput:
+    """hou.SubnetIndirectInput: a subnet's input connector, not a node."""
+
+    def __init__(self, number):
+        self._number = number
+
+    def number(self):
+        return self._number
 
 
 class _FakeParent(_FakeNode):
@@ -586,6 +603,7 @@ class TestCopyNodeNamesTheCopysInputs:
             nodes.hou, "copyNodesTo", lambda sources, parent: (copied,), raising=False
         )
         monkeypatch.setattr(nodes.hou, "Vector2", _Vec, raising=False)
+        monkeypatch.setattr(nodes.hou, "SubnetIndirectInput", _IndirectInput, raising=False)
         found = {"/obj/geo1/dopnet1": original, "/obj/geo2": other}
         monkeypatch.setattr(nodes, "_get_node", lambda path: found[path])
         dest = "/obj/geo2" if into_other_network else None
@@ -609,5 +627,15 @@ class TestCopyNodeNamesTheCopysInputs:
         assert reply["inputs"] == []
         assert reply["inputs_not_copied"] == [
             {"index": 0, "from": "/obj/geo1/grid1"},
+            {"index": 1, "from": "/obj/geo1/merge1"},
+        ]
+
+    def test_a_wire_from_the_subnet_s_own_input_is_named_as_such(self, monkeypatch):
+        # Measured on 22.0: inputs() read it as the node feeding the subnet
+        # from outside, which the copy is not wired to.
+        connector = _IndirectInput(0)
+        reply = self._copy(monkeypatch, lambda grid, merge: (connector, merge))
+        assert reply["inputs"] == [
+            {"index": 0, "indirect_input": 0},
             {"index": 1, "from": "/obj/geo1/merge1"},
         ]
