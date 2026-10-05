@@ -21,7 +21,7 @@ from fxhoudinimcp_server.callbacks import CallbackError, _is_python, callback_sc
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import readable_message
 from fxhoudinimcp_server.handlers.dop_handlers import dop_cache_note
-from fxhoudinimcp_server.serialize import geometry_summary
+from fxhoudinimcp_server.serialize import geometry_summary, ramp_to_dict
 
 ###### Helpers
 
@@ -117,6 +117,69 @@ def _parm_type_name(parm_template: hou.ParmTemplate) -> str:
     return parm_template.type().name()
 
 
+# What a whole ramp is written as: the shape serialize.ramp_to_dict reads it
+# back in, so a ramp read from one parm can be written to another as it is.
+_RAMP_KEYS = frozenset({"keys", "values", "basis", "is_color", "type"})
+
+
+def is_ramp_value(value: Any) -> bool:
+    """Whether *value* is a whole ramp: ``{"keys": [...], "values": [...], "basis": ...}``."""
+    return (
+        isinstance(value, dict)
+        and "keys" in value
+        and "values" in value
+        and not set(value) - _RAMP_KEYS
+    )
+
+
+def _ramp_basis(name: Any) -> Any:
+    """hou.rampBasis for a name such as "linear" or "CatmullRom", in any case."""
+    wanted = str(name).replace("-", "").replace("_", "").lower()
+    known = sorted(a for a in dir(hou.rampBasis) if not a.startswith("_") and a[0].isupper())
+    for attr in known:
+        if attr.lower() == wanted:
+            return getattr(hou.rampBasis, attr)
+    raise ValueError(f"unknown ramp basis {name!r}; known: {known}")
+
+
+def ramp_from_value(parm: hou.Parm, value: dict) -> hou.Ramp:
+    """The hou.Ramp a ``{"keys", "values", "basis"}`` value describes, for *parm*.
+
+    `basis` is one name for every key or one per key, "linear" when left out;
+    a colour ramp takes [r, g, b] values, a float ramp numbers. A dict on a
+    parameter that is not a ramp is refused: there a dict is an expression.
+    """
+    template = parm.parmTemplate()
+    if template.type() != hou.parmTemplateType.Ramp:
+        raise ValueError(
+            f"'{parm.name()}' is not a ramp parameter; a dict for it is an "
+            f'expression, {{"expr": ...}}'
+        )
+    keys = [float(k) for k in value["keys"]]
+    values = list(value["values"])
+    if len(keys) != len(values):
+        raise ValueError(f"a ramp needs one value per key: {len(keys)} keys, {len(values)} values")
+    if template.parmType() == hou.rampParmType.Color:
+        try:
+            values = [tuple(float(c) for c in v) for v in values]
+        except TypeError:
+            raise ValueError("a colour ramp takes [r, g, b] values") from None
+        if any(len(v) != 3 for v in values):
+            raise ValueError("a colour ramp takes [r, g, b] values")
+    else:
+        try:
+            values = [float(v) for v in values]
+        except TypeError:
+            raise ValueError("a float ramp takes numbers as values") from None
+    basis = value.get("basis", "linear")
+    names = list(basis) if isinstance(basis, (list, tuple)) else [basis] * len(keys)
+    if len(names) != len(keys):
+        raise ValueError(
+            f"a ramp takes one basis or one per key: {len(keys)} keys, {len(names)} bases"
+        )
+    return hou.Ramp(tuple(_ramp_basis(n) for n in names), tuple(keys), tuple(values))
+
+
 def _serialize_value(value: Any) -> Any:
     """Convert a value to a JSON-safe Python type."""
     if isinstance(value, hou.Vector2):
@@ -130,7 +193,8 @@ def _serialize_value(value: Any) -> Any:
     if isinstance(value, hou.Matrix4):
         return [list(row) for row in value.asTupleOfTuples()]
     if isinstance(value, hou.Ramp):
-        return str(value)
+        # Data, in the shape a ramp is written in; its repr was all a caller got.
+        return ramp_to_dict(value)
     if isinstance(value, (list, tuple)):
         return [_serialize_value(v) for v in value]
     return value
@@ -622,6 +686,14 @@ def _write_parm(
     return info
 
 
+def _write_ramp(parm: hou.Parm, value: dict) -> dict[str, Any]:
+    """Set a whole ramp; answer with what the parm holds afterwards."""
+    if locked := locked_message(parm):
+        raise LockedParmError(locked)
+    parm.set(ramp_from_value(parm, value))
+    return {"new_value": ramp_to_dict(parm.evalAsRamp())}
+
+
 def _set_tuple(
     node: hou.Node,
     parm_name: str,
@@ -794,6 +866,14 @@ def _set_parameters(
         # stored 0 and reported success, so the expression silently vanished.
         if isinstance(value, dict):
             parm = node.parm(name)
+            if parm is not None and is_ramp_value(value):
+                # A whole ramp at once; key by key through its multiparm
+                # (`ramp`, `ramp1pos`, `ramp1c`, ...) was the only way in.
+                try:
+                    results.append({"parm_name": name, **_write_ramp(parm, value)})
+                except Exception as exc:
+                    errors.append(_error_entry(name, exc))
+                continue
             if "expr" not in value or parm is None:
                 problem = "no such parameter" if parm is None else 'a dict value needs "expr"'
                 errors.append({"parm_name": name, "error": f"{problem}: {value!r}"})
@@ -845,6 +925,16 @@ def _set_parameters(
             results.append(entry)
         except Exception as exc:
             errors.append(_error_entry(name, exc))
+
+    # A ramp written key by key (`ramp: 3`, `ramp3pos`, `ramp3c`) was echoed
+    # straight after the count, when the new key still read t=0, black,
+    # though the same call went on to set it. Ramps answer with what they
+    # hold once the whole call is through.
+    for entry in results:
+        with contextlib.suppress(Exception):
+            ramp_parm = node.parm(entry["parm_name"])
+            if ramp_parm.parmTemplate().type() == hou.parmTemplateType.Ramp:
+                entry["new_value"] = ramp_to_dict(ramp_parm.evalAsRamp())
 
     # A batch whose `errors` is empty while a parm kept its expression reads as
     # a clean success: name it at the top level too, so a caller that only

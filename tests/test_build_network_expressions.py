@@ -24,6 +24,7 @@ from __future__ import annotations
 # Built-in
 import os
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 # Third-party
@@ -257,10 +258,17 @@ def validating_build(monkeypatch):
     def knowledge(scratch, resolved, parm_types=None, factory_expressions=None, locked=None):
         if parm_types is not None:
             parm_types.update(
-                {"input": "Int", "name": "String", "tx": "Float", "ty": "Float", "tz": "Float"}
+                {
+                    "input": "Int",
+                    "name": "String",
+                    "tx": "Float",
+                    "ty": "Float",
+                    "tz": "Float",
+                    "ramp": "Ramp",
+                }
             )
         connectors = {"inputs": [], "outputs": []}
-        return {"input", "name", "tx", "ty", "tz"}, {"t"}, {}, [], connectors
+        return {"input", "name", "tx", "ty", "tz", "ramp"}, {"t"}, {}, [], connectors
 
     monkeypatch.setattr(graph, "_parm_names_for_type", knowledge)
     return graph.build_network
@@ -355,6 +363,58 @@ class TestExpressionsInASpec:
         )
         assert result["valid"] is False
         assert "['tx', 'ty', 'tz']" in result["errors"][0]
+
+
+###### A ramp as one value
+
+
+RED_TO_BLUE = {"keys": [0, 1], "values": [[1, 0, 0], [0, 0, 1]], "basis": "linear"}
+
+
+class TestARampInASpec:
+    """A ramp could be set only key by key through its multiparm; a dict for
+    the whole of it was refused as an expression without 'expr'."""
+
+    def test_a_whole_ramp_validates(self, validating_build):
+        result = validating_build(
+            "/obj", [{"type": "switch", "parms": {"ramp": RED_TO_BLUE}}], dry_run=True
+        )
+        assert result["valid"] is True, result["errors"]
+
+    def test_a_ramp_on_a_parm_that_is_not_one_is_refused(self, validating_build):
+        result = validating_build(
+            "/obj", [{"type": "switch", "parms": {"tx": RED_TO_BLUE}}], dry_run=True
+        )
+        assert result["valid"] is False
+        assert "'tx' is Float, not a ramp" in "\n".join(result["errors"])
+
+    def test_a_ramp_on_a_parm_that_does_not_exist_is_named(self, validating_build):
+        result = validating_build(
+            "/obj", [{"type": "switch", "parms": {"rmap": RED_TO_BLUE}}], dry_run=True
+        )
+        assert result["valid"] is False
+        assert "parm 'rmap' does not exist" in "\n".join(result["errors"])
+
+    def test_the_build_sets_a_hou_ramp(self, monkeypatch):
+        class Ramp:
+            def __init__(self, basis, keys, values):
+                self.args = (basis, keys, values)
+
+        monkeypatch.setattr(hou, "parmTemplateType", SimpleNamespace(Ramp="Ramp"))
+        monkeypatch.setattr(hou, "rampParmType", SimpleNamespace(Color="Color"))
+        monkeypatch.setattr(hou, "rampBasis", SimpleNamespace(Linear="LIN"))
+        monkeypatch.setattr(hou, "Ramp", Ramp)
+        parm = MagicMock()
+        parm.parmTemplate.return_value = SimpleNamespace(
+            type=lambda: "Ramp", parmType=lambda: "Color"
+        )
+        graph._set_parm_value("ramp", parm, None, RED_TO_BLUE)
+        (written,) = parm.set.call_args.args
+        assert written.args == (
+            ("LIN", "LIN"),
+            (0.0, 1.0),
+            ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+        )
 
 
 ###### Literals over factory expressions
