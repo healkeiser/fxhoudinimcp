@@ -12,6 +12,11 @@ itself is read): a POP network's file patterns came back as hundreds of rows
 of the solvers' own internals. They are counted in
 `skipped_inside_locked_assets`; include_locked_assets=True reads them.
 
+non_default_only=True keeps only the parameters changed from their defaults,
+each with its default beside the value; with `inside` it needs no patterns.
+"What was changed on these 33 nodes of a POP network" was 33 get_node_info
+calls or an execute_python.
+
 hou is mocked here and only through monkeypatch; the live check ran on
 Houdini 22.0.429 (six file SOPs, one call, six rows, `$JOB` visible raw).
 """
@@ -308,3 +313,68 @@ class TestDefaultBesideTheValue:
             inside="/mat/lib", patterns=["file"], include_defaults=True
         )
         assert result["rows"][0]["default"] == ""
+
+
+class TestOnlyWhatWasChanged:
+    """Which parameters of a network were changed, and from what, in one call."""
+
+    @staticmethod
+    def _changed(name, value, default, at_default=False):
+        parm = _parm(name, value, kind="Float")
+        parm.isAtDefault.return_value = at_default
+        parm.componentIndex.return_value = 0
+        template = parm.parmTemplate.return_value
+        template.defaultValue.return_value = (default,)
+        template.defaultExpression.return_value = ("",)
+        return parm
+
+    def _source(self):
+        return _node(
+            "/mat/lib/source_first_input",
+            "popsource",
+            [
+                self._changed("life", 1.0, 100.0),
+                self._changed("seed", 0.0, 0.0, at_default=True),
+            ],
+        )
+
+    def test_a_single_node_answers_only_the_changed_parm_with_its_default(self, monkeypatch):
+        node = self._source()
+        monkeypatch.setattr(parameters.hou, "node", lambda path: node)
+        result = parameters._get_parameters("/mat/lib/source_first_input", non_default_only=True)
+        assert result["parameters"] == {
+            "life": {"value": 1.0, "is_at_default": False, "default": 100.0}
+        }
+        assert result["matched"] == 1
+
+    def test_a_network_needs_no_patterns(self, monkeypatch):
+        quiet = _node("/mat/lib/solver", "popsolver", [self._changed("substep", 1.0, 1.0, True)])
+        _library(monkeypatch, [self._source(), quiet])
+        result = parameters._get_parameters(inside="/mat/lib", non_default_only=True)
+        assert [(r["node"], r["parm"], r["default"]) for r in result["rows"]] == [
+            ("/mat/lib/source_first_input", "life", 100.0)
+        ]
+        assert result["nodes_scanned"] == 2
+        assert result["nodes_matched"] == 1
+        assert result["non_default_only"] is True
+
+    def test_patterns_still_narrow_it(self, monkeypatch):
+        _library(monkeypatch, [self._source()])
+        result = parameters._get_parameters(
+            inside="/mat/lib", patterns=["seed"], non_default_only=True
+        )
+        assert result["rows"] == []
+
+    def test_a_parm_that_cannot_say_counts_as_default(self, monkeypatch):
+        parm = self._changed("odd", 1.0, 0.0)
+        parm.isAtDefault.side_effect = RuntimeError("no default")
+        _library(monkeypatch, [_node("/mat/lib/n", "null", [parm])])
+        result = parameters._get_parameters(inside="/mat/lib", non_default_only=True)
+        assert result["rows"] == []
+
+    def test_without_it_a_network_still_wants_patterns_and_names_the_way_out(self, monkeypatch):
+        _library(monkeypatch, [self._source()])
+        with pytest.raises(ValueError, match="non_default_only"):
+            parameters._get_parameters(inside="/mat/lib")
+        plain = parameters._get_parameters(inside="/mat/lib", patterns=["life"])
+        assert "non_default_only" not in plain

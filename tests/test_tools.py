@@ -325,6 +325,22 @@ class TestEvidenceTools:
         )
 
     @pytest.mark.asyncio
+    async def test_get_parameters_non_default_only(self, mock_ctx, mock_bridge):
+        from fxhoudinimcp.tools.parameters import get_parameters
+
+        mock_bridge.execute.return_value = {"rows": []}
+        await get_parameters(mock_ctx, inside="/obj/sim/popnet", non_default_only=True)
+        mock_bridge.execute.assert_called_once_with(
+            "parameters.get_parameters",
+            {
+                "include_defaults": False,
+                "non_default_only": True,
+                "inside": "/obj/sim/popnet",
+                "recursive": False,
+            },
+        )
+
+    @pytest.mark.asyncio
     async def test_get_parameters_into_locked_assets(self, mock_ctx, mock_bridge):
         from fxhoudinimcp.tools.parameters import get_parameters
 

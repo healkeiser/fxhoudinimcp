@@ -1647,6 +1647,14 @@ def _default_of(parm: hou.Parm) -> dict[str, Any]:
     return found
 
 
+def _off_default(parm: hou.Parm) -> bool:
+    """Whether *parm* was changed from its default (a type's own expression is not)."""
+    try:
+        return not parm.isAtDefault()
+    except Exception:
+        return False
+
+
 def _matches_patterns(parm: hou.Parm, lowered: list[str] | None) -> bool:
     """Whether any lowered pattern is a substring of the parm's name or label."""
     if lowered is None:
@@ -1664,6 +1672,7 @@ def _get_parameters(
     recursive: bool = False,
     node_type: str | None = None,
     include_locked_assets: bool = False,
+    non_default_only: bool = False,
     **_: Any,
 ) -> dict[str, Any]:
     """Current values for every parameter matching any of several patterns.
@@ -1692,12 +1701,24 @@ def _get_parameters(
             HDAs (a POP solver's own file and include parameters). Off by
             default: they buried the few real file paths of a network under
             hundreds of rows.
+        non_default_only: Only parameters changed from their defaults, each
+            with its default beside the value. With *inside* no patterns are
+            needed then: "what was changed on these 33 nodes" was 33
+            get_node_info calls or execute_python.
     """
+    if non_default_only:
+        include_defaults = True
     if inside is not None:
         if node_path is not None:
             raise ValueError("Pass either node_path (one node) or inside (a network), not both.")
         return _sweep_parameters(
-            inside, patterns, include_defaults, recursive, node_type, include_locked_assets
+            inside,
+            patterns,
+            include_defaults,
+            recursive,
+            node_type,
+            include_locked_assets,
+            non_default_only,
         )
     if node_path is None:
         raise ValueError("node_path is required (or inside, to read a whole network).")
@@ -1713,6 +1734,8 @@ def _get_parameters(
     matched = 0
     for parm in node.parms():
         if not _matches_patterns(parm, lowered):
+            continue
+        if non_default_only and not _off_default(parm):
             continue
         matched += 1
         if len(values) >= _GET_PARMS_CAP:
@@ -1737,6 +1760,7 @@ def _sweep_parameters(
     recursive: bool,
     node_type: str | None,
     include_locked_assets: bool = False,
+    non_default_only: bool = False,
 ) -> dict[str, Any]:
     """get_parameters over the nodes of a network, as one table of rows."""
     from fxhoudinimcp_server.handlers.node_handlers import _VALUELESS_PARM_TYPES
@@ -1746,12 +1770,13 @@ def _sweep_parameters(
         raise hou.OperationFailed(f"Node not found: {inside}")
     if isinstance(patterns, str):
         patterns = [patterns]
-    if not patterns:
+    if not patterns and not non_default_only:
         raise ValueError(
             "patterns is required with inside: every parameter of a whole network "
-            "is not an answer anyone can read. Name what to look for, e.g. ['file']."
+            "is not an answer anyone can read. Name what to look for, e.g. ['file'], "
+            "or ask for non_default_only=True."
         )
-    lowered = [p.lower() for p in patterns]
+    lowered = [p.lower() for p in patterns] if patterns else None
     # A locked asset's instance stays (its interface is the user's); what is
     # inside it is the asset's own business -- unless the sweep was asked to
     # start inside one.
@@ -1797,6 +1822,8 @@ def _sweep_parameters(
                     continue
             if not _matches_patterns(parm, lowered):
                 continue
+            if non_default_only and not _off_default(parm):
+                continue
             matched += 1
             hit = True
             if len(rows) >= _SWEEP_ROW_CAP:
@@ -1810,6 +1837,7 @@ def _sweep_parameters(
         "recursive": bool(recursive),
         "node_type": node_type,
         "patterns": patterns,
+        **({"non_default_only": True} if non_default_only else {}),
         "nodes_scanned": scanned,
         "nodes_matched": nodes_matched,
         "matched": matched,
