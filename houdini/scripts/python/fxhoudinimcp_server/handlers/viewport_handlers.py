@@ -22,6 +22,8 @@ from fxhoudinimcp_server.ui import (
     require_ui,
     selection_hidden,
     set_other_objects,
+    viewer_context,
+    viewer_stays_out_of_dops,
 )
 
 logger = logging.getLogger(__name__)
@@ -910,7 +912,10 @@ def capture_screenshot(
     cur_frame = hou.frame()
 
     # For scene viewers, use flipbook for capture
+    viewer: dict = {}
     if pane_tab.type() == hou.paneTabType.SceneViewer:
+        # Which network the image shows, and a note when it is a DOP view.
+        viewer = viewer_context(pane_tab)
         viewport = pane_tab.curViewport()
         settings = pane_tab.flipbookSettings().stash()
         settings.frameRange((cur_frame, cur_frame))
@@ -934,6 +939,7 @@ def capture_screenshot(
         "pane_name": pane_tab.name(),
         "output_path": actual_path,
         "file_exists": os.path.isfile(actual_path),
+        **viewer,
     }
 
 
@@ -1014,29 +1020,36 @@ def capture_network_editor(
 
     # Navigate to the specified node if provided
     node_bounds = None
+    node = None
     if node_path is not None:
         node = hou.node(node_path)
         if node is None:
             raise ValueError(f"Node not found: {node_path}")
-        with keep_viewer_state():
-            parent = node.parent()
-            if parent is not None:
-                network_editor.cd(parent.path())
-            network_editor.setCurrentNode(node)
-            node_bounds = _frame_node(network_editor, node)
+    # Showing a node in a DOP network takes the Scene Viewer there too; the
+    # editor goes back after the shot.
+    with viewer_stays_out_of_dops():
+        if node is not None:
+            with keep_viewer_state():
+                parent = node.parent()
+                if parent is not None:
+                    network_editor.cd(parent.path())
+                network_editor.setCurrentNode(node)
+                node_bounds = _frame_node(network_editor, node)
 
-    # Capture the network editor via Qt widget grab
-    _capture_pane_tab_qt(network_editor, output_path)
+        # Capture the network editor via Qt widget grab
+        _capture_pane_tab_qt(network_editor, output_path)
+        # What the image shows, read before the editor can go back.
+        visible_bounds = None
+        with contextlib.suppress(Exception):
+            visible_bounds = _bounds_list(network_editor.visibleBounds())
 
     result = {
         "success": True,
         "output_path": output_path,
         "node_path": node_path,
         "file_exists": os.path.isfile(output_path),
-        "visible_bounds": None,
+        "visible_bounds": visible_bounds,
     }
-    with contextlib.suppress(Exception):
-        result["visible_bounds"] = _bounds_list(network_editor.visibleBounds())
     if node_bounds is not None:
         view = result["visible_bounds"]
         result["node_bounds"] = node_bounds

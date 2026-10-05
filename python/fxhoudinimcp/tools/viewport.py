@@ -235,6 +235,9 @@ async def capture_screenshot(
     The image is written to disk only; open ``output_path`` with your file
     reader to look at it. Prefer get_geometry_info, get_node_info or
     get_scene_summary unless visual confirmation is genuinely needed.
+    A Scene Viewer capture names the network it shows (`viewer_network`);
+    `viewer_note` says when that is a DOP network, drawn as the simulation's
+    objects rather than the SOP display.
 
     Args:
         output_path: Image file path. Default: a new PNG in the temp dir.
