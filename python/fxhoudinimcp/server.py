@@ -8,6 +8,7 @@ that knows.
 from __future__ import annotations
 
 # Built-in
+import asyncio
 import contextlib
 import functools
 import inspect
@@ -109,19 +110,14 @@ def current_bridge() -> HoudiniBridge:
     return _bridge
 
 
-@asynccontextmanager
-async def lifespan(server: Server):
-    """Manage the Houdini bridge connection lifecycle."""
-    host = os.getenv("HOUDINI_HOST", "localhost")
-    pinned = os.getenv("HOUDINI_PORT")
-    port = int(pinned) if pinned else 8100
-
+async def _discover(bridge: HoudiniBridge, pinned: bool) -> None:
+    """Find the Houdini to talk to, point the bridge at it, and log what it is."""
     if not pinned:
         # A second Houdini moves itself to the next free port, so assuming 8100
         # would leave that session unreachable. Only scan when the port was not
         # pinned: an explicit HOUDINI_PORT is a deliberate choice, and silently
         # connecting somewhere else would be worse than failing.
-        servers = await find_servers(host, port)
+        servers = await find_servers(bridge.host, bridge.port)
         if servers:
             port = servers[0]["port"]
             if len(servers) > 1:
@@ -134,19 +130,10 @@ async def lifespan(server: Server):
                     servers[0].get("pid"),
                     others,
                 )
-            elif port != 8100:
+            elif port != bridge.port:
                 logger.info("Found Houdini on port %d", port)
-
-    # The plugin gives a command FXHOUDINIMCP_TIMEOUT seconds (120 by default)
-    # and this client used to give up at a hard-coded 60. A cache launch that
-    # took 70 seconds then read as "timed out" here while Houdini finished the
-    # job, and the agent had to poll the disk to learn that. The client waits
-    # for the plugin's own deadline plus a margin unless HOUDINI_TIMEOUT says
-    # otherwise; a per-command FXHOUDINIMCP_TIMEOUT_<COMMAND> raised on the
-    # Houdini side needs HOUDINI_TIMEOUT raised here to match.
-    plugin_timeout = float(os.getenv("FXHOUDINIMCP_TIMEOUT", "120"))
-    timeout = float(os.getenv("HOUDINI_TIMEOUT", str(plugin_timeout + 15)))
-    bridge = HoudiniBridge(host=host, port=port, timeout=timeout)
+            if port != bridge.port:
+                await bridge.retarget(port)
 
     try:
         info = await bridge.health_check()
@@ -174,11 +161,40 @@ async def lifespan(server: Server):
         logger.warning("Cannot reach Houdini at startup: %s", e)
         logger.warning("Tools will attempt to connect on first use.")
 
+
+@asynccontextmanager
+async def lifespan(server: Server):
+    """Manage the Houdini bridge connection lifecycle."""
+    host = os.getenv("HOUDINI_HOST", "localhost")
+    pinned = os.getenv("HOUDINI_PORT")
+    port = int(pinned) if pinned else 8100
+
+    # The plugin gives a command FXHOUDINIMCP_TIMEOUT seconds (120 by default)
+    # and this client used to give up at a hard-coded 60. A cache launch that
+    # took 70 seconds then read as "timed out" here while Houdini finished the
+    # job, and the agent had to poll the disk to learn that. The client waits
+    # for the plugin's own deadline plus a margin unless HOUDINI_TIMEOUT says
+    # otherwise; a per-command FXHOUDINIMCP_TIMEOUT_<COMMAND> raised on the
+    # Houdini side needs HOUDINI_TIMEOUT raised here to match.
+    plugin_timeout = float(os.getenv("FXHOUDINIMCP_TIMEOUT", "120"))
+    timeout = float(os.getenv("HOUDINI_TIMEOUT", str(plugin_timeout + 15)))
+    bridge = HoudiniBridge(host=host, port=port, timeout=timeout)
+
+    # The SDK answers `initialize` only once this lifespan yields, and with no
+    # Houdini running the scan and health check took about 4 s on Windows,
+    # where a closed localhost port times out instead of refusing. Cline gives
+    # up after 3 s and drops every tool (issue #129). So discovery runs beside
+    # the handshake instead of before it.
+    # ponytail: a tool called in the first second can still hit 8100 while
+    # Houdini is on 8101+; connect_houdini fixes it, await the task if it bites.
+    discovery = asyncio.ensure_future(_discover(bridge, bool(pinned)))
+
     global _bridge
     _bridge = bridge
     try:
         yield {"bridge": bridge}
     finally:
+        discovery.cancel()
         _bridge = None
         await bridge.close()
 
