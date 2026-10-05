@@ -64,25 +64,99 @@ def _reset_button_owner(node: hou.Node) -> hou.Node | None:
 # of the simulation brought the new value.
 _DOP_CACHE_NOTE = (
     "Frames this simulation cooked before this edit may still hold the old "
-    "result: a parameter written inside a DOP network does not reset its cache. "
-    "Call reset_simulation(node_path=<network>) before reading such a frame."
+    "result: an edit inside a DOP network, or upstream of a simulation, does not "
+    "reset its cache. Call reset_simulation(node_path=<network>) before reading "
+    "such a frame."
 )
+
+# How many nodes downstream of an edit are looked at for a simulation that
+# reads it. The walk follows wires and references, and a scene rarely needs
+# more; a bigger one gets no note rather than a slow write.
+_DOWNSTREAM_LIMIT = 500
+
+# Deeper than any network nests; bounds the walks up the parents.
+_MAX_DEPTH = 64
+
+
+def _inside_dop(node: hou.Node) -> bool:
+    """Whether *node* is a DOP or sits anywhere inside one (a SOP Solver's SOPs)."""
+    for _ in range(_MAX_DEPTH):
+        if node is None:
+            return False
+        if node.type().category() == hou.dopNodeTypeCategory():
+            return True
+        node = node.parent()
+    return False
+
+
+def _simulation_to_reset(node: hou.Node) -> hou.Node | None:
+    """_reset_button_owner, lifted out of locked assets to the instance a user can press.
+
+    A Vellum Solver SOP keeps its DOP network inside the asset; reset_simulation
+    is given the solver, not /obj/.../vellumsolver1/dopnet1.
+    """
+    owner = _reset_button_owner(node)
+    for _ in range(_MAX_DEPTH):
+        buried = False
+        with contextlib.suppress(Exception):
+            buried = owner is not None and owner.isInsideLockedHDA() is True
+        if not buried:
+            break
+        owner = _reset_button_owner(owner.parent())
+    return owner
+
+
+def _downstream(node: hou.Node) -> list[hou.Node]:
+    """Nodes that read *node*, by wire or by reference, up to _DOWNSTREAM_LIMIT.
+
+    A node inside a DOP network is listed but not followed: what reads the
+    simulation reads the network (a DOP Import names it), not its insides.
+    Nor are a node's own contents, which depend on it and say nothing about
+    who reads it -- an HDA's insides were most of the walk before (22.0.429).
+    """
+    seen = {node.path()}
+    queue, found = [node], []
+    while queue and len(seen) < _DOWNSTREAM_LIMIT:
+        current = queue.pop(0)
+        inside = current.path() + "/"
+        neighbours: list = []
+        with contextlib.suppress(Exception):
+            neighbours = list(current.outputs()) + list(current.dependents())
+        for other in neighbours:
+            path = other.path()
+            if path in seen or path.startswith(inside):
+                continue
+            seen.add(path)
+            found.append(other)
+            if not _inside_dop(other):
+                queue.append(other)
+    return found
 
 
 def dop_cache_note(nodes: Any) -> dict[str, Any] | None:
     """The simulations an edit of *nodes* leaves with stale cooked frames, or None.
 
     ``networks`` are the nodes reset_simulation presses for them, so any of
-    them can be passed to it as is; nodes outside a DOP network add nothing.
+    them can be passed to it as is. Measured on 22.0.429, each of these left
+    frame 25 stale until a reset: a node inside a DOP network (a SOP Solver's
+    own SOPs too), a box a POP Source reads by path, a grid upstream of a
+    Vellum Solver SOP. A solver's own parameter re-simulates by itself, so
+    the edited node is never its own reason.
     """
     networks: list[str] = []
+
+    def add(owner: hou.Node | None) -> None:
+        if owner is not None and owner.path() not in networks:
+            networks.append(owner.path())
+
     for node in nodes or ():
         with contextlib.suppress(Exception):
-            if node.type().category() != hou.dopNodeTypeCategory():
+            if _inside_dop(node):
+                add(_simulation_to_reset(node))
                 continue
-            owner = _reset_button_owner(node)
-            if owner is not None and owner.path() not in networks:
-                networks.append(owner.path())
+            for reader in _downstream(node):
+                if _inside_dop(reader) or reader.parm("resimulate") is not None:
+                    add(_simulation_to_reset(reader))
     if not networks:
         return None
     return {"networks": networks, "note": _DOP_CACHE_NOTE}
