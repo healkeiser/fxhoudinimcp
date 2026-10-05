@@ -62,15 +62,21 @@ async def run_shelf_tool(
     tool_name: str,
     kwargs: dict[str, Any] | None = None,
     parent_path: str | None = None,
+    selection: list[str] | None = None,
 ) -> dict:
     """Run a shelf tool and report the nodes it created.
 
-    A tool that asks for a viewport selection or a dialog is retried once as
-    a Ctrl+click, Houdini's "place immediately" (`ran_as_ctrl_click`): the
-    Crowds Simulate tool then builds its whole default crowd. A tool that
+    A tool that asks for objects takes `selection`, or the objects already
+    selected, as in Houdini. A tool that asks for anything else is retried
+    once as a Ctrl+click, Houdini's "place immediately" (`ran_as_ctrl_click`):
+    the Crowds Simulate tool then builds its whole default crowd. A tool that
     still asks (the FLIP ocean layer, collide-with) is refused, since through
     the bridge it would block Houdini until someone clicks: read the recipe
     with get_shelf_tool_script and build the nodes with build_network.
+
+    Nodes the tool added inside networks that already existed (a FLIP tool
+    into the current POP network) are listed in `created_in_existing`;
+    `current_dop_network` says where DOP tools put theirs, before and after.
 
     Args:
         tool_name: Internal tool name, from list_shelf_tools.
@@ -78,7 +84,10 @@ async def run_shelf_tool(
         parent_path: An extra network to watch for new nodes. /obj, /stage,
             /out, /mat and /img are always watched, because a shelf tool is
             free to build in more than one of them: largeOcean creates both
-            a geo in /obj and a LOP in /stage.
+            a geo in /obj and a LOP in /stage. A SOP network given here is
+            also where a SOP tool places its nodes (`placed_in`).
+        selection: Object paths the tool takes as its object selection. The
+            scene's selection is left as it was, whatever the tool selects.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"tool_name": tool_name}
@@ -86,4 +95,6 @@ async def run_shelf_tool(
         params["kwargs"] = kwargs
     if parent_path is not None:
         params["parent_path"] = parent_path
+    if selection is not None:
+        params["selection"] = selection
     return await bridge.execute("shelf.run_shelf_tool", params)
