@@ -145,12 +145,15 @@ def tool_names() -> set[str]:
     return names
 
 
+@pytest.fixture(scope="module")
+def vocab():
+    # Module level: a class-scoped fixture written as a method is deprecated
+    # (PytestRemovedIn10Warning).
+    return json.loads((_TOOLS / "prompt_vocab.json").read_text(encoding="utf-8"))
+
+
 class TestCuratedVocabulary:
     """tools/prompt_vocab.json is hand-edited, so every name in it is a claim."""
-
-    @pytest.fixture(scope="class")
-    def vocab(self):
-        return json.loads((_TOOLS / "prompt_vocab.json").read_text(encoding="utf-8"))
 
     def test_every_curated_name_exists(self, vocab, evidence):
         missing = []
