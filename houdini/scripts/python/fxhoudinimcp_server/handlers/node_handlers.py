@@ -220,7 +220,7 @@ def copy_node(
     # read that as "never positioned" and move it on a later call.
     mark_placed(copied)
 
-    return {
+    result = {
         "success": True,
         "source_path": node_path,
         "copied_path": copied.path(),
@@ -228,6 +228,21 @@ def copy_node(
         "position": list(copied.position()),
         "offset_applied": offset,
     }
+    # The wires the copy came with: without them a caller had to read the
+    # copy's inputs back to learn they had survived. A copy into another
+    # network cannot keep a wire from this one, and that is said rather than
+    # left to be discovered.
+    with contextlib.suppress(Exception):
+        kept = {i: n.path() for i, n in enumerate(copied.inputs()) if n is not None}
+        result["inputs"] = [{"index": i, "from": path} for i, path in sorted(kept.items())]
+        lost = [
+            {"index": i, "from": n.path()}
+            for i, n in enumerate(node.inputs())
+            if n is not None and i not in kept
+        ]
+        if lost:
+            result["inputs_not_copied"] = lost
+    return result
 
 
 ###### nodes.move_node
