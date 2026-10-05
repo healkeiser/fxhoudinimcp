@@ -809,3 +809,9 @@ def test_readme_json_examples_parse_and_are_formatted():
         # stay inline, as client configs usually write it.
         crowded = [line for line in block.splitlines() if len(re.findall(r'"\s*:', line)) > 1]
         assert not crowded, crowded
+
+
+def test_cline_entry_goes_where_cline_reads_it():
+    # Issue #130: Cline 3 reads ~/.cline/data/settings, not VS Code's globalStorage.
+    path = inst.JSON_CLIENTS["cline"][3]
+    assert path == ("~", ".cline", "data", "settings", "cline_mcp_settings.json")
