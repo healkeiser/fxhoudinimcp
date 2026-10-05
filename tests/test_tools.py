@@ -242,6 +242,7 @@ class TestEvidenceTools:
         mock_bridge.execute.assert_called_once_with(
             "graph.cook_frame_range",
             {"node_path": "/obj/geo1/sim", "step": 1.0, "volumes": False},
+            timeout=NO_TIMEOUT,
         )
 
     @pytest.mark.asyncio
@@ -268,6 +269,7 @@ class TestEvidenceTools:
                 "end": 5,
                 "attribs": ["heat"],
             },
+            timeout=NO_TIMEOUT,
         )
 
     @pytest.mark.asyncio

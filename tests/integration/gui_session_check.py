@@ -11,7 +11,8 @@ control, real screenshots, network-editor capture, OpenGL rendering,
 and the runtime auto-layout toggle.
 
 Non-destructive: everything happens inside /obj/__mcp_gui_check, which
-is deleted at the end unless --keep is passed. The open scene is never
+is deleted at the end unless --keep is passed, as is the one node made
+beside it (the OBJ camera /obj/mcp_gui_cam). The open scene is never
 cleared or saved.
 """
 
@@ -29,6 +30,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "python"))
 
 CONTAINER = "__mcp_gui_check"
+# An OBJ camera cannot live inside the container (a SOP network), so it is
+# made at /obj and removed with it.
+CAMERA = "mcp_gui_cam"
 RESULTS: list[tuple[str, str, str]] = []  # (status, name, detail)
 
 
@@ -81,6 +85,7 @@ async def main() -> int:
         return 2
     record("PASS", "graphical session confirmed (hdefereval dispatch path active)")
 
+    obj_cam = None
     try:
         ###### Status bar (visible to you right now)
         await call(
@@ -157,9 +162,7 @@ async def main() -> int:
             )
 
         # OBJ camera, verified against viewport.camera(), which returns the node.
-        obj_cam = await call(
-            "nodes.create_node", parent_path="/obj", node_type="cam", name="mcp_gui_cam"
-        )
+        obj_cam = await call("nodes.create_node", parent_path="/obj", node_type="cam", name=CAMERA)
         bound = await call(
             "viewport.set_viewport_camera", camera_path=obj_cam["node_path"], soft=True
         )
@@ -317,6 +320,15 @@ async def main() -> int:
                 record("PASS", "cleanup", f"/obj/{CONTAINER} removed")
             except Exception as exc:
                 record("SOFT", "cleanup", str(exc)[:80])
+            # Left behind, the camera kept its name taken and the next run in
+            # the same session failed creating it (create_node refuses a taken
+            # name). Absent when the run stopped before making it.
+            if obj_cam is not None:
+                try:
+                    await bridge.execute("nodes.delete_node", {"node_path": obj_cam["node_path"]})
+                    record("PASS", "cleanup", f"{obj_cam['node_path']} removed")
+                except Exception as exc:
+                    record("SOFT", "cleanup", str(exc)[:80])
         import contextlib
 
         with contextlib.suppress(Exception):

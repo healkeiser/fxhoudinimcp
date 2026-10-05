@@ -178,6 +178,75 @@ def keep_viewer_state() -> Iterator[None]:
                         node.setSelected(True, clear_all_selected=False)
 
 
+def _viewers_in_dops() -> set[str]:
+    """Names of the Scene Viewers drawing a DOP network right now."""
+    names: set[str] = set()
+    with contextlib.suppress(Exception):
+        dops = hou.dopNodeTypeCategory()
+        for tab in hou.ui.paneTabs():
+            if tab.type() == hou.paneTabType.SceneViewer and tab.pwd().childTypeCategory() == dops:
+                names.add(tab.name())
+    return names
+
+
+@contextlib.contextmanager
+def viewer_stays_out_of_dops() -> Iterator[None]:
+    """Put the network editor back if the block took a Scene Viewer into a DOP network.
+
+    The Scene Viewer follows the network editor in the same call (measured on
+    22.0.429): an editor sent into a DOP network to show a node created there
+    turned the viewer into a DOP view, which draws a collider as solid
+    geometry and particles as points instead of the object's SOP display, and
+    the next viewport capture was judged on that. The panes are linked, so the
+    viewer cannot stay behind on its own; the editor goes back instead. A
+    viewer that was in a DOP network already is the user's choice and is left
+    there, and set_current_network still goes into one when asked to.
+    """
+    before = _viewers_in_dops()
+    editors: list = []
+    with contextlib.suppress(Exception):
+        editors = [
+            (tab, tab.pwd().path())
+            for tab in hou.ui.paneTabs()
+            if tab.type() == hou.paneTabType.NetworkEditor
+        ]
+    try:
+        yield
+    finally:
+        if _viewers_in_dops() - before:
+            with contextlib.suppress(Exception), keep_viewer_state():
+                for tab, path in editors:
+                    tab.cd(path)
+
+
+def viewer_context(scene_viewer) -> dict:
+    """The network *scene_viewer* draws, and a note when that is a DOP network.
+
+    For a viewport capture's reply. In a DOP network the viewer draws the
+    simulation's objects (a collider solid, particles as points), not the
+    object's SOP display, and a session judged particle trails off such a
+    frame: no reply had said what the viewer was showing. Best effort, empty
+    when the viewer cannot say.
+    """
+    context: dict = {}
+    with contextlib.suppress(Exception):
+        network = scene_viewer.pwd()
+        path = network.path()
+        if not isinstance(path, str):
+            return context
+        context["viewer_network"] = path
+        if network.childTypeCategory() == hou.dopNodeTypeCategory():
+            parent = network.parent()
+            context["viewer_note"] = (
+                f"The Scene Viewer is inside the DOP network {path} and draws its "
+                "simulation objects (colliders solid, particles as points), not the "
+                "SOP display. set_current_network to the object's network"
+                + (f" ({parent.path()})" if parent is not None else "")
+                + " to capture the SOP result."
+            )
+    return context
+
+
 def focus_network_editor(
     node: hou.Node,
     place_unpositioned: bool = True,
@@ -189,13 +258,15 @@ def focus_network_editor(
     nothing pass ``place_unpositioned=False``, so a call that only rewires or
     flips a flag never relocates a node the user parked at the origin.
     *other_objects* goes to set_other_objects once the editor has moved. The
-    viewer's cameras and the selection survive the move (keep_viewer_state).
+    viewer's cameras and the selection survive the move (keep_viewer_state),
+    and the editor stays where it was rather than take the viewer into a DOP
+    network (viewer_stays_out_of_dops).
     """
     try:
         parent = node.parent()
         if parent is not None:
             layout_if_enabled(parent, place_unpositioned)
-        with keep_viewer_state():
+        with keep_viewer_state(), viewer_stays_out_of_dops():
             for pane_tab in hou.ui.paneTabs():
                 if pane_tab.type() == hou.paneTabType.NetworkEditor:
                     if parent is not None:

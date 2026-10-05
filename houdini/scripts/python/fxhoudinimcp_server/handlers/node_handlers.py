@@ -318,10 +318,38 @@ def _is_at_default(parm: hou.Parm, value: Any, default: Any) -> bool:
         return False
 
 
+# SOP local variables, which only exist while the node cooks ($CEX/$CEY/$CEZ
+# for a pivot at the centroid, $BBX, $SIZEX, $XMIN, $NPT, $PT, a Group SOP's
+# factory $N), and `@attr` references (a Ray SOP's factory `@N.x`).
+_COOK_LOCAL = re.compile(
+    r"\$(?:CE[XYZ]|GC[XYZ]|BB[XYZ]|SIZE[XYZ]|[XYZ](?:MIN|MAX)|NPT|NPRIM|PT|PR|VTX|NVTX|NGRP|N)\b"
+    r"|(?<![\w@])@[A-Za-z_]\w*"
+)
+
+_COOK_LOCAL_NOTE = (
+    "SOP local variable: substituted while the node cooks, so it is not evaluated "
+    "here (outside a cook it reads 0). Judge the value by the cooked geometry."
+)
+
+
+def _cook_local_expression(parm: hou.Parm) -> str | None:
+    """*parm*'s expression when it uses a SOP local variable, else None."""
+    try:
+        expression = parm.expression()
+    except Exception:
+        return None
+    if isinstance(expression, str) and _COOK_LOCAL.search(expression):
+        return expression
+    return None
+
+
 def _non_default_parms(node: hou.Node, parms: list[hou.Parm]) -> list[dict[str, Any]]:
     """The parameters of *node* that differ from their defaults, as summaries.
 
     Buttons, folders, separators and labels carry no value and are skipped.
+    An expression with a SOP local variable is named, not evaluated: a pivot
+    at ``$CEX $CEY $CEZ`` read as ``px = 0.0`` on a healthy Transform, and the
+    evaluation put an "Unable to evaluate expression" error on it.
     """
     summary: list[dict[str, Any]] = []
     for parm in parms:
@@ -331,6 +359,28 @@ def _non_default_parms(node: hou.Node, parms: list[hou.Parm]) -> list[dict[str, 
         except Exception:
             continue
         if type_name in _VALUELESS_PARM_TYPES:
+            continue
+        expression = _cook_local_expression(parm)
+        if expression is not None:
+            try:
+                default = _component_default(parm)
+            except Exception:
+                default = None
+            # A type's own expression (a Group SOP's $N) is its default.
+            if _is_at_default(parm, None, default):
+                continue
+            summary.append(
+                {
+                    "name": parm.name(),
+                    "label": parm.description(),
+                    "value": None,
+                    "default": to_jsonable(default),
+                    "type": type_name,
+                    "expression": expression,
+                    "local_variable": True,
+                    "note": _COOK_LOCAL_NOTE,
+                }
+            )
             continue
         try:
             val = parm.eval()

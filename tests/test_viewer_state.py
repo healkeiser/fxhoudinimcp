@@ -51,6 +51,8 @@ class _FakeNode:
         return self._parent
 
     def childTypeCategory(self):  # noqa: N802
+        if self._path.rsplit("/", 1)[-1].startswith("dopnet"):
+            return "Dop"
         return "Lop" if self._path.startswith("/stage") else "Object"
 
 
@@ -89,6 +91,7 @@ class _Houdini:
         self.deferred = []
         viewer = MagicMock()
         viewer.type.return_value = "SceneViewer"
+        viewer.name.return_value = "panetab1"
         viewer.viewports.return_value = views
         viewer.pwd.side_effect = lambda: _FakeNode(self.pwd)
         self.editor = MagicMock()
@@ -146,6 +149,7 @@ def houdini(monkeypatch):
     monkeypatch.setattr(hou, "node", known.get, raising=False)
     monkeypatch.setattr(hou, "isUIAvailable", lambda: True, raising=False)
     monkeypatch.setattr(hou, "lopNodeTypeCategory", lambda: "Lop", raising=False)
+    monkeypatch.setattr(hou, "dopNodeTypeCategory", lambda: "Dop", raising=False)
     monkeypatch.setattr(sys.modules["hdefereval"], "executeDeferred", state.deferred.append)
     monkeypatch.setattr(ui, "layout_if_enabled", lambda *a, **k: None)
     for node in known.values():
@@ -269,6 +273,95 @@ class TestNavigationKeepsTheViewer:
 
         monkeypatch.setattr(ui.hou.ui, "paneTabs", no_panes)
         nodes._focus_network_editor(houdini.known["/obj/g"])  # must not raise
+
+
+class TestTheViewerStaysOutOfDops:
+    """The Scene Viewer followed the editor into a DOP network and drew a DOP view.
+
+    A node created in a POP network took the editor there, and the viewer with
+    it: the next capture showed the collider as solid grey geometry and the
+    particles as points instead of the object's trails (22.0.429).
+    """
+
+    @staticmethod
+    def _pop(houdini):
+        dopnet = _FakeNode("/obj/g/dopnet1", parent=houdini.known["/obj/g"])
+        return _FakeNode("/obj/g/dopnet1/popsource1", parent=dopnet)
+
+    def test_focusing_a_node_in_a_dop_network_leaves_the_editor_where_it_was(self, houdini):
+        houdini.pwd = "/obj/g"
+        nodes._focus_network_editor(self._pop(houdini))
+        assert houdini.pwd == "/obj/g"
+        assert _cameras(houdini) == _BOUND
+
+    def test_a_viewer_already_in_a_dop_network_is_left_there(self, houdini):
+        houdini.pwd = "/obj/g/dopnet1"
+        nodes._focus_network_editor(self._pop(houdini))
+        assert houdini.pwd == "/obj/g/dopnet1"
+
+    def test_a_sop_network_is_still_shown(self, houdini):
+        houdini.pwd = "/obj"
+        nodes._focus_network_editor(houdini.known["/obj/g/sphere1"])
+        assert houdini.pwd == "/obj/g"
+
+    def test_the_editor_captures_put_it_back_after_the_shot(self):
+        """Both editor captures move it to the node's network; the shot runs inside the guard."""
+        for name, function in (
+            ("viewport_handlers.py", "capture_network_editor"),
+            ("rendering_handlers.py", "render_node_network"),
+        ):
+            tree = ast.parse((_SERVER_DIR / "handlers" / name).read_text(encoding="utf-8"))
+            body = next(
+                n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == function
+            )
+            guarded = [
+                n
+                for n in ast.walk(body)
+                if isinstance(n, ast.With)
+                and any("viewer_stays_out_of_dops" in ast.unparse(i.context_expr) for i in n.items)
+            ]
+            assert guarded, f"{function}: no viewer_stays_out_of_dops()"
+            inside = ast.unparse(guarded[0])
+            assert ".cd(" in inside and "_capture_pane_tab_qt(" in inside, function
+
+
+class TestCapturesNameTheViewersNetwork:
+    """A capture now says which network the viewer drew, and when that is a DOP view."""
+
+    def test_a_dop_view_is_named_with_the_way_out(self, houdini):
+        viewer = MagicMock()
+        viewer.pwd.return_value = _FakeNode("/obj/g/dopnet1", parent=houdini.known["/obj/g"])
+        context = ui.viewer_context(viewer)
+        assert context["viewer_network"] == "/obj/g/dopnet1"
+        assert "DOP network /obj/g/dopnet1" in context["viewer_note"]
+        assert "(/obj/g)" in context["viewer_note"]
+
+    def test_a_sop_view_carries_only_its_network(self, houdini):
+        viewer = MagicMock()
+        viewer.pwd.return_value = _FakeNode("/obj/g")
+        assert ui.viewer_context(viewer) == {"viewer_network": "/obj/g"}
+
+    def test_capture_screenshot_says_so_in_its_reply(self, houdini, monkeypatch, tmp_path):
+        import fxhoudinimcp_server.handlers.rendering_handlers as rendering
+
+        houdini.pwd = "/obj/g/dopnet1"
+        monkeypatch.setattr(viewport, "_find_scene_viewer", lambda: houdini.panes[0])
+        monkeypatch.setattr(rendering, "_find_flipbook_output", lambda path, frame: path)
+        result = viewport.capture_screenshot(str(tmp_path / "shot.png"))
+        assert result["viewer_network"] == "/obj/g/dopnet1"
+        assert "DOP network" in result["viewer_note"]
+
+    def test_every_viewport_capture_reply_carries_it(self):
+        for name, function in (
+            ("viewport_handlers.py", "capture_screenshot"),
+            ("rendering_handlers.py", "render_viewport"),
+            ("rendering_handlers.py", "render_quad_view"),
+        ):
+            tree = ast.parse((_SERVER_DIR / "handlers" / name).read_text(encoding="utf-8"))
+            body = next(
+                n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == function
+            )
+            assert "viewer_context(" in ast.unparse(body), function
 
 
 class TestEveryEditorMoveKeepsTheViewer:

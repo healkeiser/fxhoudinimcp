@@ -54,3 +54,23 @@ async def test_every_tool_refuses_unknown_arguments():
     assert not loose, f"tools accepting unknown arguments: {loose}"
     with pytest.raises(Exception, match="bogus_filter"):
         await mcp.call_tool("find_nodes", {"pattern": "x", "bogus_filter": "geo"})
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_argument_is_refused_with_the_one_meant():
+    # create_node(node_name=...) failed naming node_name only; the parameter is `name`.
+    with pytest.raises(Exception, match=r"'node_name' \(did you mean 'name' or 'node_type'\?\)"):
+        await mcp.call_tool(
+            "create_node", {"parent_path": "/obj", "node_type": "null", "node_name": "probe"}
+        )
+    with pytest.raises(Exception, match=r"'node_typ' \(did you mean 'node_type'\?\)"):
+        await mcp.call_tool("find_nodes", {"pattern": "x", "node_typ": "geo"})
+
+
+def test_the_refusal_lists_what_is_accepted():
+    from fxhoudinimcp._sdk import unknown_argument_message
+
+    message = unknown_argument_message("find_nodes", ["zzz"], {"pattern", "node_type"})
+    assert message == (
+        "find_nodes does not take 'zzz'. Accepted arguments: ['node_type', 'pattern']."
+    )

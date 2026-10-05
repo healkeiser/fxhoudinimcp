@@ -57,7 +57,7 @@ def _parm(name, items=(), labels=(), template_items=(), generator="", menu_type=
     return parm
 
 
-def _template(name, items=(), label=None):
+def _template(name, items=(), label=None, labels=None):
     template = MagicMock()
     template.name.return_value = name
     template.label.return_value = label or name.title()
@@ -66,6 +66,7 @@ def _template(name, items=(), label=None):
     template.isHidden.return_value = False
     template.defaultValue.return_value = (0,)
     template.menuItems.return_value = tuple(items)
+    template.menuLabels.return_value = tuple(items if labels is None else labels)
     return template
 
 
@@ -165,6 +166,21 @@ class TestTheCardReadsGeneratedMenus:
         assert entry["menu"] == ["a", "b"]
         assert entry["menu_source"] == "template"
         assert "menu_generator" not in entry
+
+    def test_a_static_menu_of_numbers_carries_its_labels(self, monkeypatch):
+        # pyrosource's Mode came as "0"/"1"/"2" and nothing else.
+        labels = ("Surface Scatter", "Keep Input", "Volume Scatter")
+        template = _template("mode", items=("0", "1", "2"), labels=labels)
+        card, _ = self._card(monkeypatch, [template], _probe([]))
+        (entry,) = card["parms"]
+        assert entry["menu"] == ["0", "1", "2"]
+        assert entry["menu_labels"] == list(labels)
+        assert entry["menu_source"] == "template"
+
+    def test_labels_that_repeat_the_tokens_are_left_out(self, monkeypatch):
+        card, _ = self._card(monkeypatch, [_template("mode", items=("a", "b"))], _probe([]))
+        (entry,) = card["parms"]
+        assert "menu_labels" not in entry
 
     def test_an_empty_generated_menu_is_not_shown_as_no_menu(self, monkeypatch):
         probe = _probe([_parm("loadtype", generator=GENERATOR)])

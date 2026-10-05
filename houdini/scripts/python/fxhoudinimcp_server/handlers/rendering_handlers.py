@@ -32,7 +32,13 @@ from fxhoudinimcp_server.outputs import (
     reported_outputs,
     write_verdict,
 )
-from fxhoudinimcp_server.ui import keep_viewer_state, require_ui, selection_hidden
+from fxhoudinimcp_server.ui import (
+    keep_viewer_state,
+    require_ui,
+    selection_hidden,
+    viewer_context,
+    viewer_stays_out_of_dops,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +146,8 @@ def render_viewport(
         "resolution": resolution,
         "camera": camera,
         "frame": cur_frame,
+        # Which network the image shows, and a note when it is a DOP view.
+        **viewer_context(scene_viewer),
     }
 
 
@@ -220,6 +228,7 @@ def render_quad_view(
         "success": all(entry["file_exists"] for entry in saved_files),
         "viewports": saved_files,
         "frame": hou.frame(),
+        **viewer_context(scene_viewer),
     }
 
 
@@ -930,19 +939,22 @@ def render_node_network(
     if network_editor is None:
         raise RuntimeError("No Network Editor pane found.")
 
-    # Navigate to the node's parent network so the node is visible, and frame
-    # it, keeping the viewer's cameras and the selection.
-    with keep_viewer_state():
-        parent = node.parent()
-        if parent is not None:
-            network_editor.cd(parent.path())
-        network_editor.setCurrentNode(node)
-        network_editor.homeToSelection()
-
     # Capture the network editor as an image via Qt widget grab
     from fxhoudinimcp_server.handlers.viewport_handlers import _capture_pane_tab_qt
 
-    _capture_pane_tab_qt(network_editor, output_path)
+    # Navigate to the node's parent network so the node is visible, and frame
+    # it, keeping the viewer's cameras and the selection. Showing a node in a
+    # DOP network takes the Scene Viewer there too; the editor goes back after
+    # the shot.
+    with viewer_stays_out_of_dops():
+        with keep_viewer_state():
+            parent = node.parent()
+            if parent is not None:
+                network_editor.cd(parent.path())
+            network_editor.setCurrentNode(node)
+            network_editor.homeToSelection()
+
+        _capture_pane_tab_qt(network_editor, output_path)
 
     return {
         "success": True,
