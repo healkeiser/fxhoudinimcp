@@ -2335,6 +2335,14 @@ def _shape(row: dict[str, Any]) -> tuple:
     return row.get("points"), row.get("prims"), json.dumps(row.get("bbox"))
 
 
+def _cook_was_interrupted(node: hou.Node) -> bool:
+    """Whether *node*'s last cook failed because the artist pressed Esc."""
+    try:
+        return any("cooking was interrupted" in e.lower() for e in node.errors())
+    except hou.OperationFailed:
+        return False
+
+
 def cook_frame_range(
     node_path: str,
     start: float | None = None,
@@ -2422,6 +2430,12 @@ def cook_frame_range(
                 interrupted_at = frame
                 break
             except hou.OperationFailed as exc:
+                # Esc during the cook is not OperationInterrupted: measured on
+                # 22.0, cook() raised a bare OperationFailed and the node said
+                # "Cooking was interrupted.", which read as a failed frame.
+                if _cook_was_interrupted(node):
+                    interrupted_at = frame
+                    break
                 # A cook failure is data, not a reason to abandon the range: a solver
                 # that fails on one frame and recovers is exactly what the caller is
                 # trying to see.

@@ -93,6 +93,25 @@ def test_a_cook_stopped_midway_is_not_a_cook_error(node, monkeypatch):
     assert "cook_error" not in result["frames"][0]
 
 
+def test_esc_during_a_cook_stops_at_that_frame_not_as_a_failed_one(node, monkeypatch):
+    # Measured on 22.0: Esc mid-cook raised a bare OperationFailed and the node
+    # said "Cooking was interrupted."; frame 11 came back as a cook_error with
+    # first_error_frame 11, and the stop was put at frame 12.
+    monkeypatch.setattr(hou, "InterruptableOperation", _Operation(), raising=False)
+
+    def cook(force=False):
+        if node.cook.call_count == 2:
+            node.errors.return_value = ["Cooking was interrupted."]
+            raise _Failed("The attempted operation failed.")
+
+    node.cook.side_effect = cook
+    result = graph.cook_frame_range("/obj/sim", start=10, end=30)
+    assert result["frames_cooked"] == 1
+    assert result["interrupted_at_frame"] == 11.0
+    assert result["first_error_frame"] is None
+    assert all("cook_error" not in row for row in result["frames"])
+
+
 def test_a_whole_range_says_nothing_of_a_stop_and_shows_progress(node, monkeypatch):
     operation = _Operation()
     monkeypatch.setattr(hou, "InterruptableOperation", operation, raising=False)
