@@ -218,6 +218,14 @@ class InteractivePrompt(RuntimeError):
     """A shelf tool asked for a click."""
 
 
+class UnusableSelection(InteractivePrompt):
+    """The caller's ``selection`` had nothing the tool's prompt accepts.
+
+    Not retried as a Ctrl+click: that builds the default setup, which ignores
+    what the caller asked for.
+    """
+
+
 def interactive_markers(script: str) -> list[str]:
     """Which blocking-UI calls a shelf tool script makes, if any."""
     return [m for m in _INTERACTIVE_MARKERS if m in script]
@@ -233,7 +241,9 @@ def _object_selection(given: list | None):
     selection, which is left as the artist has it. Anything else still
     refuses. The positional order is HOM's: (self, prompt, sel_index,
     allow_drag, quick_select, use_existing_selection, allow_multisel,
-    allowed_types, ...).
+    allowed_types, ...). Every prompt gets the same answer: a tool asking
+    for several roles in turn (createSculptedFluid: fluid, terrain, obstacles)
+    gets *given* for each.
     """
 
     def select_objects(*args: Any, **kwargs: Any) -> tuple:
@@ -247,6 +257,11 @@ def _object_selection(given: list | None):
             if isinstance(node, hou.ObjNode)
             and any(fnmatch.fnmatch(node.type().name(), pattern) for pattern in allowed)
         ]
+        if not chosen and given:
+            raise UnusableSelection(
+                f"selection {[n.path() for n in given]} has no object of the types "
+                f"its prompt accepts ({', '.join(allowed)})"
+            )
         if not chosen:
             raise InteractivePrompt("selectObjects")
         return tuple(chosen if multiple else chosen[:1])
@@ -256,19 +271,32 @@ def _object_selection(given: list | None):
 
 @contextlib.contextmanager
 def _selection_kept() -> Iterator[None]:
-    """Put the node selection back as it was once the block is through.
+    """Put the node selection and each editor's current node back after the block.
 
-    A shelf script selects what it builds, as a click from the artist should;
-    run by an agent it would take the artist's selection, and with it the
-    parameter pane and the next hotkey. Tools leave the selection as they
-    found it (#128).
+    A shelf script selects what it builds, as a click from the artist should,
+    and makes it current (toolutils.genericTool: setCurrent), which moves the
+    parameter pane. Run by an agent it would take the artist's selection, and
+    with it the parameter pane and the next hotkey. Tools leave both as they
+    found them (#128).
     """
     selected: list[str] = []
+    current: list[tuple[Any, str]] = []
     with contextlib.suppress(Exception):
         selected = [node.path() for node in hou.selectedNodes()]
+    with contextlib.suppress(Exception):
+        current = [
+            (tab, tab.currentNode().path())
+            for tab in hou.ui.paneTabs()
+            if tab.type() == hou.paneTabType.NetworkEditor and tab.currentNode() is not None
+        ]
     try:
         yield
     finally:
+        for tab, path in current:
+            with contextlib.suppress(Exception):
+                node = hou.node(path)
+                if node is not None and tab.currentNode() != node:
+                    tab.setCurrentNode(node, pick_node=False)
         with contextlib.suppress(Exception):
             if [node.path() for node in hou.selectedNodes()] != selected:
                 hou.clearAllSelected()
@@ -351,14 +379,38 @@ def _refusal(tool_name: str, why: str) -> ValueError:
     )
 
 
-def _tree(networks: list) -> dict[str, hou.Node]:
-    """Every node under *networks*, by path, not entering locked assets."""
-    nodes: dict[str, hou.Node] = {}
+def _tree(networks: list) -> dict[int, hou.Node]:
+    """Every node under *networks*, by session id, not entering locked assets.
+
+    By id, not path: a node the tool renamed or moved is not new, and on a
+    refusal must not be destroyed with what the tool built.
+    """
+    nodes: dict[int, hou.Node] = {}
     for network in networks:
         with contextlib.suppress(Exception):
             for node in network.allSubChildren(recurse_in_locked_nodes=False):
-                nodes[node.path()] = node
+                nodes[node.sessionId()] = node
     return nodes
+
+
+def _new_by_path(tree: dict[int, hou.Node], before: dict[int, hou.Node]) -> dict[str, hou.Node]:
+    """The nodes of *tree* that were not in *before*, by their path now."""
+    return {node.path(): node for sid, node in tree.items() if sid not in before}
+
+
+def _is_sop_tool(tool: Any) -> bool:
+    """Whether *tool* is in a SOP tab menu, so it builds in its pane's network.
+
+    An object or DOP tool handed a network editor fails: dynamics_makeflip
+    calls sceneviewer.selectObjects on whatever toolutils.activePane returns.
+    """
+    with contextlib.suppress(Exception):
+        sop = hou.sopNodeTypeCategory()
+        return any(
+            sop in tool.toolMenuCategories(pane)
+            for pane in (hou.paneTabType.NetworkEditor, hou.paneTabType.SceneViewer)
+        )
+    return False
 
 
 def _current_dop_network() -> str | None:
@@ -419,7 +471,7 @@ def run_shelf_tool(
         if explicit not in watched:
             watched.append(explicit)
         with contextlib.suppress(Exception):
-            if explicit.childTypeCategory() == hou.sopNodeTypeCategory():
+            if explicit.childTypeCategory() == hou.sopNodeTypeCategory() and _is_sop_tool(tool):
                 place_in = explicit
     if "pane" in (kwargs or {}):
         place_in = None  # the caller chose the pane
@@ -438,7 +490,7 @@ def run_shelf_tool(
     # The whole tree, not only each network's children: dynamics_flipbox run
     # after model_popnet put flipsolver1, fliptank and merge1 into the existing
     # POP network, and a reply listing new top-level nodes never named them.
-    before = set(_tree(watched))
+    before = _tree(watched)
     dop_before = _current_dop_network()
     # A tool that asks for a click is retried once as a Ctrl+click, Houdini's
     # "place immediately": the Crowds Simulate tool then builds its whole
@@ -455,6 +507,9 @@ def run_shelf_tool(
             editor = stack.enter_context(_editor_in(place_in)) if place_in is not None else None
             if editor is not None:
                 call_kwargs["pane"] = editor
+                # With a pane and no autoplace, genericTool waits for a click
+                # in the editor (nodegraphselectpos).
+                call_kwargs["autoplace"] = True
                 placed_in = place_in.path()
             while True:
                 namespace: dict[str, Any] = {"kwargs": call_kwargs, "hou": hou}
@@ -465,13 +520,17 @@ def run_shelf_tool(
                 except InteractivePrompt as exc:
                     # Whatever the tool created before asking is half a setup;
                     # remove it, inside existing networks too.
-                    made = set(_tree(watched)) - before
+                    made = _new_by_path(_tree(watched), before)
                     for path in sorted(made):
                         if path.rsplit("/", 1)[0] in made:
                             continue  # goes with its parent
                         with contextlib.suppress(Exception):
-                            hou.node(path).destroy()
-                    if not retry_as_ctrl_click or ran_as_ctrl_click:
+                            made[path].destroy()
+                    if (
+                        isinstance(exc, UnusableSelection)
+                        or not retry_as_ctrl_click
+                        or ran_as_ctrl_click
+                    ):
                         refused = exc
                         break
                     call_kwargs = {**call_kwargs, "ctrlclick": True}
@@ -490,14 +549,18 @@ def run_shelf_tool(
             f"Shelf tool '{tool_name}' failed: {type(exc).__name__}: {str(exc)[:200]}"
         ) from exc
 
+    if isinstance(refused, UnusableSelection):
+        raise ValueError(f"Shelf tool '{tool_name}': {refused}.") from refused
     if refused is not None:
         raise _refusal(tool_name, f"{refused}()") from refused
 
-    after = _tree(watched)
-    new = sorted(set(after) - before)
+    tree = _tree(watched)
+    after = _new_by_path(tree, before)
+    existing = {node.path() for sid, node in tree.items() if sid in before}
+    new = sorted(after)
     tops = {node.path() for node in watched}
     created = [path for path in new if path.rsplit("/", 1)[0] in tops]
-    inside = [path for path in new if path not in created and path.rsplit("/", 1)[0] in before]
+    inside = [path for path in new if path not in created and path.rsplit("/", 1)[0] in existing]
     reply: dict[str, Any] = {
         "tool_name": tool.name(),
         "label": call_kwargs.get("toolname"),

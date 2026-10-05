@@ -379,6 +379,9 @@ class _FakeObject:
     def path(self):
         return self._path
 
+    def sessionId(self):  # noqa: N802 - HOM's name
+        return id(self)
+
     def type(self):
         return MagicMock(**{"name.return_value": self._type})
 
@@ -395,6 +398,7 @@ def _shelf_scene(monkeypatch, nodes: dict, selected: list | None = None):
     tool = MagicMock()
     tool.name.return_value = "the_tool"
     tool.script.return_value = "kwargs['run'](kwargs)"
+    tool.toolMenuCategories.return_value = []
     monkeypatch.setattr(hou.shelves, "tools", lambda: {"the_tool": tool})
     obj = MagicMock()
     obj.path.return_value = "/obj"
@@ -538,6 +542,7 @@ def test_a_sop_parent_path_is_where_a_sop_tool_places_its_nodes(monkeypatch):
     hou = shelf_handlers.hou
     lesson.childTypeCategory = lambda: "Sop"
     monkeypatch.setattr(hou, "sopNodeTypeCategory", lambda: "Sop")
+    hou.shelves.tools()["the_tool"].toolMenuCategories.return_value = ["Sop"]
     editor = MagicMock()
     editor.type.return_value = hou.paneTabType.NetworkEditor
     editor.pwd.return_value.path.return_value = "/obj"
@@ -566,3 +571,93 @@ async def test_run_shelf_tool_passes_the_selection_to_houdini():
     bridge.execute.assert_awaited_once_with(
         "shelf.run_shelf_tool", {"tool_name": "dynamics_makeflip", "selection": ["/obj/ball"]}
     )
+
+
+def _sop_parent_scene(monkeypatch):
+    lesson = _FakeObject("/obj/lesson")
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {"/obj/lesson": lesson})
+    hou = shelf_handlers.hou
+    lesson.childTypeCategory = lambda: "Sop"
+    monkeypatch.setattr(hou, "sopNodeTypeCategory", lambda: "Sop")
+    editor = MagicMock()
+    editor.type.return_value = hou.paneTabType.NetworkEditor
+    editor.pwd.return_value.path.return_value = "/obj"
+    monkeypatch.setattr(hou.ui, "paneTabs", lambda: [editor])
+    return shelf_handlers, editor
+
+
+def test_a_sop_parent_path_lends_no_editor_to_an_object_or_dop_tool(monkeypatch):
+    # dynamics_makeflip calls sceneviewer.selectObjects on the pane it is
+    # given; a network editor has none.
+    shelf_handlers, editor = _sop_parent_scene(monkeypatch)
+    seen = []
+    reply = shelf_handlers.run_shelf_tool(
+        "the_tool",
+        kwargs={"run": lambda kw: seen.append(kw.get("pane"))},
+        parent_path="/obj/lesson",
+    )
+    assert seen == [None]
+    editor.cd.assert_not_called()
+    assert "placed_in" not in reply
+
+
+def test_a_lent_editor_places_without_waiting_for_a_click(monkeypatch):
+    shelf_handlers, _ = _sop_parent_scene(monkeypatch)
+    shelf_handlers.hou.shelves.tools()["the_tool"].toolMenuCategories.return_value = ["Sop"]
+    seen = []
+    shelf_handlers.run_shelf_tool(
+        "the_tool",
+        kwargs={"run": lambda kw: seen.append(kw["autoplace"]), "autoplace": False},
+        parent_path="/obj/lesson",
+    )
+    assert seen == [True]
+
+
+def test_a_selection_with_nothing_usable_is_named_not_retried(monkeypatch):
+    cam = _FakeObject("/obj/cam", "cam")
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {"/obj/cam": cam})
+    runs = []
+
+    def make_flip(kwargs):
+        runs.append(kwargs.get("ctrlclick"))
+        shelf_handlers.hou.SceneViewer.selectObjects(None, "pick", allowed_types=("geo",))
+
+    with pytest.raises(ValueError, match=r"/obj/cam.*geo"):
+        shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": make_flip}, selection=["/obj/cam"])
+    assert runs == [False]  # one run, no Ctrl+click retry with its default setup
+
+
+def test_a_refusal_does_not_destroy_a_node_the_tool_renamed(monkeypatch):
+    mine = _FakeObject("/obj/mine")
+    nodes = {"/obj/mine": mine}
+    shelf_handlers, _ = _shelf_scene(monkeypatch, nodes)
+
+    def renames_then_asks(_kwargs):
+        mine._path = "/obj/renamed"
+        nodes["/obj/renamed"] = nodes.pop("/obj/mine")
+        raise shelf_handlers.InteractivePrompt("selectGeometry")
+
+    with pytest.raises(ValueError, match="waits for a viewport selection"):
+        shelf_handlers.run_shelf_tool(
+            "the_tool", kwargs={"run": renames_then_asks, "ctrlclick": True}
+        )
+    mine.destroy.assert_not_called()
+
+
+def test_run_shelf_tool_puts_each_editor_s_current_node_back(monkeypatch):
+    mine = _FakeObject("/obj/mine")
+    nodes = {"/obj/mine": mine}
+    shelf_handlers, _ = _shelf_scene(monkeypatch, nodes)
+    hou = shelf_handlers.hou
+    editor = MagicMock()
+    editor.type.return_value = hou.paneTabType.NetworkEditor
+    state = {"current": mine}
+    editor.currentNode.side_effect = lambda: state["current"]
+    monkeypatch.setattr(hou.ui, "paneTabs", lambda: [editor])
+
+    def builds_and_makes_current(_kwargs):
+        nodes["/obj/tank"] = _FakeObject("/obj/tank", "geo")
+        state["current"] = nodes["/obj/tank"]  # genericTool: setCurrent
+
+    shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": builds_and_makes_current})
+    editor.setCurrentNode.assert_called_once_with(mine, pick_node=False)
