@@ -36,8 +36,20 @@ def _get_sop_geo(node_path: str, output_index: int = 0) -> hou.Geometry:
         raise hou.OperationFailed(f"Node not found: {node_path}")
     geo = node.geometry(output_index) if output_index else node.geometry()
     if geo is None:
-        raise hou.OperationFailed(f"Node has no geometry: {node_path}")
+        raise hou.OperationFailed(f"Node has no geometry: {node_path}{_cook_errors(node)}")
     return geo
+
+
+def _cook_errors(node: hou.Node) -> str:
+    """The node's own cook errors as a sentence tail ("" when it has none).
+
+    "Node has no geometry" is what a node whose cook failed answers, and the
+    cook error (a missing file, a bad expression) was the part that said why.
+    """
+    errors: list = []
+    with contextlib.suppress(Exception):
+        errors = list(node.errors())
+    return f" -- its cook failed: {'; '.join(errors)}" if errors else ""
 
 
 def _vec_to_list(v: Any) -> Any:
