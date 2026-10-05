@@ -2001,9 +2001,14 @@ def get_node_card(
             # A Time Shift is created with frame = $F; `default: [0.0]` alone
             # read as "a plain 0", and only a build's expressions_removed
             # told otherwise.
-            expressions = [e for e in template.defaultExpression() if e]
-            if expressions:
-                entry["default_expression"] = expressions
+            # Toggle and Menu templates return one string, the others a
+            # tuple; the whole tuple is kept so a "" says which component
+            # has no expression.
+            expressions = template.defaultExpression()
+            if isinstance(expressions, str):
+                expressions = (expressions,)
+            if any(expressions):
+                entry["default_expression"] = list(expressions)
         items: list[str] = []
         menu_source = "template"
         with contextlib.suppress(Exception):

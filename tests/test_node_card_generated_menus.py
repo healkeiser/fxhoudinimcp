@@ -310,6 +310,15 @@ class TestTheCardShowsADefaultExpression(_CardHarness):
     def test_a_plain_default_has_none(self, monkeypatch):
         assert "default_expression" not in self._entry(monkeypatch, ("",))
 
+    def test_a_toggle_s_one_string_is_not_split_into_letters(self, monkeypatch):
+        # Toggle and Menu templates return a str, not a tuple.
+        entry = self._entry(monkeypatch, 'ch("../enable")')
+        assert entry["default_expression"] == ['ch("../enable")']
+
+    def test_the_component_holding_the_expression_is_kept_in_place(self, monkeypatch):
+        entry = self._entry(monkeypatch, ("", "$F", ""))
+        assert entry["default_expression"] == ["", "$F", ""]
+
 
 def _string_template(menu_type=None, tags=None):
     template = MagicMock()
