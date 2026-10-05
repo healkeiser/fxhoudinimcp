@@ -356,6 +356,18 @@ class TestFrameAll:
         assert _framed(houdini) == [(-1.0, 0.0, -1.0, 1.0, 2.0, 1.0)]
         assert result["framed_bounds"] == [-1.0, 0.0, -1.0, 1.0, 2.0, 1.0]
 
+    def test_a_point_is_padded_to_a_unit_cube(self, houdini):
+        # frameBoundingBox() of a zero-size box put the eye 0.019 from it.
+        result = viewport.frame_all(bounds=[1, 2, 3, 1, 2, 3])
+        assert _framed(houdini) == [(0.5, 1.5, 2.5, 1.5, 2.5, 3.5)]
+        assert result["framed_bounds"] == [0.5, 1.5, 2.5, 1.5, 2.5, 3.5]
+        assert result["padded"] is True
+
+    def test_a_flat_box_is_framed_as_it_is(self, houdini):
+        result = viewport.frame_all(bounds=[0, 0, 0, 4, 0, 2])
+        assert _framed(houdini) == [(0.0, 0.0, 0.0, 4.0, 0.0, 2.0)]
+        assert "padded" not in result
+
     def test_an_object_is_framed_where_it_sits_in_the_world(self, houdini):
         sop = _FakeSop("/obj/geo1/box1", box=(-1, -1, -1, 1, 1, 1))
         houdini.nodes["/obj/geo1"] = _FakeObj("/obj/geo1", display=sop, offset=(10, 0, 0))
