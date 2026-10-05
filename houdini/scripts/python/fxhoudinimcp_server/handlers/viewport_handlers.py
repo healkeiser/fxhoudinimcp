@@ -540,7 +540,9 @@ def set_viewport_direction(
         rotation: [rx, ry, rz] in degrees: the free view's rotation about its
             pivot.
         pivot: [x, y, z] the free view orbits.
-        distance: How far the free view sits from its pivot.
+        distance: How far the free view sits from its pivot along its view
+            axis (the dolly). A sideways pan is kept and not counted, so with
+            a panned view the eye is farther from the pivot than this.
 
     rotation, pivot and distance place the viewport's own (non-camera) view,
     after *direction* if both are given, and the reply reads it back as
@@ -826,7 +828,9 @@ def frame_all(pane_name: str = None, node_paths: list = None, bounds: list = Non
 
     With *node_paths* or *bounds* (both: the box around all of them), the
     reply carries ``framed_bounds``, and ``no_geometry`` names any node that
-    had nothing to frame.
+    had nothing to frame. An object frames what it draws: a null its marker,
+    a camera or a light its icon. A box with no size (a point) is framed as a
+    1-unit cube around it, and ``padded`` says so.
     """
     box = None
     empty: list = []
@@ -879,6 +883,10 @@ def frame_all(pane_name: str = None, node_paths: list = None, bounds: list = Non
         viewport.homeAll()
         return result
 
+    if all(box[i + 3] - box[i] < 1e-6 for i in range(3)):
+        # A point: frameBoundingBox() put the eye 0.019 from it (22.0.368).
+        box = [box[i] - 0.5 for i in range(3)] + [box[i + 3] + 0.5 for i in range(3)]
+        result["padded"] = True
     viewport.frameBoundingBox(hou.BoundingBox(*box))
     result["framed_bounds"] = [round(v, 4) for v in box]
     if empty:

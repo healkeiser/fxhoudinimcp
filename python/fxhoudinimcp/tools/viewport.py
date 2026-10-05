@@ -176,8 +176,10 @@ async def frame_all(
     Args:
         pane_name: Pane tab name.
         node_paths: Frame just these objects or SOPs (their world bounds),
-            not the spread of everything in the scene.
-        bounds: Frame [xmin, ymin, zmin, xmax, ymax, zmax], world space.
+            not the spread of everything in the scene. An object frames what
+            it draws: a null its marker, a camera or a light its icon.
+        bounds: Frame [xmin, ymin, zmin, xmax, ymax, zmax], world space. A
+            point is framed as a 1-unit cube around it (`padded` in the reply).
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {}
@@ -207,7 +209,8 @@ async def set_viewport_direction(
         pane_name: Pane tab name.
         rotation: [rx, ry, rz] degrees for the free view.
         pivot: [x, y, z] the free view orbits.
-        distance: Distance of the free view from its pivot.
+        distance: Distance of the free view from its pivot along its view
+            axis (the dolly); a sideways pan is not counted in it.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {}
