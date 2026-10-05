@@ -152,6 +152,10 @@ async def get_node_card(
     not be read, not that the type has none. A menu whose items a script
     computes (`loadtype` on filemerge::2.0) is read off the same probe and
     marked `menu_source: "generator"`, with the script in `menu_generator`.
+    A radio folder set (`switcher1` on an Add SOP: By Pattern / By Group)
+    is listed as a `FolderSet` parm whose menu is its folders; a default
+    that is an expression (`$F` on timeshift's `frame`) is in
+    `default_expression`; a VOP's outputs carry their `data_type`.
 
     Use this BEFORE setting parameters on a node type you have not used
     in this session — never guess parameter names. Unversioned names

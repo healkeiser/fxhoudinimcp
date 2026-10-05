@@ -408,6 +408,9 @@ _PLACEMENT_EXEMPT = {
     # under /obj, destroyed in the same call.
     ("_connectors_for_type", "root"),
     ("_connectors_for_type", "scratch"),
+    # ... or an Attribute VOP inside it, when a VOP type will not build in a
+    # material network.
+    ("_connectors_for_type", "parent"),
     # build_network's probe of a spec with its parms applied, in the build's
     # own parent, destroyed in the same call like _parm_names_for_type's.
     ("_probe_connectors", "scratch"),
