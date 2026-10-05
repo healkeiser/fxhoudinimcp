@@ -56,6 +56,7 @@ class _FakeNode:
         self.positions = []
         self.layouts = []
         self.user_data = {}
+        self.wired = ()
 
     def parent(self):
         return self._parent
@@ -83,6 +84,9 @@ class _FakeNode:
 
     def children(self):
         return ()
+
+    def inputs(self):
+        return self.wired
 
     def path(self):
         return self._path
@@ -556,3 +560,51 @@ class TestCopyNodePlacement:
         with pytest.raises(ValueError, match=r"offset must be \[dx, dy\]"):
             nodes.copy_node("/obj/geo1/box1", offset=offset)
         assert calls == []
+
+
+class TestCopyNodeNamesTheCopysInputs:
+    """copy_node's reply said nothing about the copy's wires. Measured on
+    Houdini 22.0.429: a DOP network wired from a grid and a merge was copied
+    with both wires in place, and the reply named neither, so the caller read
+    the copy's inputs back to find out."""
+
+    def _copy(self, monkeypatch, copied_wires, into_other_network=False, first_empty=False):
+        network = _FakeNode("/obj/geo1")
+        other = _FakeNode("/obj/geo2")
+        grid = _FakeNode("/obj/geo1/grid1", parent=network)
+        merge = _FakeNode("/obj/geo1/merge1", parent=network)
+        original = _FakeNode("/obj/geo1/dopnet1", pos=_Vec(0.0, 0.0), parent=network)
+        original.size = lambda: _Vec(1.0, 0.4)
+        original.wired = (None, merge) if first_empty else (grid, merge)
+        target = other if into_other_network else network
+        copied = _FakeNode(f"{target.path()}/dopnet2", pos=original.pos, parent=target)
+        copied.wired = copied_wires(grid, merge)
+        monkeypatch.setattr(
+            nodes.hou, "copyNodesTo", lambda sources, parent: (copied,), raising=False
+        )
+        monkeypatch.setattr(nodes.hou, "Vector2", _Vec, raising=False)
+        found = {"/obj/geo1/dopnet1": original, "/obj/geo2": other}
+        monkeypatch.setattr(nodes, "_get_node", lambda path: found[path])
+        dest = "/obj/geo2" if into_other_network else None
+        return nodes.copy_node("/obj/geo1/dopnet1", dest_parent=dest)
+
+    def test_the_wires_the_copy_kept_are_named(self, monkeypatch):
+        reply = self._copy(monkeypatch, lambda grid, merge: (grid, merge))
+        assert reply["inputs"] == [
+            {"index": 0, "from": "/obj/geo1/grid1"},
+            {"index": 1, "from": "/obj/geo1/merge1"},
+        ]
+        assert "inputs_not_copied" not in reply
+
+    def test_an_empty_input_keeps_the_index_of_the_next(self, monkeypatch):
+        reply = self._copy(monkeypatch, lambda grid, merge: (None, merge), first_empty=True)
+        assert reply["inputs"] == [{"index": 1, "from": "/obj/geo1/merge1"}]
+        assert "inputs_not_copied" not in reply
+
+    def test_a_copy_into_another_network_names_the_wires_it_lost(self, monkeypatch):
+        reply = self._copy(monkeypatch, lambda grid, merge: (), into_other_network=True)
+        assert reply["inputs"] == []
+        assert reply["inputs_not_copied"] == [
+            {"index": 0, "from": "/obj/geo1/grid1"},
+            {"index": 1, "from": "/obj/geo1/merge1"},
+        ]
