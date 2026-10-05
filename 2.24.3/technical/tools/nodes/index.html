@@ -6060,8 +6060,9 @@ a chain built inside that subnet).</p>
 original instead of on top of it; in another network it keeps the
 original's position. <code>offset</code> overrides both, and <code>position</code> in the reply
 says where the copy is. <code>inputs</code> lists the wires the copy kept
-({index, from}); <code>inputs_not_copied</code> the original's wires it could not
-keep, as in a copy into another network.</p>
+({index, from}, or {index, indirect_input} for a subnet's own input
+connector); <code>inputs_not_copied</code> the original's wires it could not keep,
+as in a copy into another network.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
