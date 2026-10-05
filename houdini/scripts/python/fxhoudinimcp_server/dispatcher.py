@@ -116,8 +116,6 @@ def command_timeout(command: str) -> float | None:
         if value > 0:
             return value
         logger.warning("Ignoring %s=%r: must be positive", name, raw)
-    if command in _UNBOUNDED_COMMANDS:
-        return None
     return _COMMAND_TIMEOUT
 
 

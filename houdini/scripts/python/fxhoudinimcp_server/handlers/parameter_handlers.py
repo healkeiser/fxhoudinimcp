@@ -355,7 +355,7 @@ def _get_parameter(node_path: str, parm_name: str, **_: Any) -> dict[str, Any]:
         "raw_value": _serialize_value(parm.rawValue()),
         "parm_type": _parm_type_name(pt),
         "is_locked": parm.isLocked(),
-        "is_at_default": parm.isAtDefault(),
+        "is_at_default": not _off_default(parm),
     }
     if data_parm:
         result["data"] = data_parm["data"]
@@ -1635,7 +1635,8 @@ def _parm_entry(parm: hou.Parm, include_defaults: bool) -> dict[str, Any]:
     if not data_parm and isinstance(raw, str) and raw != str(entry["value"]):
         entry["raw_value"] = raw
     if include_defaults:
-        at_default = parm.isAtDefault()
+        # The same rule as non_default_only: a ramp by isAtRampDefault.
+        at_default = not _off_default(parm)
         entry["is_at_default"] = at_default
         # At its default the default only repeats the value: on a full popsource
         # sweep that was 2398 -> 4429 characters for nothing new.
