@@ -216,7 +216,10 @@ def viewer_stays_out_of_dops() -> Iterator[None]:
         if _viewers_in_dops() - before:
             with contextlib.suppress(Exception), keep_viewer_state():
                 for tab, path in editors:
-                    tab.cd(path)
+                    # One editor whose network is gone must not keep the
+                    # others in the DOP network.
+                    with contextlib.suppress(Exception):
+                        tab.cd(path)
 
 
 def viewer_context(scene_viewer) -> dict:

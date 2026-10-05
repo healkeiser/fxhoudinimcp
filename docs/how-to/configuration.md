@@ -23,7 +23,7 @@ FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE=900
 FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER=1800
 ```
 
-`write_cache`, `start_render` and `press_button` have no deadline: they show Houdini's progress dialog and are cancelled from there. `FXHOUDINIMCP_TIMEOUT` does not reach them; their own variable puts one back.
+`write_cache`, `start_render`, `cook_frame_range` and `press_button` have no deadline: they show Houdini's progress dialog and are cancelled from there. `FXHOUDINIMCP_TIMEOUT` does not reach them; their own variable puts one back.
 
 Houdini reads these, so they go in the package file. A command that times out names the variable to raise. The client waits for the plugin's deadline plus 15 seconds, unless `HOUDINI_TIMEOUT` says otherwise. Raise it to match a longer per-command override.
 

@@ -112,7 +112,8 @@ def test_a_failed_frame_is_still_data_and_the_range_goes_on(node, monkeypatch):
 
 
 def test_the_range_has_no_deadline(monkeypatch):
-    monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT", raising=False)
+    # Every install writes FXHOUDINIMCP_TIMEOUT=120; it must not reach here.
+    monkeypatch.setenv("FXHOUDINIMCP_TIMEOUT", "120")
     monkeypatch.delenv("FXHOUDINIMCP_TIMEOUT_GRAPH_COOK_FRAME_RANGE", raising=False)
     assert dispatcher.command_timeout("graph.cook_frame_range") is None
     assert "progress bar" in dispatcher._TIMEOUT_HINTS["graph.cook_frame_range"]
