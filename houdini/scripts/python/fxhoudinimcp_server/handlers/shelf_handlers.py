@@ -17,6 +17,8 @@ from __future__ import annotations
 
 # Built-in
 import contextlib
+import fnmatch
+from collections.abc import Iterator
 from typing import Any
 
 # Third-party
@@ -25,6 +27,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.dispatcher import register_handler
 from fxhoudinimcp_server.errors import as_int, as_text
+from fxhoudinimcp_server.ui import keep_viewer_state
 
 ###### Helpers
 
@@ -220,9 +223,96 @@ def interactive_markers(script: str) -> list[str]:
     return [m for m in _INTERACTIVE_MARKERS if m in script]
 
 
+def _object_selection(given: list | None):
+    """A stand-in for SceneViewer.selectObjects that answers without a click.
+
+    With use_existing_selection (the default) Houdini hands a tool the objects
+    already selected, which is how dynamics_makeflip (FLIP from an object) is
+    used: refusing every selectObjects turned it down with /obj/ball selected.
+    *given* (the caller's ``selection``) answers in place of the scene's
+    selection, which is left as the artist has it. Anything else still
+    refuses. The positional order is HOM's: (self, prompt, sel_index,
+    allow_drag, quick_select, use_existing_selection, allow_multisel,
+    allowed_types, ...).
+    """
+
+    def select_objects(*args: Any, **kwargs: Any) -> tuple:
+        use_existing = kwargs.get("use_existing_selection", args[5] if len(args) > 5 else True)
+        multiple = kwargs.get("allow_multisel", args[6] if len(args) > 6 else True)
+        allowed = kwargs.get("allowed_types", args[7] if len(args) > 7 else ("*",)) or ("*",)
+        candidates = given if given is not None else (hou.selectedNodes() if use_existing else [])
+        chosen = [
+            node
+            for node in candidates
+            if isinstance(node, hou.ObjNode)
+            and any(fnmatch.fnmatch(node.type().name(), pattern) for pattern in allowed)
+        ]
+        if not chosen:
+            raise InteractivePrompt("selectObjects")
+        return tuple(chosen if multiple else chosen[:1])
+
+    return select_objects
+
+
 @contextlib.contextmanager
-def _no_prompts(tool_name: str):
-    """Make every viewport selection and dialog raise instead of waiting."""
+def _selection_kept() -> Iterator[None]:
+    """Put the node selection back as it was once the block is through.
+
+    A shelf script selects what it builds, as a click from the artist should;
+    run by an agent it would take the artist's selection, and with it the
+    parameter pane and the next hotkey. Tools leave the selection as they
+    found it (#128).
+    """
+    selected: list[str] = []
+    with contextlib.suppress(Exception):
+        selected = [node.path() for node in hou.selectedNodes()]
+    try:
+        yield
+    finally:
+        with contextlib.suppress(Exception):
+            if [node.path() for node in hou.selectedNodes()] != selected:
+                hou.clearAllSelected()
+                for path in selected:
+                    node = hou.node(path)
+                    if node is not None:
+                        node.setSelected(True, clear_all_selected=False)
+
+
+@contextlib.contextmanager
+def _editor_in(network: hou.Node) -> Iterator[hou.Node | None]:
+    """A network editor showing *network* for the block, back where it was after.
+
+    A SOP tool places its nodes in the network its pane shows. With no pane,
+    toolutils falls back to the Scene Viewer, which asks for a selection, and
+    the Ctrl+click retry then built model_popnet's network as a new object
+    instead of inside the SOP network given as parent_path. None when there
+    is no editor to lend.
+    """
+    editor = None
+    with contextlib.suppress(Exception):
+        editor = next(
+            tab for tab in hou.ui.paneTabs() if tab.type() == hou.paneTabType.NetworkEditor
+        )
+    if editor is None:
+        yield None
+        return
+    previous = editor.pwd().path()
+    with keep_viewer_state():
+        editor.cd(network.path())
+    try:
+        yield editor
+    finally:
+        with contextlib.suppress(Exception), keep_viewer_state():
+            editor.cd(previous)
+
+
+@contextlib.contextmanager
+def _no_prompts(tool_name: str, selection: list | None = None):
+    """Make every viewport selection and dialog raise instead of waiting.
+
+    An object selection is the exception: it is answered with *selection*, or
+    with the objects already selected, as Houdini does (_object_selection).
+    """
 
     def refuse(name):
         def _raise(*_a, **_k):
@@ -240,8 +330,9 @@ def _no_prompts(tool_name: str):
         for name in names:
             if hasattr(owner, name):
                 patched.append((owner, name, getattr(owner, name)))
+                stand_in = _object_selection(selection) if name == "selectObjects" else refuse(name)
                 with contextlib.suppress(Exception):
-                    setattr(owner, name, refuse(name))
+                    setattr(owner, name, stand_in)
     try:
         yield
     finally:
@@ -260,10 +351,29 @@ def _refusal(tool_name: str, why: str) -> ValueError:
     )
 
 
+def _tree(networks: list) -> dict[str, hou.Node]:
+    """Every node under *networks*, by path, not entering locked assets."""
+    nodes: dict[str, hou.Node] = {}
+    for network in networks:
+        with contextlib.suppress(Exception):
+            for node in network.allSubChildren(recurse_in_locked_nodes=False):
+                nodes[node.path()] = node
+    return nodes
+
+
+def _current_dop_network() -> str | None:
+    """The DOP network DOP shelf tools put their nodes in, or None."""
+    with contextlib.suppress(Exception):
+        network = hou.currentDopNet()
+        return network.path() if network is not None else None
+    return None
+
+
 def run_shelf_tool(
     tool_name: str,
     kwargs: dict | None = None,
     parent_path: str | None = None,
+    selection: list | None = None,
     **_: Any,
 ) -> dict[str, Any]:
     """Run a shelf tool, reporting what it created.
@@ -278,7 +388,11 @@ def run_shelf_tool(
         kwargs: Overrides merged into the synthetic kwargs dict the script
             reads. Pass e.g. {"nodetypename": "..."} when a tool expects it.
         parent_path: An extra network to watch. /obj, /stage, /out, /mat and
-            /img are always watched.
+            /img are always watched. A SOP network is also where a SOP tool
+            places its nodes: a network editor shows it for the run.
+        selection: Object paths the tool takes as its object selection, in
+            place of the scene's (which is left alone). Without it a tool that
+            asks for objects takes the ones already selected, as in Houdini.
     """
     tools = hou.shelves.tools()
     tool = tools.get(tool_name)
@@ -297,19 +411,35 @@ def run_shelf_tool(
     # reported 2 of the 3 -- which left nodes behind that the caller did not know
     # existed. A shelf tool is free to build anywhere.
     watched = [node for node in (hou.node(path) for path in _WATCHED_NETWORKS) if node is not None]
+    place_in = None
     if parent_path:
         explicit = hou.node(parent_path)
         if explicit is None:
             raise ValueError(f"parent_path not found: {parent_path}")
         if explicit not in watched:
             watched.append(explicit)
+        with contextlib.suppress(Exception):
+            if explicit.childTypeCategory() == hou.sopNodeTypeCategory():
+                place_in = explicit
+    if "pane" in (kwargs or {}):
+        place_in = None  # the caller chose the pane
+    chosen = None
+    if selection is not None:
+        chosen = [hou.node(str(path)) for path in selection]
+        missing = [str(path) for path, node in zip(selection, chosen, strict=True) if node is None]
+        if missing:
+            raise ValueError(f"selection: no such node(s): {missing}")
 
     call_kwargs = dict(_DEFAULT_KWARGS)
     call_kwargs["toolname"] = tool.name()
     if kwargs:
         call_kwargs.update(kwargs)
 
-    before = {child.path() for node in watched for child in node.children()}
+    # The whole tree, not only each network's children: dynamics_flipbox run
+    # after model_popnet put flipsolver1, fliptank and merge1 into the existing
+    # POP network, and a reply listing new top-level nodes never named them.
+    before = set(_tree(watched))
+    dop_before = _current_dop_network()
     # A tool that asks for a click is retried once as a Ctrl+click, Houdini's
     # "place immediately": the Crowds Simulate tool then builds its whole
     # default setup (agents, source, DOP states) instead of asking for an
@@ -318,24 +448,34 @@ def run_shelf_tool(
     retry_as_ctrl_click = not any((kwargs or {}).get(key) for key in modifiers)
     ran_as_ctrl_click = False
     refused: InteractivePrompt | None = None
+    placed_in = None
     try:
-        while True:
-            namespace: dict[str, Any] = {"kwargs": call_kwargs, "hou": hou}
-            try:
-                with _no_prompts(tool_name):
-                    exec(script, namespace)  # noqa: S102 - running SideFX's own tool script
-                break
-            except InteractivePrompt as exc:
-                # Whatever the tool created before asking is half a setup; remove it.
-                made = {child.path() for n in watched for child in n.children()} - before
-                for path in made:
-                    with contextlib.suppress(Exception):
-                        hou.node(path).destroy()
-                if not retry_as_ctrl_click or ran_as_ctrl_click:
-                    refused = exc
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(_selection_kept())
+            editor = stack.enter_context(_editor_in(place_in)) if place_in is not None else None
+            if editor is not None:
+                call_kwargs["pane"] = editor
+                placed_in = place_in.path()
+            while True:
+                namespace: dict[str, Any] = {"kwargs": call_kwargs, "hou": hou}
+                try:
+                    with _no_prompts(tool_name, chosen):
+                        exec(script, namespace)  # noqa: S102 - running SideFX's own tool script
                     break
-                call_kwargs = {**call_kwargs, "ctrlclick": True}
-                ran_as_ctrl_click = True
+                except InteractivePrompt as exc:
+                    # Whatever the tool created before asking is half a setup;
+                    # remove it, inside existing networks too.
+                    made = set(_tree(watched)) - before
+                    for path in sorted(made):
+                        if path.rsplit("/", 1)[0] in made:
+                            continue  # goes with its parent
+                        with contextlib.suppress(Exception):
+                            hou.node(path).destroy()
+                    if not retry_as_ctrl_click or ran_as_ctrl_click:
+                        refused = exc
+                        break
+                    call_kwargs = {**call_kwargs, "ctrlclick": True}
+                    ran_as_ctrl_click = True
     except AttributeError as exc:
         if "'hou' has no attribute 'ui'" in str(exc):
             raise hou.OperationFailed(
@@ -353,9 +493,12 @@ def run_shelf_tool(
     if refused is not None:
         raise _refusal(tool_name, f"{refused}()") from refused
 
-    after = {child.path(): child for node in watched for child in node.children()}
-    created = sorted(set(after) - before)
-    return {
+    after = _tree(watched)
+    new = sorted(set(after) - before)
+    tops = {node.path() for node in watched}
+    created = [path for path in new if path.rsplit("/", 1)[0] in tops]
+    inside = [path for path in new if path not in created and path.rsplit("/", 1)[0] in before]
+    reply: dict[str, Any] = {
         "tool_name": tool.name(),
         "label": call_kwargs.get("toolname"),
         "watched": [node.path() for node in watched],
@@ -375,6 +518,20 @@ def run_shelf_tool(
             else {}
         ),
     }
+    if inside:
+        reply["created_in_existing"] = [
+            {"path": path, "type": after[path].type().name()} for path in inside[:_LIST_CAP]
+        ]
+        reply["created_in_existing_count"] = len(inside)
+        reply["existing_networks_changed"] = sorted({p.rsplit("/", 1)[0] for p in inside})
+    dop_after = _current_dop_network()
+    if dop_before or dop_after:
+        # DOP tools build into the current DOP network, which an earlier tool
+        # may have set; seeing it before the next run saves a surprise.
+        reply["current_dop_network"] = {"before": dop_before, "after": dop_after}
+    if placed_in is not None:
+        reply["placed_in"] = placed_in
+    return reply
 
 
 register_handler("shelf.run_shelf_tool", run_shelf_tool)

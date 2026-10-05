@@ -362,3 +362,207 @@ def test_failure_verdict_names_the_upstream_node():
     assert verdict["errors"][0] == "The attempted operation failed."
     assert any("ww_solver" in e and "out of memory" in e for e in verdict["errors"])
     assert "ww_solver" in verdict["message"]
+
+
+# ---------------------------------------------------------------- run_shelf_tool in a working scene
+
+
+class _FakeObject:
+    """Stands in for hou.ObjNode, which isinstance() needs as a real class."""
+
+    def __init__(self, path: str, type_name: str = "geo"):
+        self._path = path
+        self._type = type_name
+        self.setSelected = MagicMock()
+        self.destroy = MagicMock()
+
+    def path(self):
+        return self._path
+
+    def type(self):
+        return MagicMock(**{"name.return_value": self._type})
+
+
+def _shelf_scene(monkeypatch, nodes: dict, selected: list | None = None):
+    """A scene /obj whose tree is *nodes* (path -> node), and one shelf tool.
+
+    The tool's script calls kwargs["run"](kwargs), so each test says what the
+    tool does without a script that interactive_markers would refuse to run.
+    """
+    from fxhoudinimcp_server.handlers import shelf_handlers
+
+    hou = shelf_handlers.hou
+    tool = MagicMock()
+    tool.name.return_value = "the_tool"
+    tool.script.return_value = "kwargs['run'](kwargs)"
+    monkeypatch.setattr(hou.shelves, "tools", lambda: {"the_tool": tool})
+    obj = MagicMock()
+    obj.path.return_value = "/obj"
+    obj.allSubChildren.side_effect = lambda recurse_in_locked_nodes=False: list(nodes.values())
+    monkeypatch.setattr(hou, "node", lambda path: obj if path == "/obj" else nodes.get(path))
+    monkeypatch.setattr(hou, "ObjNode", _FakeObject, raising=False)
+    monkeypatch.setattr(hou, "currentDopNet", lambda: None)
+    chosen = selected if selected is not None else []
+    monkeypatch.setattr(hou, "selectedNodes", lambda: list(chosen))
+    monkeypatch.setattr(hou, "clearAllSelected", chosen.clear)
+    for node in [*nodes.values(), *chosen]:
+        node.setSelected.side_effect = lambda on, clear_all_selected=False, n=node: chosen.append(n)
+    return shelf_handlers, chosen
+
+
+def test_run_shelf_tool_names_nodes_built_inside_existing_networks(monkeypatch):
+    nodes = {p: _FakeObject(p, "null") for p in ("/obj/d", "/obj/d/popnet")}
+    shelf_handlers, _ = _shelf_scene(monkeypatch, nodes)
+    popnet = nodes["/obj/d/popnet"]
+    dop_nets = iter([popnet, popnet])
+    monkeypatch.setattr(shelf_handlers.hou, "currentDopNet", lambda: next(dop_nets))
+
+    def flip_tank(_kwargs):
+        # The FLIP tool puts its solver into the current POP network and adds a tank object.
+        for path, type_name in (
+            ("/obj/d/popnet/flipsolver1", "flipsolver"),
+            ("/obj/tank", "geo"),
+            ("/obj/tank/wavetank", "null"),
+        ):
+            nodes[path] = _FakeObject(path, type_name)
+
+    reply = shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": flip_tank})
+
+    assert [c["path"] for c in reply["created"]] == ["/obj/tank"]
+    assert reply["created_in_existing"] == [
+        {"path": "/obj/d/popnet/flipsolver1", "type": "flipsolver"}
+    ]
+    assert reply["existing_networks_changed"] == ["/obj/d/popnet"]
+    assert reply["current_dop_network"] == {"before": "/obj/d/popnet", "after": "/obj/d/popnet"}
+
+
+def test_run_shelf_tool_takes_the_objects_already_selected(monkeypatch):
+    ball, cam = _FakeObject("/obj/ball"), _FakeObject("/obj/cam", "cam")
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {}, selected=[ball, cam])
+    picked = []
+
+    def make_flip(kwargs):
+        viewer = shelf_handlers.hou.SceneViewer
+        picked.extend(viewer.selectObjects(None, "Select objects", allowed_types=("geo",)))
+
+    reply = shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": make_flip})
+
+    assert picked == [ball]
+    assert "ran_as_ctrl_click" not in reply
+
+
+def test_run_shelf_tool_selection_answers_in_place_of_the_scene(monkeypatch):
+    ball, other = _FakeObject("/obj/ball"), _FakeObject("/obj/other")
+    shelf_handlers, selected = _shelf_scene(monkeypatch, {"/obj/ball": ball}, selected=[other])
+    picked = []
+
+    def make_flip(kwargs):
+        picked.extend(shelf_handlers.hou.SceneViewer.selectObjects(None, "Select objects"))
+
+    shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": make_flip}, selection=["/obj/ball"])
+
+    assert picked == [ball]
+    assert selected == [other]
+
+
+def test_run_shelf_tool_refuses_a_selection_path_that_does_not_exist(monkeypatch):
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {})
+    with pytest.raises(ValueError, match="no such node"):
+        shelf_handlers.run_shelf_tool("the_tool", selection=["/obj/nope"])
+
+
+def test_select_objects_still_refuses_with_nothing_suitable(monkeypatch):
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {})
+    monkeypatch.setattr(shelf_handlers.hou, "selectedNodes", lambda: [_FakeObject("/obj/c", "cam")])
+    with pytest.raises(shelf_handlers.InteractivePrompt):
+        shelf_handlers._object_selection(None)(None, "pick", allowed_types=("geo",))
+    # use_existing_selection=False asks for a fresh pick, which needs a click.
+    monkeypatch.setattr(shelf_handlers.hou, "selectedNodes", lambda: [_FakeObject("/obj/g")])
+    with pytest.raises(shelf_handlers.InteractivePrompt):
+        shelf_handlers._object_selection(None)(None, "pick", use_existing_selection=False)
+
+
+def test_a_single_object_prompt_takes_the_first_selected(monkeypatch):
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {})
+    first, second = _FakeObject("/obj/a"), _FakeObject("/obj/b")
+    monkeypatch.setattr(shelf_handlers.hou, "selectedNodes", lambda: [first, second])
+    assert shelf_handlers._object_selection(None)(None, "pick", allow_multisel=False) == (first,)
+
+
+def test_run_shelf_tool_still_refuses_every_other_prompt(monkeypatch):
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {}, selected=[_FakeObject("/obj/ball")])
+
+    def wants_points(_kwargs):
+        shelf_handlers.hou.SceneViewer.selectGeometry(None, "Select points")
+
+    with pytest.raises(ValueError, match="selectGeometry"):
+        shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": wants_points})
+
+
+def test_run_shelf_tool_puts_the_selection_back(monkeypatch):
+    mine = _FakeObject("/obj/mine")
+    nodes = {"/obj/mine": mine}
+    shelf_handlers, selected = _shelf_scene(monkeypatch, nodes, selected=[mine])
+
+    def builds_and_selects(_kwargs):
+        # A shelf script selects what it builds, as it would for a click.
+        nodes["/obj/tank"] = _FakeObject("/obj/tank", "geo")
+        selected[:] = [nodes["/obj/tank"]]
+
+    shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": builds_and_selects})
+
+    assert selected == [mine]
+
+
+def test_a_refused_tool_removes_what_it_built_inside_existing_networks(monkeypatch):
+    nodes = {p: _FakeObject(p, "null") for p in ("/obj/d", "/obj/d/popnet")}
+    shelf_handlers, _ = _shelf_scene(monkeypatch, nodes)
+
+    def half_built(_kwargs):
+        for path in ("/obj/d/popnet/flipsolver1", "/obj/d/popnet/flipsolver1/inner"):
+            nodes[path] = _FakeObject(path, "null")
+        raise shelf_handlers.InteractivePrompt("selectGeometry")
+
+    with pytest.raises(ValueError, match="waits for a viewport selection"):
+        shelf_handlers.run_shelf_tool("the_tool", kwargs={"run": half_built, "ctrlclick": True})
+
+    nodes["/obj/d/popnet/flipsolver1"].destroy.assert_called_once()
+    # The child goes with its parent; the networks that were there stay.
+    nodes["/obj/d/popnet/flipsolver1/inner"].destroy.assert_not_called()
+    nodes["/obj/d/popnet"].destroy.assert_not_called()
+
+
+def test_a_sop_parent_path_is_where_a_sop_tool_places_its_nodes(monkeypatch):
+    lesson = _FakeObject("/obj/lesson")
+    shelf_handlers, _ = _shelf_scene(monkeypatch, {"/obj/lesson": lesson})
+    hou = shelf_handlers.hou
+    lesson.childTypeCategory = lambda: "Sop"
+    monkeypatch.setattr(hou, "sopNodeTypeCategory", lambda: "Sop")
+    editor = MagicMock()
+    editor.type.return_value = hou.paneTabType.NetworkEditor
+    editor.pwd.return_value.path.return_value = "/obj"
+    monkeypatch.setattr(hou.ui, "paneTabs", lambda: [editor])
+    panes = []
+
+    reply = shelf_handlers.run_shelf_tool(
+        "the_tool", kwargs={"run": lambda kw: panes.append(kw["pane"])}, parent_path="/obj/lesson"
+    )
+
+    assert panes == [editor]
+    # The editor shows the network for the run, then goes back where it was.
+    assert [c.args[0] for c in editor.cd.call_args_list] == ["/obj/lesson", "/obj"]
+    assert reply["placed_in"] == "/obj/lesson"
+
+
+@pytest.mark.asyncio
+async def test_run_shelf_tool_passes_the_selection_to_houdini():
+    from fxhoudinimcp.tools import shelf
+
+    ctx = MagicMock()
+    bridge = MagicMock()
+    bridge.execute = AsyncMock(return_value={})
+    ctx.request_context.lifespan_context = {"bridge": bridge}
+    await shelf.run_shelf_tool(ctx, "dynamics_makeflip", selection=["/obj/ball"])
+    bridge.execute.assert_awaited_once_with(
+        "shelf.run_shelf_tool", {"tool_name": "dynamics_makeflip", "selection": ["/obj/ball"]}
+    )
