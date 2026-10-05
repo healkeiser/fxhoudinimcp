@@ -78,7 +78,8 @@ if _failed:
 # x was reloaded before it. The dispatcher is never reloaded, since it holds
 # the registry the reloaded modules register into.
 _HELPER_MODULES = ["errors", "serialize", "config", "ui", "outputs"]
-_IMPORTED_FROM = ["node_handlers", "parameter_handlers", "viewport_handlers"]
+# dop_handlers first: node, parameter and graph handlers import dop_cache_note.
+_IMPORTED_FROM = ["dop_handlers", "node_handlers", "parameter_handlers", "viewport_handlers"]
 
 
 def reload_plugin(**_):

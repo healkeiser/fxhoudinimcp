@@ -915,7 +915,7 @@ def connect_nodes(
     if indirect_input is not None:
         # source_path stays a path a caller can reuse; the connector is here.
         result["indirect_input"] = int(indirect_input)
-    if cache := dop_cache_note([dest]):
+    if cache := dop_cache_note([dest], rewired=True):
         result["simulation_cache"] = cache
     return result
 
@@ -1180,6 +1180,7 @@ def connect_nodes_batch(
     """
     results = []
     errors = []
+    wired: list = []
 
     last_dest = None
     for conn in connections:
@@ -1193,6 +1194,7 @@ def connect_nodes_batch(
             in_idx = _resolve_input_index(dest, in_idx, conn.get("input_name"))
             dest.setInput(in_idx, source, out_idx)
             last_dest = dest
+            wired.append(dest)
             entry = {
                 "source_path": _get_node(src_path).path(),
                 "dest_path": dest.path(),
@@ -1214,11 +1216,14 @@ def connect_nodes_batch(
     if last_dest is not None:
         _focus_network_editor(last_dest, place_unpositioned=False)
 
-    return {
+    reply = {
         "success": len(errors) == 0,
         "connected": results,
         "errors": errors,
     }
+    if cache := dop_cache_note(wired, rewired=True):
+        reply["simulation_cache"] = cache
+    return reply
 
 
 ###### nodes.disconnect_node
@@ -1259,11 +1264,14 @@ def disconnect_node(
     else:
         raise ValueError("Provide either input_index or set disconnect_all=True.")
 
-    return {
+    reply = {
         "success": True,
         "node_path": node_path,
         "disconnected_inputs": disconnected,
     }
+    if cache := dop_cache_note([node], rewired=True):
+        reply["simulation_cache"] = cache
+    return reply
 
 
 ###### nodes.reorder_inputs
@@ -1307,11 +1315,14 @@ def reorder_inputs(node_path: str, new_order: list) -> dict:
             item, output_index = wires[old_idx]
             node.setInput(new_idx, item, output_index)
 
-    return {
+    reply = {
         "success": True,
         "node_path": node_path,
         "new_order": order,
     }
+    if cache := dop_cache_note([node], rewired=True):
+        reply["simulation_cache"] = cache
+    return reply
 
 
 ###### nodes.set_node_flags

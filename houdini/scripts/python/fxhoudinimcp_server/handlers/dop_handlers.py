@@ -66,7 +66,8 @@ _DOP_CACHE_NOTE = (
     "Frames this simulation cooked before this edit may still hold the old "
     "result: an edit inside a DOP network, or upstream of a simulation, does not "
     "reset its cache. Call reset_simulation(node_path=<network>) before reading "
-    "such a frame."
+    "such a frame. Leave the memory cache (cacheenabled) on: it is what keeps "
+    "the cooked frames, and turning it off is not the fix."
 )
 
 # How many nodes downstream of an edit are looked at for a simulation that
@@ -145,7 +146,7 @@ def _downstream(node: hou.Node) -> list[hou.Node]:
     return found
 
 
-def dop_cache_note(nodes: Any) -> dict[str, Any] | None:
+def dop_cache_note(nodes: Any, rewired: bool = False) -> dict[str, Any] | None:
     """The simulations an edit of *nodes* leaves with stale cooked frames, or None.
 
     ``networks`` are the nodes reset_simulation presses for them, so any of
@@ -153,7 +154,9 @@ def dop_cache_note(nodes: Any) -> dict[str, Any] | None:
     frame 25 stale until a reset: a node inside a DOP network (a SOP Solver's
     own SOPs too), a box a POP Source reads by path, a grid upstream of a
     Vellum Solver SOP. A solver's own parameter re-simulates by itself, so
-    the edited node is never its own reason.
+    the edited node is never its own reason -- unless *rewired*: its inputs
+    changed, and those do not. Measured on 22.0: a Vellum Solver rewired
+    from cloth A to cloth B still showed A at frame 10 until a reset.
     """
     networks: list[str] = []
 
@@ -166,6 +169,8 @@ def dop_cache_note(nodes: Any) -> dict[str, Any] | None:
             if _inside_dop(node):
                 add(_simulation_to_reset(node))
                 continue
+            if rewired and node.parm("resimulate") is not None:
+                add(_simulation_to_reset(node))
             for reader in _downstream(node):
                 if _inside_dop(reader) or reader.parm("resimulate") is not None:
                     add(_simulation_to_reset(reader))

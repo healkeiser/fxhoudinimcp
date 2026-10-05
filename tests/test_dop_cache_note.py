@@ -356,3 +356,28 @@ class TestReviewFollowUps:
             "/obj/studio_fx/dopnet1/src", category="Dop", parent=dopnet, locked=True
         )
         assert dops.dop_cache_note([source])["networks"] == [dopnet.path()]
+
+
+class TestARewiredSolver:
+    """A Vellum Solver rewired from cloth A to cloth B still showed A at frame
+    10 until a reset (22.0); connect_nodes said nothing, as the walk started
+    downstream of the solver it had just wired."""
+
+    def test_a_solver_whose_inputs_changed_is_named(self):
+        solver = _WiredNode("/obj/vel/vs", resimulate=True)
+        assert dops.dop_cache_note([solver]) is None  # its own parm: it resims
+        assert dops.dop_cache_note([solver], rewired=True)["networks"] == [solver.path()]
+
+    def test_a_rewired_node_outside_a_simulation_adds_nothing(self):
+        assert dops.dop_cache_note([_WiredNode("/obj/geo1/merge1")], rewired=True) is None
+
+    def test_every_wiring_tool_asks_with_rewired(self, monkeypatch):
+        import inspect
+
+        for handler in (
+            nodes.connect_nodes,
+            nodes.connect_nodes_batch,
+            nodes.disconnect_node,
+            nodes.reorder_inputs,
+        ):
+            assert "rewired=True" in inspect.getsource(handler), handler.__name__
