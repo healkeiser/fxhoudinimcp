@@ -52,6 +52,7 @@ from fxhoudinimcp_server.handlers.parameter_handlers import (
     is_ramp_value,
     locked_message,
     ramp_from_value,
+    ramp_shape_error,
     set_whole_expression,
     suggest_parms,
     template_labels,
@@ -1415,6 +1416,9 @@ def build_network(
                             f"node {label}: parm '{parm_name}' is {kind}, not a ramp; "
                             f'a dict for it is an expression, {{"expr": ...}}.'
                         )
+                        continue
+                    if kind == "Ramp" and (problem := ramp_shape_error(value)):
+                        errors.append(f"node {label}: parm '{parm_name}': {problem}")
                         continue
                 elif isinstance(value, dict):
                     # An expression wrapper; its parm name was checked above.

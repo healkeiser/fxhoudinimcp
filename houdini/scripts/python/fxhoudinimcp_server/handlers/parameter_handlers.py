@@ -163,6 +163,31 @@ def _ramp_basis(name: Any) -> Any:
     raise ValueError(f"unknown ramp basis {name!r}; known: {known}")
 
 
+def ramp_shape_error(value: dict) -> str | None:
+    """What is wrong with a ramp value whatever parm it goes to, or None.
+
+    The checks that need no parm, so a build_network dry run makes them too:
+    it answered valid for a ramp with a bad basis, and the build then failed.
+    """
+    try:
+        keys = [float(k) for k in value["keys"]]
+        values = list(value["values"])
+    except (TypeError, ValueError):
+        return "a ramp's keys are numbers and its values a list"
+    if len(keys) != len(values):
+        return f"a ramp needs one value per key: {len(keys)} keys, {len(values)} values"
+    basis = value.get("basis", "linear")
+    names = list(basis) if isinstance(basis, (list, tuple)) else [basis] * len(keys)
+    if len(names) != len(keys):
+        return f"a ramp takes one basis or one per key: {len(keys)} keys, {len(names)} bases"
+    try:
+        for name in names:
+            _ramp_basis(name)
+    except ValueError as exc:
+        return str(exc)
+    return None
+
+
 def ramp_from_value(parm: hou.Parm, value: dict) -> hou.Ramp:
     """The hou.Ramp a ``{"keys", "values", "basis"}`` value describes, for *parm*.
 
@@ -176,10 +201,10 @@ def ramp_from_value(parm: hou.Parm, value: dict) -> hou.Ramp:
             f"'{parm.name()}' is not a ramp parameter; a dict for it is an "
             f'expression, {{"expr": ...}}'
         )
+    if problem := ramp_shape_error(value):
+        raise ValueError(problem)
     keys = [float(k) for k in value["keys"]]
     values = list(value["values"])
-    if len(keys) != len(values):
-        raise ValueError(f"a ramp needs one value per key: {len(keys)} keys, {len(values)} values")
     if template.parmType() == hou.rampParmType.Color:
         try:
             values = [tuple(float(c) for c in v) for v in values]
@@ -194,10 +219,6 @@ def ramp_from_value(parm: hou.Parm, value: dict) -> hou.Ramp:
             raise ValueError("a float ramp takes numbers as values") from None
     basis = value.get("basis", "linear")
     names = list(basis) if isinstance(basis, (list, tuple)) else [basis] * len(keys)
-    if len(names) != len(keys):
-        raise ValueError(
-            f"a ramp takes one basis or one per key: {len(keys)} keys, {len(names)} bases"
-        )
     return hou.Ramp(tuple(_ramp_basis(n) for n in names), tuple(keys), tuple(values))
 
 
@@ -707,12 +728,19 @@ def _write_parm(
     return info
 
 
-def _write_ramp(parm: hou.Parm, value: dict) -> dict[str, Any]:
+def _write_ramp(parm: hou.Parm, value: dict, run_callbacks: bool = False) -> dict[str, Any]:
     """Set a whole ramp; answer with what the parm holds afterwards."""
     if locked := locked_message(parm):
         raise LockedParmError(locked)
-    parm.set(ramp_from_value(parm, value))
-    return {"new_value": ramp_to_dict(parm.evalAsRamp())}
+    try:
+        parm.set(ramp_from_value(parm, value))
+    except hou.PermissionError:
+        reason = _expression_driven([parm])
+        if reason:
+            raise ValueError(reason) from None
+        raise
+    callback = _run_callback(parm) if run_callbacks else None
+    return {"new_value": ramp_to_dict(parm.evalAsRamp()), **_callback_report(callback)}
 
 
 def _set_tuple(
@@ -774,7 +802,8 @@ def _set_tuple(
         else:
             parm_tuple.set(value)
     except hou.PermissionError:
-        reason = _expression_driven(components)
+        # Not the components this call gave an expression: those took it.
+        reason = _expression_driven([p for i, p in enumerate(components) if i not in wrapped])
         if reason:
             raise ValueError(reason) from None
         raise
@@ -910,7 +939,7 @@ def _set_parameters(
                 # A whole ramp at once; key by key through its multiparm
                 # (`ramp`, `ramp1pos`, `ramp1c`, ...) was the only way in.
                 try:
-                    results.append({"parm_name": name, **_write_ramp(parm, value)})
+                    results.append({"parm_name": name, **_write_ramp(parm, value, callbacks)})
                 except Exception as exc:
                     errors.append(_error_entry(name, exc))
                 continue
@@ -1648,9 +1677,31 @@ def _default_of(parm: hou.Parm) -> dict[str, Any]:
 
 
 def _off_default(parm: hou.Parm) -> bool:
-    """Whether *parm* was changed from its default (a type's own expression is not)."""
+    """Whether *parm* was changed from its default (a type's own expression is not).
+
+    A ramp and its keys answer with isAtRampDefault: measured on 22.0, a
+    fresh popcolor's ramp2pos read as changed under isAtDefault, and the ramp
+    parm itself still read as default once a key had moved.
+    """
     try:
+        ramp = parm if parm.parmTemplate().type() == hou.parmTemplateType.Ramp else None
+        if ramp is None:
+            parent = parm.parentMultiParm()
+            if parent is not None and parent.parmTemplate().type() == hou.parmTemplateType.Ramp:
+                ramp = parent
+        if ramp is not None:
+            return not ramp.isAtRampDefault()
         return not parm.isAtDefault()
+    except Exception:
+        return False
+
+
+def _valueless(parm: hou.Parm) -> bool:
+    """Whether *parm* is a button, a folder or another parm with no value to report."""
+    from fxhoudinimcp_server.handlers.node_handlers import _VALUELESS_PARM_TYPES
+
+    try:
+        return parm.parmTemplate().type().name() in _VALUELESS_PARM_TYPES
     except Exception:
         return False
 
@@ -1690,7 +1741,8 @@ def _get_parameters(
     Args:
         node_path: Node to read.
         patterns: Substrings matched against parameter name and label. Omit for
-            every non-hidden parameter, up to the cap. Required with *inside*.
+            every non-hidden parameter, up to the cap. Required with *inside*,
+            unless *non_default_only*.
         include_defaults: Also report whether each value is still the default,
             and, where it differs, the default itself (`default`, and
             `default_expression` when the template has one).
@@ -1733,6 +1785,9 @@ def _get_parameters(
     values: dict[str, Any] = {}
     matched = 0
     for parm in node.parms():
+        # A folder stores its open tab: a switched tab read as "changed".
+        if non_default_only and _valueless(parm):
+            continue
         if not _matches_patterns(parm, lowered):
             continue
         if non_default_only and not _off_default(parm):

@@ -594,6 +594,14 @@ class TestRampValues:
         with pytest.raises(ValueError, match="one value per key"):
             parameters.ramp_from_value(_RampParm(), {"keys": [0, 1], "values": [[1, 0, 0]]})
 
+    def test_the_shape_is_checked_without_a_parm(self, ramps):
+        # So a build_network dry run refuses what the build would.
+        assert parameters.ramp_shape_error(RED_TO_BLUE) is None
+        assert "unknown ramp basis" in parameters.ramp_shape_error(
+            {"keys": [0], "values": [1], "basis": "smooth"}
+        )
+        assert "one value per key" in parameters.ramp_shape_error({"keys": [0, 1], "values": [1]})
+
     def test_a_colour_ramp_wants_rgb(self, ramps):
         with pytest.raises(ValueError, match=r"\[r, g, b\]"):
             parameters.ramp_from_value(_RampParm(), {"keys": [0], "values": [1]})
@@ -645,6 +653,17 @@ class TestSetParametersWritesAWholeRamp:
         result = _batch(monkeypatch, {"scale": parm}, {"scale": RED_TO_BLUE})
         assert result["set"] == []
         assert "not a ramp parameter" in result["errors"][0]["error"]
+
+    def test_a_whole_ramp_runs_its_callback_when_asked(self, monkeypatch, ramps):
+        ran = []
+        monkeypatch.setattr(
+            parameters, "_run_callback", lambda parm: ran.append(parm.name()) or {"run": True}
+        )
+        parameters._write_ramp(_RampParm(), RED_TO_BLUE)
+        assert ran == []
+        report = parameters._write_ramp(_RampParm(), RED_TO_BLUE, run_callbacks=True)
+        assert ran == ["ramp"]
+        assert report["callback_run"] is True
 
     def test_a_ramp_written_key_by_key_echoes_the_end_result(self, monkeypatch, ramps):
         # Echoed straight after `ramp: 3`, the new key read t=0, black, though

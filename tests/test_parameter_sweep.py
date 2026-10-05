@@ -26,6 +26,7 @@ from __future__ import annotations
 # Built-in
 import os
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 # Third-party
@@ -371,6 +372,30 @@ class TestOnlyWhatWasChanged:
         _library(monkeypatch, [_node("/mat/lib/n", "null", [parm])])
         result = parameters._get_parameters(inside="/mat/lib", non_default_only=True)
         assert result["rows"] == []
+
+    def test_a_switched_folder_tab_is_not_a_change(self, monkeypatch):
+        # A folder stores its open tab; measured on 22.0, a switched tab is
+        # off its default.
+        node = _node("/obj/geo1/w", "attribwrangle", [_parm("folder01", 1, kind="Folder")])
+        monkeypatch.setattr(parameters.hou, "node", lambda path: node)
+        result = parameters._get_parameters("/obj/geo1/w", non_default_only=True)
+        assert result["parameters"] == {}
+
+    def test_a_ramp_and_its_keys_answer_with_the_ramp_s_own_default(self, monkeypatch):
+        # Measured on 22.0: a fresh popcolor's ramp2pos is off isAtDefault,
+        # and the ramp parm stays at it after a key moved.
+        monkeypatch.setattr(parameters.hou, "parmTemplateType", SimpleNamespace(Ramp="Ramp"))
+        ramp = _parm("ramp", 2, kind="Ramp")
+        ramp.parmTemplate.return_value.type.return_value = "Ramp"
+        ramp.isAtDefault.return_value = True
+        key = _parm("ramp2pos", 1.0, kind="Float")
+        key.parentMultiParm.return_value = ramp
+        ramp.isAtRampDefault.return_value = True
+        assert not parameters._off_default(key)
+        assert not parameters._off_default(ramp)
+        ramp.isAtRampDefault.return_value = False
+        assert parameters._off_default(key)
+        assert parameters._off_default(ramp)
 
     def test_without_it_a_network_still_wants_patterns_and_names_the_way_out(self, monkeypatch):
         _library(monkeypatch, [self._source()])

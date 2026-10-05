@@ -68,9 +68,9 @@ async def set_parameter(
     A String parameter echoes `raw_value` (the unexpanded text, `$JOB/...`)
     next to the expanded `new_value`.
 
-    A list on a vector parameter may carry {"expr": ...} components
-    ([{"expr": "$F"}, 0, 0]): those become expressions, named in
-    `expressions_set`, and the others take their value.
+    A list with {"expr": ...} components ("t": [{"expr": "$F"}, 0, 0]) and
+    a whole ramp ({"keys", "values", "basis"}) go through set_parameters:
+    this tool's `value` takes plain values only.
 
     A LOCKED parameter (karmarendersettings resolutiony under res_mode
     autoheight) takes nothing at all; the error names the menu whose callback

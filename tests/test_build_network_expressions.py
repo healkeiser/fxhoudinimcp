@@ -375,11 +375,22 @@ class TestARampInASpec:
     """A ramp could be set only key by key through its multiparm; a dict for
     the whole of it was refused as an expression without 'expr'."""
 
-    def test_a_whole_ramp_validates(self, validating_build):
+    def test_a_whole_ramp_validates(self, validating_build, monkeypatch):
+        monkeypatch.setattr(hou, "rampBasis", SimpleNamespace(Linear="Linear"))
         result = validating_build(
             "/obj", [{"type": "switch", "parms": {"ramp": RED_TO_BLUE}}], dry_run=True
         )
         assert result["valid"] is True, result["errors"]
+
+    def test_a_dry_run_refuses_a_ramp_the_build_would(self, validating_build, monkeypatch):
+        # It answered valid for an unknown basis; the build then rolled back.
+        monkeypatch.setattr(hou, "rampBasis", SimpleNamespace(Linear="Linear"))
+        bad = {**RED_TO_BLUE, "basis": "smooth"}
+        result = validating_build(
+            "/obj", [{"type": "switch", "parms": {"ramp": bad}}], dry_run=True
+        )
+        assert result["valid"] is False
+        assert "unknown ramp basis 'smooth'" in "\n".join(result["errors"])
 
     def test_a_ramp_on_a_parm_that_is_not_one_is_refused(self, validating_build):
         result = validating_build(
