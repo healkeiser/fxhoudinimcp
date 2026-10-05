@@ -65,6 +65,10 @@ async def set_parameter(
     A String parameter echoes `raw_value` (the unexpanded text, `$JOB/...`)
     next to the expanded `new_value`.
 
+    A list on a vector parameter may carry {"expr": ...} components
+    ([{"expr": "$F"}, 0, 0]): those become expressions, named in
+    `expressions_set`, and the others take their value.
+
     A LOCKED parameter (karmarendersettings resolutiony under res_mode
     autoheight) takes nothing at all; the error names the menu whose callback
     sets the lock. Houdini runs such callbacks only from the UI: set that menu
@@ -127,7 +131,8 @@ async def set_parameters(
         node_path: Node path.
         params: Mapping of parameter names to values, written in this order.
             A value written {"expr": "...", "language": "hscript" | "python"}
-            is set as an expression, as in build_network.
+            is set as an expression, as in build_network, also as one
+            component of a list ("t": [{"expr": "$F"}, 0, 0]).
         override_expression: Remove expressions standing in the way.
         run_callbacks: Run each parameter's callback script after its write,
             as the UI does.

@@ -334,6 +334,39 @@ class TestTuples:
         assert values == [1.0, 2.0]
         assert "expression_kept" not in report
 
+    def test_one_component_can_be_an_expression(self, monkeypatch):
+        # ParmTuple.set([{"expr": "$F"}, 2]) failed with the SWIG overload list.
+        set_expressions = {}
+        monkeypatch.setattr(
+            parameters,
+            "set_whole_expression",
+            lambda parm, expression, language=None: set_expressions.update(
+                {parm.name(): expression}
+            ),
+        )
+        tx, ty = _Parm("tx"), _Parm("ty")
+        node = _node("/obj/geo1")
+        node.parmTuple.return_value = _Tuple([tx, ty])
+        values, report = parameters._set_tuple(node, "t", [{"expr": "$F"}, 2.0])
+        assert set_expressions == {"tx": "$F"}
+        assert ty.eval() == 2.0
+        assert report["expressions_set"] == {"tx": "$F"}
+        assert "expression_kept" not in report
+
+    def test_a_malformed_component_is_refused_before_any_write(self):
+        tx, ty = _Parm("tx"), _Parm("ty", value=5)
+        node = _node("/obj/geo1")
+        node.parmTuple.return_value = _Tuple([tx, ty])
+        with pytest.raises(ValueError, match="expr"):
+            parameters._set_tuple(node, "t", [{"exp": "$F"}, 2.0])
+        assert ty.eval() == 5
+
+    def test_the_wrapper_is_read(self):
+        assert parameters._wrapped_expression(3) is None
+        assert parameters._wrapped_expression({"expr": "$F"})[0] == "$F"
+        with pytest.raises(ValueError, match="language"):
+            parameters._wrapped_expression({"expr": "$F", "language": "vex"})
+
     def test_the_single_setter_merges_the_tuple_report(self, monkeypatch):
         tx = _Parm("tx", expression="$F * 7", expression_value=7)
         node = _node("/obj/geo1/n")

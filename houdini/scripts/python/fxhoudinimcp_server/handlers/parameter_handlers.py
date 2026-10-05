@@ -62,6 +62,27 @@ def suggest_parms(wanted: str, labels: dict[str, str], n: int = 3) -> list[str]:
     return list(dict.fromkeys(found))[: n + 1]
 
 
+def _wrapped_expression(value: Any) -> tuple[str, Any] | None:
+    """(expression, hou.exprLanguage) of an ``{"expr": ..., "language": ...}`` value.
+
+    None for anything else (a literal). Raises ValueError for a dict without
+    "expr", with other keys, or with a language other than hscript/python.
+    """
+    if not isinstance(value, dict):
+        return None
+    unknown = sorted(set(value) - {"expr", "language"})
+    if "expr" not in value or unknown:
+        raise ValueError(
+            f'an expression is written {{"expr": ..., "language": "hscript" | "python"}}, '
+            f"got {value!r}"
+        )
+    language = str(value.get("language", "hscript")).strip().lower()
+    if language not in ("hscript", "python"):
+        raise ValueError(f"expression language must be 'hscript' or 'python', got {language!r}")
+    python = language == "python"
+    return str(value["expr"]), hou.exprLanguage.Python if python else hou.exprLanguage.Hscript
+
+
 def set_whole_expression(parm: hou.Parm, expression: str, language: Any = None) -> int:
     """Make *expression* drive *parm* on every frame; returns keys replaced.
 
@@ -648,6 +669,14 @@ def _set_tuple(
             f"{len(parm_tuple)} components, got {len(value)} values."
         )
     components = list(parm_tuple)
+    # {"expr": ...} on a component sets that component's expression; the
+    # others take their literal. It used to reach ParmTuple.set() and fail
+    # with the raw SWIG overload list.
+    wrapped = {
+        index: found
+        for index, component in enumerate(value)
+        if (found := _wrapped_expression(component)) is not None
+    }
     for parm in components:
         # Before any component is written: a tuple is one write.
         locked = locked_message(parm)
@@ -664,7 +693,14 @@ def _set_tuple(
                 _clear_expression(parm)
         through = {}
     try:
-        parm_tuple.set(value)
+        if wrapped:
+            for index, parm in enumerate(components):
+                if index in wrapped:
+                    set_whole_expression(parm, *wrapped[index])
+                else:
+                    parm.set(value[index])
+        else:
+            parm_tuple.set(value)
     except hou.PermissionError:
         reason = _expression_driven(components)
         if reason:
@@ -676,7 +712,7 @@ def _set_tuple(
     landed_elsewhere: dict[str, str] = {}
     for index, parm in enumerate(components):
         expression = _expression_of(parm)
-        if expression is None:
+        if expression is None or index in wrapped:
             continue
         matches = _values_match(value[index], new_value[index])
         if parm.name() in through and matches:
@@ -693,6 +729,10 @@ def _set_tuple(
             entry["same_as_evaluated"] = True
         kept.append(entry)
     report: dict[str, Any] = _callback_report(callback)
+    if wrapped:
+        report["expressions_set"] = {
+            components[index].name(): expression for index, (expression, _) in wrapped.items()
+        }
     raw = [_raw_string(p) for p in components]
     if any(r is not None and r != v for r, v in zip(raw, new_value, strict=False)):
         report["raw_value"] = raw
