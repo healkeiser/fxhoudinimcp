@@ -41,7 +41,8 @@ async def build_network(
         type (required), name, parms (lists set whole parm tuples; a value
         written {"expr": "ch('../x')"} is set as an expression, with an
         optional "language": "hscript" | "python", also as one component
-        of a list: "t": [{"expr": "$F"}, 0, 0]), expressions (or its
+        of a list: "t": [{"expr": "$F"}, 0, 0]; a ramp takes the whole
+        ramp as {"keys", "values", "basis"}), expressions (or its
         alias exprs: a block of parm name -> expression), inputs (list of
         source names — earlier spec names, existing children, or absolute
         paths; or dicts with index or input_name / source / source_output,

@@ -23,6 +23,9 @@ from fxhoudinimcp.server import _get_bridge, mcp
 async def get_parameter(ctx: Context, node_path: str, parm_name: str) -> dict:
     """Get the value and metadata of a parameter.
 
+    A ramp reads as {"type": "Ramp", "basis", "keys", "values", "is_color"},
+    which set_parameters and build_network take back as it is.
+
     Args:
         node_path: Node path.
         parm_name: Parameter name.
@@ -132,7 +135,12 @@ async def set_parameters(
         params: Mapping of parameter names to values, written in this order.
             A value written {"expr": "...", "language": "hscript" | "python"}
             is set as an expression, as in build_network, also as one
-            component of a list ("t": [{"expr": "$F"}, 0, 0]).
+            component of a list ("t": [{"expr": "$F"}, 0, 0]). A ramp takes the
+            whole ramp at once: {"keys": [0, 1], "values": [[1, 0, 0],
+            [0, 0, 1]], "basis": "linear"} (one basis or one per key; a
+            float ramp takes numbers), the shape get_parameter reads it in.
+            A ramp's `new_value` is what it holds once the whole call is
+            through, so a key added by count and then set reads as set.
         override_expression: Remove expressions standing in the way.
         run_callbacks: Run each parameter's callback script after its write,
             as the UI does.

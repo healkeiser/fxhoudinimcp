@@ -49,7 +49,9 @@ from fxhoudinimcp_server.handlers.parameter_handlers import (
     _run_callback,
     _wrapped_expression,
     broken_references,
+    is_ramp_value,
     locked_message,
+    ramp_from_value,
     set_whole_expression,
     suggest_parms,
     template_labels,
@@ -787,6 +789,8 @@ def _set_parm_value(name: str, parm, parm_tuple, value: Any) -> set[str]:
             parm_tuple.set([float(v) for v in value])
         else:
             parm_tuple.set(list(value))
+    elif parm is not None and is_ramp_value(value):
+        parm.set(ramp_from_value(parm, value))
     elif parm is not None:
         parm.set(value)
     elif parm_tuple is not None:
@@ -1402,7 +1406,17 @@ def build_network(
                             errors.append(
                                 f"node {label}: parm '{parm_name}' component {position}: {exc}"
                             )
-                if isinstance(value, dict):
+                if is_ramp_value(value):
+                    # A whole ramp, written as one value; on any other parm a
+                    # dict is an expression. An unknown name is caught below.
+                    kind = templates.get(parm_name)
+                    if kind is not None and kind != "Ramp":
+                        errors.append(
+                            f"node {label}: parm '{parm_name}' is {kind}, not a ramp; "
+                            f'a dict for it is an expression, {{"expr": ...}}.'
+                        )
+                        continue
+                elif isinstance(value, dict):
                     # An expression wrapper; its parm name was checked above.
                     unknown = sorted(set(value) - {"expr", "language"})
                     if "expr" not in value:
