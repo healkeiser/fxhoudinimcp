@@ -158,6 +158,9 @@ async def get_node_card(
     in this session — never guess parameter names. Unversioned names
     resolve to the newest version.
 
+    A menu carries `menu_labels` (same order as `menu`) whenever its labels
+    differ from its tokens: "0"/"1"/"2" = Surface Scatter/Keep Input/Volume Scatter.
+
     Args:
         node_type: Type name (e.g. "scatter", "rbdbulletsolver").
         context: Category — "Sop", "Lop", "Vop" (MaterialX and other shader

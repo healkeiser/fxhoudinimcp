@@ -1904,6 +1904,13 @@ def get_node_card(
         menu_source = "template"
         with contextlib.suppress(Exception):
             items = list(template.menuItems())
+        with contextlib.suppress(Exception):
+            labels = list(template.menuLabels())
+            # Tokens alone were "0", "1", "2" for pyrosource's Mode, and the
+            # labels (Surface Scatter, Keep Input, Volume Scatter) took a
+            # script to read. Sent only when they say more than the tokens.
+            if items and labels and labels != items:
+                entry["menu_labels"] = labels[:_MENU_CAP]
         generated = generated_menus.get(name)
         if not items and generated:
             # The template has no items because a script computes them
