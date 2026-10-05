@@ -485,6 +485,7 @@ async def get_parameters(
     recursive: bool = False,
     node_type: str | None = None,
     include_locked_assets: bool = False,
+    non_default_only: bool = False,
 ) -> dict:
     """Read many parameter values at once, matched by name or label substring.
 
@@ -502,7 +503,8 @@ async def get_parameters(
     Args:
         node_path: Node to read.
         patterns: Substrings matched against parameter name and label. Omit for
-            everything, up to the cap. Required with `inside`.
+            everything, up to the cap. Required with `inside`, unless
+            non_default_only.
         include_defaults: Also report whether each value is still the default,
             and, where it differs, the default (`default`, `default_expression`).
         inside: Network to read instead of a single node.
@@ -511,9 +513,14 @@ async def get_parameters(
             and counted in `skipped_inside_locked_assets`.
         node_type: With `inside`, only nodes of this type (e.g. "mtlximage").
         include_locked_assets: With `recursive`, read inside locked HDAs too.
+        non_default_only: Only parameters changed from their defaults, each
+            with its default: "what was changed on every node of this network"
+            in one call (with `inside`, no patterns needed).
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"include_defaults": include_defaults}
+    if non_default_only:
+        params["non_default_only"] = True
     if node_path is not None:
         params["node_path"] = node_path
     if patterns is not None:
