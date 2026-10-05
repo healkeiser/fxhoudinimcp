@@ -98,18 +98,14 @@ JSON_CLIENTS: dict[str, tuple[str, str, bool, tuple[str, ...]]] = {
         ("~", ".codeium", "windsurf", "mcp_config.json"),
     ),
     "vscode": ("VS Code", "servers", True, ("Code", "User", "mcp.json")),
+    # Cline's CLI and its VS Code extension both read this one since Cline 3;
+    # the extension's old globalStorage file is only migrated once, so an entry
+    # written there afterwards is never seen (issue #130).
     "cline": (
         "Cline",
         "mcpServers",
         False,
-        (
-            "Code",
-            "User",
-            "globalStorage",
-            "saoudrizwan.claude-dev",
-            "settings",
-            "cline_mcp_settings.json",
-        ),
+        ("~", ".cline", "data", "settings", "cline_mcp_settings.json"),
     ),
 }
 

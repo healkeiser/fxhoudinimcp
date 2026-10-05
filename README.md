@@ -211,7 +211,7 @@ CLI clients register it with their own command. File-based clients take this ent
 | Cursor | `~/.cursor/mcp.json`, key `mcpServers` | delete the entry |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json`, key `mcpServers` | delete the entry |
 | VS Code | user `mcp.json` (**MCP: Open User Configuration**), key `servers`, entry gets `"type": "stdio"` | delete the entry |
-| Cline | `cline_mcp_settings.json` in the extension's `globalStorage/saoudrizwan.claude-dev/settings/`, key `mcpServers` | delete the entry |
+| Cline | `~/.cline/data/settings/cline_mcp_settings.json`, key `mcpServers` | delete the entry |
 
 Any other stdio client takes `<python> -m fxhoudinimcp` as its command. `python -m fxhoudinimcp install --client-only` does this step for you.
 
