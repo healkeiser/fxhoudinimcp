@@ -22,6 +22,9 @@ async def test_lifespan_yields_before_discovery_finishes(monkeypatch):
 
     monkeypatch.delenv("HOUDINI_PORT", raising=False)
     monkeypatch.setattr(server, "find_servers", slow_scan)
-    async with asyncio.timeout(1):
+
+    async def enter():
         async with server.lifespan(None) as state:
-            assert state["bridge"].port == 8100
+            return state["bridge"].port
+
+    assert await asyncio.wait_for(enter(), timeout=1) == 8100
