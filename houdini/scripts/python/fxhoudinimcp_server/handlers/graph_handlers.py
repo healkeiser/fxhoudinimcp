@@ -47,8 +47,10 @@ from fxhoudinimcp_server.handlers.parameter_handlers import (
     _clear_expression,
     _is_locked,
     _run_callback,
+    _wrapped_expression,
     broken_references,
     locked_message,
+    set_whole_expression,
     suggest_parms,
     template_labels,
 )
@@ -680,7 +682,7 @@ def _apply_parm(
             for p in components
             if p.name() in before and (target := _referenced_parm(p)) is not None
         }
-    _set_parm_value(name, parm, parm_tuple, value)
+    wrapped = _set_parm_value(name, parm, parm_tuple, value)
     callback = _run_callback(components[0]) if run_callbacks and components else None
     if callback is not None:
         # Keyed the way the other report kinds are: {parm: detail}.
@@ -691,7 +693,7 @@ def _apply_parm(
     if before and not override_expression:
         for component in components:
             after = _expression_of(component)
-            if after is None or component.name() not in before:
+            if after is None or component.name() not in before or component.name() in wrapped:
                 continue
             if component.name() in through:
                 report.setdefault("written_through", {})[component.name()] = through[
@@ -702,13 +704,28 @@ def _apply_parm(
     return report
 
 
-def _set_parm_value(name: str, parm, parm_tuple, value: Any) -> None:
-    """The plain write behind _apply_parm."""
+def _set_parm_value(name: str, parm, parm_tuple, value: Any) -> set[str]:
+    """The plain write behind _apply_parm.
+
+    Answers the components given an ``{"expr": ...}`` instead of a literal.
+    """
     if isinstance(value, (list, tuple)):
         if parm_tuple is None:
             raise ValueError(f"'{name}' is not a parm tuple")
         if len(value) != len(parm_tuple):
             raise ValueError(f"'{name}' has {len(parm_tuple)} components, got {len(value)}")
+        wrapped = {i: found for i, v in enumerate(value) if (found := _wrapped_expression(v))}
+        if wrapped:
+            # One component as an expression, the rest literals: ParmTuple.set()
+            # took none of it and answered with its SWIG overload list.
+            for index, component in enumerate(parm_tuple):
+                if index in wrapped:
+                    set_whole_expression(component, *wrapped[index])
+                else:
+                    literal = value[index]
+                    is_number = isinstance(literal, (int, float))
+                    component.set(float(literal) if is_number else literal)
+            return {parm_tuple[index].name() for index in wrapped}
         if all(isinstance(v, (int, float)) for v in value):
             parm_tuple.set([float(v) for v in value])
         else:
@@ -723,6 +740,7 @@ def _set_parm_value(name: str, parm, parm_tuple, value: Any) -> None:
             parm_tuple.set([value] * len(parm_tuple))
     else:
         raise ValueError(f"parameter '{name}' not found")
+    return set()
 
 
 def _source_output(value: Any) -> int | str:
@@ -1319,6 +1337,14 @@ def build_network(
                 hint = f" Did you mean: {close}?" if close else ""
                 errors.append(f"node {label}: no parm '{parm_name}' to put an expression on.{hint}")
             for parm_name, value in (spec.get("parms") or {}).items():
+                if isinstance(value, (list, tuple)):
+                    for position, component in enumerate(value):
+                        try:
+                            _wrapped_expression(component)
+                        except ValueError as exc:
+                            errors.append(
+                                f"node {label}: parm '{parm_name}' component {position}: {exc}"
+                            )
                 if isinstance(value, dict):
                     # An expression wrapper; its parm name was checked above.
                     unknown = sorted(set(value) - {"expr", "language"})

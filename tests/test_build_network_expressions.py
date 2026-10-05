@@ -481,3 +481,48 @@ class TestTheBuildSaysWhatDidNotTake:
         assert switch_input.set_expressions == [("hou.frame() % 2", hou.exprLanguage.Python)]
         assert seed.set_expressions == [("$F", None)]
         assert switch_input._value == 0.0  # the wrapper was never set() as a value
+
+
+class _Component:
+    def __init__(self, name):
+        self._name = name
+        self.value = None
+
+    def name(self):
+        return self._name
+
+    def set(self, value):
+        self.value = value
+
+
+class TestAnExpressionComponent:
+    """{"expr": ...} as one component of a list passed the dry run and failed the build."""
+
+    def test_the_build_writes_one_component_as_an_expression(self, monkeypatch):
+        expressions = {}
+        monkeypatch.setattr(
+            graph,
+            "set_whole_expression",
+            lambda parm, expression, language=None: expressions.update({parm.name(): expression}),
+        )
+        parm_tuple = [_Component("tx"), _Component("ty"), _Component("tz")]
+        wrapped = graph._set_parm_value("t", None, parm_tuple, [{"expr": "$F"}, 0, 2])
+        assert expressions == {"tx": "$F"}
+        assert [c.value for c in parm_tuple] == [None, 0.0, 2.0]
+        assert wrapped == {"tx"}
+
+    def test_a_plain_list_is_one_tuple_write_as_before(self):
+        parm_tuple = MagicMock()
+        parm_tuple.__len__.return_value = 3
+        assert graph._set_parm_value("t", None, parm_tuple, [1, 2, 3]) == set()
+        parm_tuple.set.assert_called_once_with([1.0, 2.0, 3.0])
+
+    def test_the_dry_run_refuses_a_malformed_component(self, validating_build):
+        spec = {"type": "switch", "name": "sw", "parms": {"t": [{"exp": "$F"}, 0, 0]}}
+        result = validating_build("/obj", [spec], dry_run=True)
+        assert result["valid"] is False
+        assert any("parm 't' component 0" in e for e in result["errors"])
+
+    def test_the_dry_run_takes_a_wellformed_component(self, validating_build):
+        spec = {"type": "switch", "name": "sw", "parms": {"t": [{"expr": "$F"}, 0, 0]}}
+        assert validating_build("/obj", [spec], dry_run=True)["valid"] is True
