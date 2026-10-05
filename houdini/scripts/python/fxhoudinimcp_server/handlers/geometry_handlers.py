@@ -1266,7 +1266,9 @@ def _attrib_stats_once(
             continue
         if attrib.dataType() == hou.attribData.String:
             stats[name] = (
-                _string_counts(geo, cls, name, rows) if unique else {"skipped": "not numeric"}
+                _string_counts(geo, cls, name, rows, attrib.size())
+                if unique
+                else {"skipped": "not numeric"}
             )
             continue
         size = attrib.size()
@@ -1351,12 +1353,13 @@ def _group_rows(geo, cls: str, group: str | None) -> list[int] | None:
     """Numbers of the *cls* elements in the group pattern *group*, or None for all."""
     if not group:
         return None
-    if cls == "point":
-        found = geo.globPoints(group)
-    elif cls == "prim":
-        found = geo.globPrims(group)
-    else:
+    if cls not in ("point", "prim"):
         raise ValueError(f"group applies to point and prim statistics, not {cls!r}")
+    try:
+        found = geo.globPoints(group) if cls == "point" else geo.globPrims(group)
+    except hou.OperationFailed:
+        # HOM says only "Invalid pattern", also for a group that does not exist.
+        raise ValueError(f"no {cls} group, or an invalid pattern: {group!r}") from None
     return sorted(element.number() for element in found)
 
 
@@ -1369,16 +1372,29 @@ def _value_counts(values: list, cap: int = 10) -> dict[str, Any]:
     }
 
 
-def _string_counts(geo, cls: str, name: str, rows: list[int] | None) -> dict[str, Any]:
-    """count / unique_count / most_common of a string attribute."""
+def _string_counts(
+    geo, cls: str, name: str, rows: list[int] | None, size: int = 1
+) -> dict[str, Any]:
+    """count / unique_count / most_common of a string attribute, a tuple per element."""
     values = list(getattr(geo, f"{cls}StringAttribValues")(name))
+    if size > 1:
+        # HOM flattens the tuples: ('a0', 'b', 'a1', 'b') for two elements.
+        values = [tuple(values[i : i + size]) for i in range(0, len(values), size)]
     if rows is not None:
         values = [values[row] for row in rows]
     return {"count": len(values), **_value_counts(values)}
 
 
+_VERTICES_PER_PRIM_CAP = 200_000
+
+
 def _vertices_per_prim(geo, rows: list[int] | None) -> dict[str, Any]:
     """Distribution of vertex counts per primitive (a trail's length)."""
+    # ponytail: a Python walk, ~8 s per 1M prims measured on 22.0; no HOM bulk
+    # accessor found. Capped so a big mesh's `unique` does not time out.
+    total = len(rows) if rows is not None else geo.intrinsicValue("primitivecount")
+    if total > _VERTICES_PER_PRIM_CAP:
+        return {"skipped": f"{total} prims; counted up to {_VERTICES_PER_PRIM_CAP}"}
     prims = geo.prims()
     counts = (
         [prims[row].numVertices() for row in rows]

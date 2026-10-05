@@ -341,6 +341,34 @@ class TestGroupAndUniqueValues:
             "most_common": [[4, 2], [9, 1]],
         }
 
+    def test_a_group_that_does_not_exist_is_named(self, monkeypatch):
+        # HOM says only "Invalid pattern" (measured on 22.0).
+        geo = _geometry(monkeypatch, {"pointcount": 1})
+        geo.pointAttribs.return_value = [_attrib("fuel", 1, hou.attribData.Float)]
+        geo.globPoints.side_effect = hou.OperationFailed("Invalid pattern")
+        with pytest.raises(ValueError, match="no point group, or an invalid pattern: 'nosuch'"):
+            geometry._get_attrib_stats(node_path="/obj/geo1/out", attribs=["fuel"], group="nosuch")
+
+    def test_a_string_tuple_is_counted_per_element(self, monkeypatch):
+        # HOM flattens it: ('a0', 'b', 'a1', 'b') for two elements (22.0).
+        geo = _geometry(monkeypatch, {"pointcount": 2})
+        geo.pointAttribs.return_value = [_attrib("pair", 2, hou.attribData.String)]
+        geo.pointStringAttribValues.return_value = ("a0", "b", "a1", "b")
+        entry = geometry._get_attrib_stats(
+            node_path="/obj/geo1/out", attribs=["pair"], unique=True
+        )["stats"]["pair"]
+        assert (entry["count"], entry["unique_count"]) == (2, 2)
+
+    def test_vertices_per_prim_is_skipped_on_a_big_mesh(self, monkeypatch):
+        # ~8 s per 1M prims in a Python walk (22.0): over the cap it says so.
+        geo = _geometry(monkeypatch, {"primitivecount": geometry._VERTICES_PER_PRIM_CAP + 1})
+        geo.primAttribs.return_value = []
+        result = geometry._get_attrib_stats(
+            node_path="/obj/geo1/big", attrib_class="prim", unique=True
+        )
+        assert "skipped" in result["vertices_per_prim"]
+        geo.prims.assert_not_called()
+
     def test_the_options_reach_every_row_of_a_multi_node_call(self, monkeypatch):
         seen = []
 

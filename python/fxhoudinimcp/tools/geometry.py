@@ -385,7 +385,8 @@ async def get_attrib_stats(
         distance_to: A SOP whose surface each point's distance is measured
             to (`distance_to` in the reply: min / max / mean, percentiles):
             particles crawling on or hovering over a mesh. Point class; the
-            scene is not changed.
+            scene is not changed. Both are taken in their own SOP space:
+            object transforms are not applied, so use it within one object.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"attrib_class": attrib_class}
