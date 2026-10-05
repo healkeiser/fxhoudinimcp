@@ -539,9 +539,19 @@ def list_children(
             ``locked_asset``.
     """
     parent = _get_node(parent_path)
+    # Listing a locked asset's insides is asking for them: there, every
+    # subnet is uneditable and the walk would stop at the first level.
+    with contextlib.suppress(Exception):
+        if parent.isLockedHDA() or parent.isInsideLockedHDA():
+            include_locked_assets = True
 
+    # A locked asset's contents load on demand: a fresh popsolver answers 0
+    # children until synced.
     children = (
-        parent.allSubChildren(recurse_in_locked_nodes=bool(include_locked_assets))
+        parent.allSubChildren(
+            recurse_in_locked_nodes=bool(include_locked_assets),
+            sync_delayed_definition=bool(include_locked_assets),
+        )
         if recursive
         else parent.children()
     )
@@ -555,7 +565,8 @@ def list_children(
         if recursive and not include_locked_assets:
             # Say where the listing stopped, so the caller knows there is more.
             with contextlib.suppress(Exception):
-                if child.isLockedHDA() is True and len(child.children()) > 0:
+                # isNetwork(), not children(): unsynced contents count 0.
+                if child.isLockedHDA() is True and child.isNetwork() is True:
                     summary["locked_asset"] = True
         results.append(summary)
         if len(results) >= _MAX_CHILDREN:
