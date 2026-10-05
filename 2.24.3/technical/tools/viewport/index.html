@@ -4077,7 +4077,10 @@ opened the plugin to remote clients; pass a shared path then.</p>
         <p>Capture a screenshot of the viewport or a specific pane tab.</p>
 <p>The image is written to disk only; open <code>output_path</code> with your file
 reader to look at it. Prefer get_geometry_info, get_node_info or
-get_scene_summary unless visual confirmation is genuinely needed.</p>
+get_scene_summary unless visual confirmation is genuinely needed.
+A Scene Viewer capture names the network it shows (<code>viewer_network</code>);
+<code>viewer_note</code> says when that is a DOP network, drawn as the simulation's
+objects rather than the SOP display.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4266,7 +4269,8 @@ this instead of a shell sleep between calls. Capped at 120.</p>
             <td>
               <div class="doc-md-description">
                 <p>Frame just these objects or SOPs (their world bounds),
-not the spread of everything in the scene.</p>
+not the spread of everything in the scene. An object frames what
+it draws: a null its marker, a camera or a light its icon.</p>
               </div>
             </td>
             <td>
@@ -4282,7 +4286,8 @@ not the spread of everything in the scene.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Frame [xmin, ymin, zmin, xmax, ymax, zmax], world space.</p>
+                <p>Frame [xmin, ymin, zmin, xmax, ymax, zmax], world space. A
+point is framed as a 1-unit cube around it (<code>padded</code> in the reply).</p>
               </div>
             </td>
             <td>
@@ -4871,7 +4876,8 @@ reply reads the view back. Looking through a camera, move the camera.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Distance of the free view from its pivot.</p>
+                <p>Distance of the free view from its pivot along its view
+axis (the dolly); a sideways pan is not counted in it.</p>
               </div>
             </td>
             <td>

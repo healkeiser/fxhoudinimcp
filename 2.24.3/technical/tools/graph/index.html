@@ -3284,7 +3284,9 @@ spec or in an input entry) is a validation error with a did-you-mean,
 never a silently dropped request:
     type (required), name, parms (lists set whole parm tuples; a value
     written {"expr": "ch('../x')"} is set as an expression, with an
-    optional "language": "hscript" | "python"), expressions (or its
+    optional "language": "hscript" | "python", also as one component
+    of a list: "t": [{"expr": "$F"}, 0, 0]; a ramp takes the whole
+    ramp as {"keys", "values", "basis"}), expressions (or its
     alias exprs: a block of parm name -&gt; expression), inputs (list of
     source names — earlier spec names, existing children, or absolute
     paths; or dicts with index or input_name / source / source_output,
@@ -3447,6 +3449,11 @@ an error or warning (<code>frames_shown</code>); totals, <code>static</code> and
 <p>Prefer this over set_frame in a loop, and over stepping by hand: a 100-frame
 check is one call rather than 100. The frame is left where the cook ended,
 ready to screenshot.</p>
+<p>No deadline: a heavy sim runs under Houdini's progress bar for as long as it
+takes; wait for the verdict and call nothing else meanwhile. Stopped from
+that bar, it answers <code>interrupted: true</code> with the frames cooked so far. A
+node that keeps a cache across frames (Trail, SOP Solver) starts from what it
+holds: press_button its reset (Trail: <code>clear</code>) or reset_simulation first.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3754,10 +3761,16 @@ a type is asked for in a session (no undo entry, creation scripts not
 run); <code>connectors_probed: false</code> with <code>connectors_note</code> means they could
 not be read, not that the type has none. A menu whose items a script
 computes (<code>loadtype</code> on filemerge::2.0) is read off the same probe and
-marked <code>menu_source: "generator"</code>, with the script in <code>menu_generator</code>.</p>
+marked <code>menu_source: "generator"</code>, with the script in <code>menu_generator</code>.
+A radio folder set (<code>switcher1</code> on an Add SOP: By Pattern / By Group)
+is listed as a <code>FolderSet</code> parm whose menu is its folders; a default
+that is an expression (<code>$F</code> on timeshift's <code>frame</code>) is in
+<code>default_expression</code>; a VOP's outputs carry their <code>data_type</code>.</p>
 <p>Use this BEFORE setting parameters on a node type you have not used
 in this session — never guess parameter names. Unversioned names
 resolve to the newest version.</p>
+<p>A menu carries <code>menu_labels</code> (same order as <code>menu</code>) whenever its labels
+differ from its tokens: "0"/"1"/"2" = Surface Scatter/Keep Input/Volume Scatter.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

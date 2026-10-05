@@ -2549,7 +2549,7 @@
 <td><code>FXHOUDINIMCP_TIMEOUT</code></td>
 <td><code>120</code></td>
 <td>Houdini</td>
-<td>Seconds a command may run</td>
+<td>Seconds a command may run; <code>write_cache</code>, <code>start_render</code>, <code>cook_frame_range</code> and <code>press_button</code> have no deadline</td>
 </tr>
 <tr>
 <td><code>FXHOUDINIMCP_TIMEOUT_&lt;COMMAND&gt;</code></td>
@@ -2606,6 +2606,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE</span><span class="o">=</span><span class="m">900</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">FXHOUDINIMCP_TIMEOUT_RENDERING_START_RENDER</span><span class="o">=</span><span class="m">1800</span>
 </code></pre></div>
+<p><code>write_cache</code>, <code>start_render</code>, <code>cook_frame_range</code> and <code>press_button</code> have no deadline: they show Houdini's progress dialog and are cancelled from there. <code>FXHOUDINIMCP_TIMEOUT</code> does not reach them; their own variable puts one back.</p>
 <p>Houdini reads these, so they go in the package file. A command that times out names the variable to raise. The client waits for the plugin's deadline plus 15 seconds, unless <code>HOUDINI_TIMEOUT</code> says otherwise. Raise it to match a longer per-command override.</p>
 <h2 id="ports-and-several-sessions">Ports and Several Sessions<a class="headerlink" href="#ports-and-several-sessions" title="Permanent link">&para;</a></h2>
 <p>The plugin takes port 8100, or the next free one when another Houdini holds it. The client scans 8100-8115 and connects to the lowest that answers. <code>get_houdini_connection_status</code> lists every session and <code>connect_houdini(port)</code> switches. Setting <code>HOUDINI_PORT</code> pins one port and switches the scan off. If you change <code>FXHOUDINIMCP_PORT</code>, set <code>HOUDINI_PORT</code> to match.</p>

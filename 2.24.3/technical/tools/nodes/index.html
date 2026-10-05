@@ -2720,6 +2720,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_children(include_locked_assets)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_locked_assets
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4567,6 +4578,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.nodes.list_children(include_locked_assets)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;include_locked_assets
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6037,7 +6059,9 @@ a chain built inside that subnet).</p>
 <p>In the same network the copy lands one node width to the right of its
 original instead of on top of it; in another network it keeps the
 original's position. <code>offset</code> overrides both, and <code>position</code> in the reply
-says where the copy is.</p>
+says where the copy is. <code>inputs</code> lists the wires the copy kept
+({index, from}); <code>inputs_not_copied</code> the original's wires it could not
+keep, as in a copy into another network.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6862,8 +6886,13 @@ hundreds of nodes.</p>
     <div class="doc doc-contents ">
 
         <p>Get type, connections, flags, errors, cook time, and non-default parameters for a node.</p>
+<p>A parameter whose expression uses a SOP local variable ($CEX, $BBX, $PT, @N.x)
+is not evaluated outside a cook: it comes with <code>value: null</code>, its <code>expression</code>
+and <code>local_variable: true</code>.</p>
 <p>Returns only parameters that differ from their defaults (non_default_parameters)
-plus a total_param_count. Use get_parameter_schema to inspect the full parameter list.</p>
+plus a total_param_count. Use get_parameter_schema to inspect the full parameter list.
+A VOP node also gets <code>connector_types</code>: the data type each input and output
+carries now (a variadic input is "undef" on the type until it is wired).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7024,14 +7053,17 @@ plus a total_param_count. Use get_parameter_schema to inspect the full parameter
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;parent_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_children(parent_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.list_children(parent_path)">parent_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;recursive&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_children(recursive)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.list_children(recursive)">recursive</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;filter_type&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_children(filter_type)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.list_children(filter_type)">filter_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;include_locked_assets&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.nodes.list_children(include_locked_assets)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.nodes.list_children(include_locked_assets)">include_locked_assets</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>List children of a network node.</p>
 <p>Avoid <code>recursive=True</code> on large networks — it can return hundreds or
-thousands of nodes. Prefer <code>find_nodes</code> with a specific pattern instead.</p>
+thousands of nodes. Prefer <code>find_nodes</code> with a specific pattern instead.
+A recursive listing does not enter locked assets (a POP or FLIP solver's
+insides): the asset itself is listed, flagged <code>locked_asset</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7107,6 +7139,23 @@ thousands of nodes. Prefer <code>find_nodes</code> with a specific pattern inste
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.nodes.list_children(include_locked_assets)" class="doc doc-heading doc-heading-parameter">                  <code>include_locked_assets</code>
+<a href="#fxhoudinimcp.tools.nodes.list_children(include_locked_assets)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With recursive, also list what locked assets
+contain.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>

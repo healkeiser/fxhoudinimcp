@@ -826,6 +826,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.unknown_argument_message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unknown_argument_message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2371,6 +2382,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.unknown_argument_message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unknown_argument_message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2552,6 +2574,14 @@ dependency does not need pinning to a major version.</p>
                 </div>
               </td>
             </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;unknown_argument_message&lt;/span&gt; (&lt;code&gt;fxhoudinimcp._sdk.unknown_argument_message&lt;/code&gt;)" href="./#fxhoudinimcp._sdk.unknown_argument_message">unknown_argument_message</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>The refusal for <em>unknown</em> arguments: what each might have meant, and what exists.</p>
+                </div>
+              </td>
+            </tr>
       </tbody>
     </table>
 
@@ -2613,9 +2643,38 @@ version string.</p>
 <p>The SDK's argument model ignores extra keys, so a misspelled filter
 (<code>node_typ="geo"</code>) was dropped and the call answered as if unfiltered,
 which reads as a filter that matched everything. With <code>extra="forbid"</code>
-the call fails naming the key, and the advertised schema says
+the call fails, and the advertised schema says
 <code>additionalProperties: false</code>. <code>_tool_manager</code> and <code>fn_metadata</code> are
 private but identical on 1.x and 2.x, which is why this lives here.</p>
+<p>pydantic's own refusal ("Extra inputs are not permitted") names the key
+but not the argument meant: <code>create_node(node_name=...)</code> left the caller
+to find <code>name</code> in the schema. A before-validator on a subclass of the
+tool's model refuses first, with the closest accepted names and the full
+list (unknown_argument_message).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp._sdk.unknown_argument_message" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">unknown_argument_message</span>
+
+
+<a href="#fxhoudinimcp._sdk.unknown_argument_message" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unknown_argument_message</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp._sdk.unknown_argument_message(tool)">tool</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp._sdk.unknown_argument_message(unknown)">unknown</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n"><span title="fxhoudinimcp._sdk.unknown_argument_message(accepted)">accepted</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#set">set</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The refusal for <em>unknown</em> arguments: what each might have meant, and what exists.</p>
+<p>A name that contains an accepted one comes first (<code>node_name</code> -&gt;
+<code>name</code>), then the near spellings (<code>node_typ</code> -&gt; <code>node_type</code>).</p>
 
 
     </div>

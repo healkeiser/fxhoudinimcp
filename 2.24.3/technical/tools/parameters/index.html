@@ -2298,6 +2298,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(non_default_only)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;non_default_only
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3586,6 +3597,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.parameters.get_parameters(non_default_only)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;non_default_only
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4844,6 +4866,8 @@ label (str), default_value (optional), min_val (optional), max_val (optional).</
     <div class="doc doc-contents ">
 
         <p>Get the value and metadata of a parameter.</p>
+<p>A ramp reads as {"type": "Ramp", "basis", "keys", "values", "is_color"},
+which set_parameters and build_network take back as it is.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5013,7 +5037,8 @@ label (str), default_value (optional), min_val (optional), max_val (optional).</
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;recursive&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(recursive)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(recursive)">recursive</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_type&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(node_type)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(node_type)">node_type</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;include_locked_assets&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(include_locked_assets)">include_locked_assets</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;non_default_only&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.parameters.get_parameters(non_default_only)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.parameters.get_parameters(non_default_only)">non_default_only</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5067,7 +5092,8 @@ differs from the value, exactly as for a single node.</p>
             <td>
               <div class="doc-md-description">
                 <p>Substrings matched against parameter name and label. Omit for
-everything, up to the cap. Required with <code>inside</code>.</p>
+everything, up to the cap. Required with <code>inside</code>, unless
+non_default_only.</p>
               </div>
             </td>
             <td>
@@ -5151,6 +5177,24 @@ and counted in <code>skipped_inside_locked_assets</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>With <code>recursive</code>, read inside locked HDAs too.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.parameters.get_parameters(non_default_only)" class="doc doc-heading doc-heading-parameter">                  <code>non_default_only</code>
+<a href="#fxhoudinimcp.tools.parameters.get_parameters(non_default_only)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Only parameters changed from their defaults, each
+with its default: "what was changed on every node of this network"
+in one call (with <code>inside</code>, no patterns needed).</p>
               </div>
             </td>
             <td>
@@ -5901,6 +5945,9 @@ another node. The reply names that parameter in <code>written_through</code>.</p
 <code>simulation_cache</code> names the network to pass to reset_simulation.</p>
 <p>A String parameter echoes <code>raw_value</code> (the unexpanded text, <code>$JOB/...</code>)
 next to the expanded <code>new_value</code>.</p>
+<p>A list with {"expr": ...} components ("t": [{"expr": "$F"}, 0, 0]) and
+a whole ramp ({"keys", "values", "basis"}) go through set_parameters:
+this tool's <code>value</code> takes plain values only.</p>
 <p>A LOCKED parameter (karmarendersettings resolutiony under res_mode
 autoheight) takes nothing at all; the error names the menu whose callback
 sets the lock. Houdini runs such callbacks only from the UI: set that menu
@@ -6087,7 +6134,13 @@ callback that raised is listed in <code>callbacks_not_run</code>.</p>
               <div class="doc-md-description">
                 <p>Mapping of parameter names to values, written in this order.
 A value written {"expr": "...", "language": "hscript" | "python"}
-is set as an expression, as in build_network.</p>
+is set as an expression, as in build_network, also as one
+component of a list ("t": [{"expr": "$F"}, 0, 0]). A ramp takes the
+whole ramp at once: {"keys": [0, 1], "values": [[1, 0, 0],
+[0, 0, 1]], "basis": "linear"} (one basis or one per key; a
+float ramp takes numbers), the shape get_parameter reads it in.
+A ramp's <code>new_value</code> is what it holds once the whole call is
+through, so a key added by count and then set reads as set.</p>
               </div>
             </td>
             <td>
