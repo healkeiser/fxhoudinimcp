@@ -102,7 +102,10 @@ def _simulation_to_reset(node: hou.Node) -> hou.Node | None:
             buried = owner is not None and owner.isInsideLockedHDA() is True
         if not buried:
             break
-        owner = _reset_button_owner(owner.parent())
+        lifted = _reset_button_owner(owner.parent())
+        if lifted is None:
+            break  # no Reset promoted above: the network itself is still pressable
+        owner = lifted
     return owner
 
 
@@ -122,6 +125,15 @@ def _downstream(node: hou.Node) -> list[hou.Node]:
         neighbours: list = []
         with contextlib.suppress(Exception):
             neighbours = list(current.outputs()) + list(current.dependents())
+        with contextlib.suppress(Exception):
+            # The node a subnet outputs: what reads the subnet reads it.
+            # Measured on 22.0: a grid inside a subnet feeding a Vellum
+            # Solver had no note.
+            parent = current.parent()
+            if not neighbours and (
+                current.type().name() == "output" or parent.displayNode() == current
+            ):
+                neighbours.append(parent)
         for other in neighbours:
             path = other.path()
             if path in seen or path.startswith(inside):

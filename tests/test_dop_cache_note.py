@@ -332,3 +332,27 @@ class TestAnEditInsideASopSolver:
         solver = _WiredNode("/obj/d2/ss", category="Dop", parent=dopnet)
         shift = _WiredNode("/obj/d2/ss/shift", parent=solver)
         assert dops.dop_cache_note([shift])["networks"] == ["/obj/d2"]
+
+
+class TestReviewFollowUps:
+    def test_an_edit_inside_a_subnet_that_feeds_a_solver_is_named(self):
+        # Measured on 22.0: subnet1/grid -> subnet1 -> vellumconstraints ->
+        # vellumsolver had no note; the walk only followed wires out.
+        geo = _WiredNode("/obj/vel", category="Object")
+        subnet = _WiredNode("/obj/vel/subnet1", parent=geo)
+        grid = _WiredNode("/obj/vel/subnet1/grid", parent=subnet)
+        solver = _WiredNode("/obj/vel/vs", parent=geo, resimulate=True)
+        subnet.displayNode = lambda: grid
+        subnet.readers = [solver]
+        assert dops.dop_cache_note([grid])["networks"] == [solver.path()]
+
+    def test_a_simulation_in_an_asset_with_no_reset_promoted_keeps_its_network(self):
+        obj = _WiredNode("/obj", category="Manager")
+        asset = _WiredNode("/obj/studio_fx", category="Object", parent=obj)
+        dopnet = _WiredNode(
+            "/obj/studio_fx/dopnet1", category="Object", parent=asset, resimulate=True, locked=True
+        )
+        source = _WiredNode(
+            "/obj/studio_fx/dopnet1/src", category="Dop", parent=dopnet, locked=True
+        )
+        assert dops.dop_cache_note([source])["networks"] == [dopnet.path()]
