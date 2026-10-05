@@ -77,13 +77,20 @@ def command_timeout(command: str) -> float | None:
 
     ``FXHOUDINIMCP_TIMEOUT_<COMMAND>`` wins (the dotted name uppercased with
     dots as underscores, so ``tops.cook_top_node`` reads
-    ``FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE``), then ``FXHOUDINIMCP_TIMEOUT``
-    for every command, then the built-in default. Read from the process
-    environment on purpose: this runs on an hwebserver worker thread, where
-    ``hou.getenv`` is not safe to call.
+    ``FXHOUDINIMCP_TIMEOUT_TOPS_COOK_TOP_NODE``), then a command with no
+    deadline has none, then ``FXHOUDINIMCP_TIMEOUT`` for every other command,
+    then the built-in default. Read from the process environment on purpose:
+    this runs on an hwebserver worker thread, where ``hou.getenv`` is not safe
+    to call.
     """
     specific = "FXHOUDINIMCP_TIMEOUT_" + command.upper().replace(".", "_")
     for name in (specific, "FXHOUDINIMCP_TIMEOUT"):
+        # The every-command value does not reach a command with no deadline:
+        # `fxhoudinimcp install` writes FXHOUDINIMCP_TIMEOUT=120 into the
+        # package, which put 120 s back on write_cache, start_render and
+        # press_button for every install. Only the command's own variable does.
+        if name == "FXHOUDINIMCP_TIMEOUT" and command in _UNBOUNDED_COMMANDS:
+            return None
         raw = os.environ.get(name, "").strip()
         if not raw:
             continue
