@@ -141,6 +141,10 @@ async def move_node(ctx: Context, node_path: str, dest_parent: str) -> dict:
 async def get_node_info(ctx: Context, node_path: str) -> dict:
     """Get type, connections, flags, errors, cook time, and non-default parameters for a node.
 
+    A parameter whose expression uses a SOP local variable ($CEX, $BBX, $PT, @N.x)
+    is not evaluated outside a cook: it comes with `value: null`, its `expression`
+    and `local_variable: true`.
+
     Returns only parameters that differ from their defaults (non_default_parameters)
     plus a total_param_count. Use get_parameter_schema to inspect the full parameter list.
 
