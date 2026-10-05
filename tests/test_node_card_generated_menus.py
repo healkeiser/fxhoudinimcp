@@ -315,6 +315,10 @@ class TestTheCardShowsADefaultExpression(_CardHarness):
         entry = self._entry(monkeypatch, 'ch("../enable")')
         assert entry["default_expression"] == ['ch("../enable")']
 
+    def test_a_toggle_s_on_or_off_is_its_value_not_an_expression(self, monkeypatch):
+        assert "default_expression" not in self._entry(monkeypatch, "off")
+        assert "default_expression" not in self._entry(monkeypatch, "on")
+
     def test_the_component_holding_the_expression_is_kept_in_place(self, monkeypatch):
         entry = self._entry(monkeypatch, ("", "$F", ""))
         assert entry["default_expression"] == ["", "$F", ""]

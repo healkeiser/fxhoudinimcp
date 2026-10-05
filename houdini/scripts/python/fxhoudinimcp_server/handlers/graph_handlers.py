@@ -2007,10 +2007,12 @@ def get_node_card(
             # told otherwise.
             # Toggle and Menu templates return one string, the others a
             # tuple; the whole tuple is kept so a "" says which component
-            # has no expression.
+            # has no expression. A toggle's "on"/"off" is its value spelt out
+            # (41 "off", 26 "on" across ten SOP types on 22.0), as in
+            # parameter_handlers._default_of.
             expressions = template.defaultExpression()
             if isinstance(expressions, str):
-                expressions = (expressions,)
+                expressions = ("" if expressions in ("on", "off") else expressions,)
             if any(expressions):
                 entry["default_expression"] = list(expressions)
         items: list[str] = []
