@@ -143,14 +143,21 @@ def _connectors_of(node: hou.Node) -> dict[str, list[dict[str, Any]]]:
     outputs: list[dict[str, Any]] = []
     names: list[str] = []
     labels: list[str] = []
+    data_types: list[str] = []
     with contextlib.suppress(Exception):
         names = list(node.outputNames())
     with contextlib.suppress(Exception):
         labels = list(node.outputLabels())
+    with contextlib.suppress(Exception):
+        # A VOP's outputs are typed like its inputs: whether a multiply comes
+        # out float or int was answerable for the inputs only.
+        data_types = list(node.outputDataTypes())
     for index, name in enumerate(names):
         entry: dict[str, Any] = {"index": index, "name": name}
         if index < len(labels):
             entry["label"] = labels[index]
+        if index < len(data_types):
+            entry["data_type"] = data_types[index]
         outputs.append(entry)
     return {"inputs": _input_table(node), "outputs": outputs}
 
@@ -365,6 +372,43 @@ def _generated_menus_of(node: hou.Node) -> dict[str, dict[str, Any]]:
     return generated
 
 
+def _radio_folder_sets_of(node: hou.Node) -> dict[str, dict[str, Any]]:
+    """Radio-button folder sets of a live node, as menus of their folders.
+
+    The set's own parameter (`switcher1` on an Add SOP) picks which folder's
+    parameters apply, so it decides the result: an Add with `attrname=id`
+    made 0 primitives under By Pattern and 126 under By Group. The type's
+    template walk skips folders, and the live name is not the template's
+    (`switcher`), so it is read off the probe. Tab folders are left out: they
+    only choose what the parameter pane shows.
+    """
+    sets: dict[str, dict[str, Any]] = {}
+    with contextlib.suppress(Exception):
+        for parm in node.parms():
+            with contextlib.suppress(Exception):
+                template = parm.parmTemplate()
+                if not isinstance(template, hou.FolderSetParmTemplate):
+                    continue
+                if template.folderType() != hou.folderType.RadioButtons:
+                    continue
+                labels = list(template.folderNames())
+                sets[parm.name()] = {
+                    "folder_set": "RadioButtons",
+                    "items": [str(index) for index in range(len(labels))],
+                    "labels": labels,
+                }
+    return sets
+
+
+# Where a probe goes when the category's usual container refuses the type:
+# (OBJ-level container, network inside it). A geometry VOP
+# (`geometryvopglobal::2.0`) fails to match its definition inside a material
+# network ("Error in child VOP 'P'"), and builds inside an Attribute VOP.
+_FALLBACK_PROBE_PARENTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "Vop": (("geo", "attribvop"),),
+}
+
+
 def _connectors_for_type(
     category_name: str,
     node_type,
@@ -380,6 +424,9 @@ def _connectors_for_type(
     undo disabled and without the type's creation scripts (a documentation
     read must not run an asset's OnCreated); it still marks the scene
     modified, as build_network's dry run does, once per type per session.
+    A type the usual container refuses is tried again in the category's
+    fallback parents (_FALLBACK_PROBE_PARENTS); the first failure is the one
+    reported.
     """
     key = (category_name, node_type.name(), _definition_stamp(node_type))
     if key in _CONNECTOR_CACHE:
@@ -393,20 +440,30 @@ def _connectors_for_type(
     root = hou.node("/obj")
     if root is None:
         return None, "/obj does not exist"
-    scratch = None
-    try:
-        with hou.undos.disabler():
-            scratch = root.createNode(container, "fxhoudinimcp_card_probe")
-            probe = scratch.createNode(node_type.name(), run_init_scripts=False)
-            menus = _generated_menus_of(probe)
-            connectors = _connectors_of(probe)
-    except Exception as exc:
-        return None, f"probing {node_type.name()} failed: {readable_message(exc)}"
-    finally:
-        with contextlib.suppress(Exception):
-            if scratch is not None:
-                with hou.undos.disabler():
-                    scratch.destroy()
+    first_error: Exception | None = None
+    for container_type, inner_type in (
+        (container, None),
+        *_FALLBACK_PROBE_PARENTS.get(category_name, ()),
+    ):
+        scratch = None
+        try:
+            with hou.undos.disabler():
+                scratch = root.createNode(container_type, "fxhoudinimcp_card_probe")
+                parent = scratch.createNode(inner_type) if inner_type else scratch
+                probe = parent.createNode(node_type.name(), run_init_scripts=False)
+                menus = _generated_menus_of(probe)
+                menus.update(_radio_folder_sets_of(probe))
+                connectors = _connectors_of(probe)
+            break
+        except Exception as exc:
+            first_error = first_error or exc
+        finally:
+            with contextlib.suppress(Exception):
+                if scratch is not None:
+                    with hou.undos.disabler():
+                        scratch.destroy()
+    else:
+        return None, f"probing {node_type.name()} failed: {readable_message(first_error)}"
     _CONNECTOR_CACHE[key] = (connectors, menus)
     if generated_menus is not None:
         generated_menus.update(menus)
@@ -1926,6 +1983,13 @@ def get_node_card(
             entry["multiparm_instance"] = True
         with contextlib.suppress(Exception):
             entry["default"] = list(template.defaultValue())
+        with contextlib.suppress(Exception):
+            # A Time Shift is created with frame = $F; `default: [0.0]` alone
+            # read as "a plain 0", and only a build's expressions_removed
+            # told otherwise.
+            expressions = [e for e in template.defaultExpression() if e]
+            if expressions:
+                entry["default_expression"] = expressions
         items: list[str] = []
         menu_source = "template"
         with contextlib.suppress(Exception):
@@ -1958,6 +2022,38 @@ def get_node_card(
                 entry["menu_truncated"] = True
                 entry["menu_count"] = len(items)
         parms.append(entry)
+
+    # Radio folder sets are parameters the template walk does not reach: it
+    # skips folders, and with them the parameter that picks one (an Add SOP's
+    # By Pattern / By Group, `switcher1`).
+    for name, found in generated_menus.items():
+        if found.get("folder_set") is None:
+            continue
+        labels = found.get("labels") or []
+        if (
+            parm_filter
+            and parm_filter.lower() not in name.lower()
+            and not any(parm_filter.lower() in label.lower() for label in labels)
+        ):
+            continue
+        matched += 1
+        if len(parms) >= _PARM_CAP:
+            truncated = True
+            omitted.append(name)
+            continue
+        parms.append(
+            {
+                "name": name,
+                "label": " / ".join(labels),
+                "type": "FolderSet",
+                "size": 1,
+                "default": [0],
+                "menu": found["items"],
+                "menu_labels": labels,
+                "menu_source": "folder_set",
+                "note": "Radio folders: the index picks which folder's parameters apply.",
+            }
+        )
 
     # Multiparm blocks, which are the reason a parameter can be real and yet
     # findable under no name the caller can guess: the folder's own name is the

@@ -143,6 +143,8 @@ async def get_node_info(ctx: Context, node_path: str) -> dict:
 
     Returns only parameters that differ from their defaults (non_default_parameters)
     plus a total_param_count. Use get_parameter_schema to inspect the full parameter list.
+    A VOP node also gets `connector_types`: the data type each input and output
+    carries now (a variadic input is "undef" on the type until it is wired).
 
     Args:
         ctx: MCP context.

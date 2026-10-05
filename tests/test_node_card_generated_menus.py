@@ -184,6 +184,117 @@ class TestTheCardReadsGeneratedMenus:
         assert card["parms"][0]["menu_source"] == "generator"
 
 
+class _FolderSetTemplate:
+    """Stands in for hou.FolderSetParmTemplate, so isinstance() can find it."""
+
+    def __init__(self, folder_type, names):
+        self._type, self._names = folder_type, names
+
+    def folderType(self):
+        return self._type
+
+    def folderNames(self):
+        return tuple(self._names)
+
+
+class _CardHarness:
+    """TestTheCardReadsGeneratedMenus' probe and card, for the classes below."""
+
+    _fresh = TestTheCardReadsGeneratedMenus._fresh
+    _card = TestTheCardReadsGeneratedMenus._card
+
+
+def _folder_set(name, folder_type, names):
+    parm = MagicMock()
+    parm.name.return_value = name
+    parm.parmTemplate.return_value = _FolderSetTemplate(folder_type, names)
+    return parm
+
+
+class TestRadioFoldersAreParametersOnTheCard(_CardHarness):
+    """An Add SOP's card had no `switcher1`, the parm that picks By Pattern or By Group.
+
+    The template walk skips folders, and the radio set's parameter went with
+    them: 12 parms on the card, 16 on a live Add. Which folder is picked
+    decides the result (`attrname=id` made 0 primitives under By Pattern and
+    126 under By Group). Radio sets are read off the probe under their live
+    name and listed as a FolderSet parm whose menu is the folders; tab
+    folders only choose what the pane shows and stay out.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _types(self, monkeypatch):
+        monkeypatch.setattr(hou, "FolderSetParmTemplate", _FolderSetTemplate, raising=False)
+        monkeypatch.setattr(
+            hou,
+            "folderType",
+            MagicMock(RadioButtons="radio", Tabs="tabs"),
+            raising=False,
+        )
+
+    def _add_probe(self):
+        return _probe(
+            [
+                _folder_set("switcher1", "radio", ["By Pattern", "By Group"]),
+                _folder_set("stdswitcher1", "tabs", ["Points", "Polygons"]),
+                _parm("attrname"),
+            ]
+        )
+
+    def test_a_radio_set_is_read_off_the_probe_and_tabs_are_not(self):
+        assert graph._radio_folder_sets_of(self._add_probe()) == {
+            "switcher1": {
+                "folder_set": "RadioButtons",
+                "items": ["0", "1"],
+                "labels": ["By Pattern", "By Group"],
+            }
+        }
+
+    def test_the_card_lists_the_set_as_a_menu_of_its_folders(self, monkeypatch):
+        card, _ = self._card(
+            monkeypatch, [_template("attrname", label="Attribute Name")], self._add_probe()
+        )
+        entry = next(p for p in card["parms"] if p["name"] == "switcher1")
+        assert entry["type"] == "FolderSet"
+        assert entry["menu"] == ["0", "1"]
+        assert entry["menu_labels"] == ["By Pattern", "By Group"]
+        assert entry["menu_source"] == "folder_set"
+        assert "stdswitcher1" not in [p["name"] for p in card["parms"]]
+        assert card["parm_count"] == card["parms_matched"] == 2
+
+    def test_a_filter_finds_it_by_a_folder_s_label(self, monkeypatch):
+        card, _ = self._card(
+            monkeypatch,
+            [_template("attrname", label="Attribute Name")],
+            self._add_probe(),
+            parm_filter="group",
+        )
+        assert [p["name"] for p in card["parms"]] == ["switcher1"]
+
+
+class TestTheCardShowsADefaultExpression(_CardHarness):
+    """timeshift's card said `frame: default [0.0]`; a new Time Shift has frame = $F.
+
+    Only a build's `expressions_removed` told otherwise. The template's
+    defaultExpression() is now on the card as `default_expression`.
+    """
+
+    def _entry(self, monkeypatch, expressions):
+        frame = _template("frame")
+        frame.defaultValue.return_value = (0.0,)
+        frame.defaultExpression.return_value = expressions
+        card, _ = self._card(monkeypatch, [frame], _probe([]))
+        return card["parms"][0]
+
+    def test_an_expression_default_is_named(self, monkeypatch):
+        entry = self._entry(monkeypatch, ("$F",))
+        assert entry["default"] == [0.0]
+        assert entry["default_expression"] == ["$F"]
+
+    def test_a_plain_default_has_none(self, monkeypatch):
+        assert "default_expression" not in self._entry(monkeypatch, ("",))
+
+
 def _string_template(menu_type=None, tags=None):
     template = MagicMock()
     template.type.return_value = hou.parmTemplateType.String

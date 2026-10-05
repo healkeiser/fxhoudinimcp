@@ -423,7 +423,7 @@ def get_node_info(node_path: str) -> dict:
         "category": node_type.category().name(),
     }
 
-    return {
+    info = {
         "node_path": node.path(),
         "name": node.name(),
         "type": type_info,
@@ -440,6 +440,16 @@ def get_node_info(node_path: str) -> dict:
         "position": list(node.position()),
         "color": list(node.color().rgb()),
     }
+    # What a VOP's connectors carry now: a variadic input is "undef" on the
+    # type and becomes float or int once wired, so whether a multiply comes
+    # out float is a question about the live node, not its card.
+    with contextlib.suppress(Exception):
+        if isinstance(node, hou.VopNode):
+            info["connector_types"] = {
+                "inputs": dict(zip(node.inputNames(), node.inputDataTypes(), strict=False)),
+                "outputs": dict(zip(node.outputNames(), node.outputDataTypes(), strict=False)),
+            }
+    return info
 
 
 ###### nodes.list_children
