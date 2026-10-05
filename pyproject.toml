@@ -40,6 +40,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # get_attrib_stats takes a numpy path whenever numpy imports, as in Houdini;
+    # without it here CI ran only the pure-Python fallback.
+    "numpy>=1.24",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
