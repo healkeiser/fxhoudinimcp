@@ -1368,6 +1368,50 @@ register_handler("parameters.lock_parameter", _lock_parameter)
 ###### Handler: parameters.create_spare_parameter
 
 
+def _menu_template(
+    parm_name: str, label: str, menu_items: Any, default_value: Any
+) -> hou.MenuParmTemplate:
+    """A menu spare parm: items as set_hda_interface takes them, default by token or index.
+
+    A menu with no items came out with Houdini's placeholder "none" and the
+    reply said created: true; a token given as default_value was dropped
+    without a word; and labels could not differ from the tokens, so a CTRL
+    menu was rebuilt through execute_python. A list in
+    default_value, with no menu_items, is still read as the items.
+    """
+    from fxhoudinimcp_server.handlers.hda_handlers import _menu_default, _menu_pairs
+
+    spec: dict[str, Any] = {"name": parm_name, "menu_items": menu_items}
+    if menu_items is None and isinstance(default_value, (list, tuple)):
+        spec["menu_items"] = default_value
+    elif default_value is not None:
+        spec["default"] = default_value
+    if not spec["menu_items"]:
+        raise ValueError(
+            f"Menu parameter {parm_name!r} needs menu_items: plain strings, or "
+            f'[value, label] pairs such as [["0", "Uniform"], ["1", "By Attribute"]]; '
+            f"default_value then picks one by value or index."
+        )
+    values, labels = _menu_pairs(spec)
+    return hou.MenuParmTemplate(
+        parm_name,
+        label,
+        menu_items=values,
+        menu_labels=labels,
+        default_value=_menu_default(spec, values),
+    )
+
+
+def _menu_readback(parm: hou.Parm) -> dict[str, Any]:
+    """The menu as the node now holds it: [value, label] pairs and the default token."""
+    template = parm.parmTemplate()
+    values, labels = list(template.menuItems()), list(template.menuLabels())
+    return {
+        "menu_items": [[v, lab] for v, lab in zip(values, labels, strict=True)],
+        "default_value": values[template.defaultValue()] if values else None,
+    }
+
+
 def _create_spare_parameter(
     node_path: str,
     parm_name: str,
@@ -1376,6 +1420,7 @@ def _create_spare_parameter(
     default_value: Any = None,
     min_val: float | None = None,
     max_val: float | None = None,
+    menu_items: list | None = None,
     **_: Any,
 ) -> dict[str, Any]:
     """Add a custom spare parameter to a node."""
@@ -1434,14 +1479,7 @@ def _create_spare_parameter(
         pt = template_cls(parm_name, label, default_value=dv)
 
     elif template_cls is hou.MenuParmTemplate:
-        # For menu type, default_value should be a list of menu items
-        items = default_value if isinstance(default_value, (list, tuple)) else []
-        pt = template_cls(
-            parm_name,
-            label,
-            menu_items=tuple(str(i) for i in items),
-            menu_labels=tuple(str(i) for i in items),
-        )
+        pt = _menu_template(parm_name, label, menu_items, default_value)
     else:
         pt = template_cls(parm_name, label, **kwargs)
 
@@ -1450,13 +1488,17 @@ def _create_spare_parameter(
     ptg.addParmTemplate(pt)
     node.setParmTemplateGroup(ptg)
 
-    return {
+    result: dict[str, Any] = {
         "node_path": node_path,
         "parm_name": parm_name,
         "parm_type": parm_type,
         "label": label,
         "created": True,
     }
+    if template_cls is hou.MenuParmTemplate:
+        with contextlib.suppress(Exception):
+            result.update(_menu_readback(node.parm(parm_name)))
+    return result
 
 
 register_handler("parameters.create_spare_parameter", _create_spare_parameter)
@@ -1518,13 +1560,7 @@ def _build_parm_template(spec: dict) -> hou.ParmTemplate:
         return template_cls(parm_name, label, default_value=dv)
 
     if template_cls is hou.MenuParmTemplate:
-        items = default_value if isinstance(default_value, (list, tuple)) else []
-        return template_cls(
-            parm_name,
-            label,
-            menu_items=tuple(str(i) for i in items),
-            menu_labels=tuple(str(i) for i in items),
-        )
+        return _menu_template(parm_name, label, spec.get("menu_items"), default_value)
 
     return template_cls(parm_name, label, **kwargs)
 
