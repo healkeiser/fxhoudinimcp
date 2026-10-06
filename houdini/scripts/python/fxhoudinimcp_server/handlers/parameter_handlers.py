@@ -1707,6 +1707,32 @@ def _valueless(parm: hou.Parm) -> bool:
         return False
 
 
+def _ramp_key_folded(parm: hou.Parm, lowered: list[str] | None) -> bool:
+    """Whether *parm* is a ramp's key that non_default_only reports inside the ramp.
+
+    The ramp's own entry carries every key (`keys`, `values`, `basis`), the
+    shape set_parameters writes. Listed one by one, a 100-key colour ramp on
+    a Copernicus heightfield_visualize was 500 rows: 60 per node ran out at
+    the twelfth key, and a sweep of five such nodes spent its 2000 rows on
+    four and lost an edit on the fifth (22.0.429). A key a pattern names
+    apart from its ramp (`ramp2` but not `ramp`) is still listed.
+    """
+    try:
+        if not parm.isMultiParmInstance():
+            return False
+        ramp = parm.parentMultiParm()
+        if ramp is None or ramp.parmTemplate().type() != hou.parmTemplateType.Ramp:
+            return False
+    except Exception:
+        return False
+    named_apart = (
+        lowered is not None
+        and _matches_patterns(parm, lowered)
+        and not _matches_patterns(ramp, lowered)
+    )
+    return not named_apart
+
+
 def _matches_patterns(parm: hou.Parm, lowered: list[str] | None) -> bool:
     """Whether any lowered pattern is a substring of the parm's name or label."""
     if lowered is None:
@@ -1790,6 +1816,8 @@ def _get_parameters(
         if non_default_only and _valueless(parm):
             continue
         if not _matches_patterns(parm, lowered):
+            continue
+        if non_default_only and _ramp_key_folded(parm, lowered):
             continue
         if non_default_only and not _off_default(parm):
             continue
@@ -1877,6 +1905,8 @@ def _sweep_parameters(
                 if parm.parmTemplate().type().name() in _VALUELESS_PARM_TYPES:
                     continue
             if not _matches_patterns(parm, lowered):
+                continue
+            if non_default_only and _ramp_key_folded(parm, lowered):
                 continue
             if non_default_only and not _off_default(parm):
                 continue

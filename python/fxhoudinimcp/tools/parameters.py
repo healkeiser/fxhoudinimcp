@@ -528,7 +528,9 @@ async def get_parameters(
         include_locked_assets: With `recursive`, read inside locked HDAs too.
         non_default_only: Only parameters changed from their defaults, each
             with its default: "what was changed on every node of this network"
-            in one call (with `inside`, no patterns needed).
+            in one call (with `inside`, no patterns needed). A changed ramp is
+            one entry holding all its keys; its key parms (`ramp2pos`...) are
+            listed only when a pattern names them and not the ramp.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"include_defaults": include_defaults}
