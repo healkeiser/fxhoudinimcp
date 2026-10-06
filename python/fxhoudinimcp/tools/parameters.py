@@ -427,17 +427,26 @@ async def create_spare_parameter(
     default_value: Value | None = None,
     min_val: float | None = None,
     max_val: float | None = None,
+    menu_items: list[str | list[str]] | None = None,
 ) -> dict:
     """Add a spare parameter to a node.
+
+    A menu needs its items: a menu without any is refused, not created with
+    Houdini's "none" placeholder. The reply reads the menu back from the node
+    (`menu_items` as [value, label] pairs, `default_value` as a value).
 
     Args:
         node_path: Node path.
         parm_name: Internal parameter name.
         parm_type: "float", "int", "string", "toggle", or "menu".
         label: UI label.
-        default_value: Default value.
+        default_value: Default value. For a menu, the default item by value
+            or index.
         min_val: Minimum value (float/int only).
         max_val: Maximum value (float/int only).
+        menu_items: A menu's items, as set_hda_interface takes them: plain
+            strings, or [value, label] pairs such as
+            [["0", "Uniform"], ["1", "By Attribute"]].
     """
     bridge = _get_bridge(ctx)
     payload: dict[str, Any] = {
@@ -452,6 +461,8 @@ async def create_spare_parameter(
         payload["min_val"] = min_val
     if max_val is not None:
         payload["max_val"] = max_val
+    if menu_items is not None:
+        payload["menu_items"] = menu_items
     return await bridge.execute("parameters.create_spare_parameter", payload)
 
 
@@ -473,7 +484,9 @@ async def create_spare_parameters(
         node_path: Node path.
         parameters: List of parameter specs. Each dict has keys:
             parm_name (str), parm_type (str: "float"/"int"/"string"/"toggle"/"menu"),
-            label (str), default_value (optional), min_val (optional), max_val (optional).
+            label (str), default_value (optional), min_val (optional), max_val (optional),
+            menu_items (a menu's items: strings or [value, label] pairs, as
+            in create_spare_parameter; default_value then picks one).
         folder_name: If provided, wraps all parameters in a named folder tab.
         folder_type: Folder style: "Tabs", "Collapsible", or "Simple".
     """
