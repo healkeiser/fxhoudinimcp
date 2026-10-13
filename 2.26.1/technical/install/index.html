@@ -11,6 +11,7 @@
       
       
       
+      
         <link rel="prev" href="../houdini_package/">
       
       
@@ -21,7 +22,7 @@
       
       
       <link rel="icon" href="../../images/favicon.svg">
-      <meta name="generator" content="zensical-0.0.69">
+      <meta name="generator" content="zensical-0.0.70">
     
     
       
@@ -32,12 +33,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e15858d4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e442bf79.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b27955a4.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
       
       
 
@@ -1247,6 +1248,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_houdini_dirs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.install.run_cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_cli
       </span>
     </span>
   </a>
@@ -2742,6 +2754,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.install.run_cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_cli
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3073,6 +3096,14 @@ command exists to prevent.</p>
               <td>
                 <div class="doc-md-description">
                   <p>Where the package file goes. An empty list means there is nowhere yet.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;run_cli&lt;/span&gt; (&lt;code&gt;fxhoudinimcp.install.run_cli&lt;/code&gt;)" href="./#fxhoudinimcp.install.run_cli">run_cli</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>Run a client CLI, its executable looked up the way <code>cli_available</code> finds it.</p>
                 </div>
               </td>
             </tr>
@@ -3535,6 +3566,32 @@ one <code>uninstall</code>. That is a much smaller price than a command that sto
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp.install.run_cli" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">run_cli</span>
+
+
+<a href="#fxhoudinimcp.install.run_cli" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_cli</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp.install.run_cli(argv)">argv</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;subprocess.CompletedProcess&lt;/code&gt;" href="https://docs.python.org/3/library/subprocess.html#subprocess.CompletedProcess">CompletedProcess</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Run a client CLI, its executable looked up the way <code>cli_available</code> finds it.</p>
+<p>On Windows an npm-installed CLI is a <code>gemini.cmd</code> shim: <code>shutil.which</code>
+finds it through PATHEXT, but CreateProcess given a bare <code>gemini</code> only tries
+<code>.exe</code>, so the client was detected and then crashed the install with
+FileNotFoundError (#161). Running the path <code>which</code> found closes that gap,
+and a CLI that still cannot start is reported like any other failure
+rather than ending the run before the remaining clients.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -3609,10 +3666,10 @@ one <code>uninstall</code>. That is a much smaller price than a command that sto
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","navigation.tabs","navigation.sections","navigation.expand","navigation.top","navigation.path","navigation.instant","navigation.instant.prefetch","search.suggest","search.highlight","toc.follow","content.code.annotate","content.code.copy","content.tooltips","content.tabs.link","content.action.edit"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","navigation.tabs","navigation.sections","navigation.expand","navigation.top","navigation.path","navigation.instant","navigation.instant.prefetch","search.suggest","search.highlight","toc.follow","content.code.annotate","content.code.copy","content.tooltips","content.tabs.link","content.action.edit"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.8b1c90bd.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a2388154.min.js"></script>
       
     
   </body>
