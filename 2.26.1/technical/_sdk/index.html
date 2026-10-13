@@ -825,6 +825,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.report_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;report_progress
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.run_server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_server
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp._sdk.unknown_argument_message" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2381,6 +2403,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.report_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;report_progress
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp._sdk.run_server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_server
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fxhoudinimcp._sdk.unknown_argument_message" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2574,6 +2618,27 @@ dependency does not need pinning to a major version.</p>
               </td>
             </tr>
             <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;report_progress&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-async&quot;&gt;&lt;code&gt;async&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;fxhoudinimcp._sdk.report_progress&lt;/code&gt;)" href="./#fxhoudinimcp._sdk.report_progress">report_progress</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>Route SDK 1 progress onto the call's POST stream, not a session GET.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;run_server&lt;/span&gt; (&lt;code&gt;fxhoudinimcp._sdk.run_server&lt;/code&gt;)" href="./#fxhoudinimcp._sdk.run_server">run_server</a></code></td>
+              <td>
+                <div class="doc-md-description">
+                  <p>Run the server; on SDK 2, HTTP without protocol sessions.</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
               <td><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;unknown_argument_message&lt;/span&gt; (&lt;code&gt;fxhoudinimcp._sdk.unknown_argument_message&lt;/code&gt;)" href="./#fxhoudinimcp._sdk.unknown_argument_message">unknown_argument_message</a></code></td>
               <td>
                 <div class="doc-md-description">
@@ -2650,6 +2715,60 @@ but not the argument meant: <code>create_node(node_name=...)</code> left the cal
 to find <code>name</code> in the schema. A before-validator on a subclass of the
 tool's model refuses first, with the closest accepted names and the full
 list (unknown_argument_message).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp._sdk.report_progress" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">report_progress</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#fxhoudinimcp._sdk.report_progress" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">report_progress</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><span title="fxhoudinimcp._sdk.report_progress(ctx)">ctx</span></span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp._sdk.report_progress(progress)">progress</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp._sdk.report_progress(total)">total</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp._sdk.report_progress(message)">message</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Route SDK 1 progress onto the call's POST stream, not a session GET.</p>
+<p>Early 1.x (1.21.1) sends it without related_request_id; 1.29.0 already
+passes it.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="fxhoudinimcp._sdk.run_server" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">run_server</span>
+
+
+<a href="#fxhoudinimcp._sdk.run_server" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_server</span><span class="p">(</span><span class="n"><span title="fxhoudinimcp._sdk.run_server(server)">server</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n"><span title="fxhoudinimcp._sdk.run_server(transport)">transport</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Run the server; on SDK 2, HTTP without protocol sessions.</p>
+<p>Stateless, a client keeps no Mcp-Session-Id between requests (2026-07-28
+clients never had one: SDK 2 serves them statelessly either way). SDK 2
+enters the lifespan once per session manager, so the Houdini bridge
+lives as long as the process. SDK 1 enters it once per stateless
+request: a new bridge and port scan for every call, and connect_houdini
+forgotten as soon as it answers. SDK 1 stays stateful.</p>
 
 
     </div>
