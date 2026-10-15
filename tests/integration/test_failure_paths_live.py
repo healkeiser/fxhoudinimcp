@@ -283,3 +283,23 @@ class TestBadArgumentsAreExplained:
             "vex.create_vex_expression", message, ("parameter", "parm", "not found", "no such")
         )
         assert "no_such_parm" in message, message
+
+    def test_promote_vop_parameters_refuses_a_wired_input(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="promote_geo")
+        dop = call("nodes.create_node", parent_path=geo["node_path"], node_type="dopnet")
+        vop = call("nodes.create_node", parent_path=dop["node_path"], node_type="popvop")
+        mul = call("nodes.create_node", parent_path=vop["node_path"], node_type="multiply")
+        call(
+            "nodes.connect_nodes",
+            source_path=vop["node_path"] + "/geometryvopglobal1",
+            dest_path=mul["node_path"],
+            input_index=0,
+        )
+        error = call(
+            "parameters.promote_vop_parameters",
+            expect_error=True,
+            promotions=[{"node_path": mul["node_path"], "input": "input1"}],
+        )
+        message = str(error.get("message", ""))
+        _assert_useful("parameters.promote_vop_parameters", message, ("already wired",))
+        assert "geometryvopglobal1" in message, message

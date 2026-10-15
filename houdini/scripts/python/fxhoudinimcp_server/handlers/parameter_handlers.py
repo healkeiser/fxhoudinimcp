@@ -2461,3 +2461,152 @@ def _drop_key(entries: list, key: str) -> None:
 
 
 register_handler("parameters.get_parm_template_tree", _get_parm_template_tree)
+
+
+###### Handler: parameters.promote_vop_parameters
+
+# kind -> hou.vopParmGenType member: what the network editor's input menu offers.
+_PARM_GEN_KINDS = {"parameter": "Parameter", "constant": "Constant", "subnet_input": "SubnetInput"}
+
+
+def _check_promotion(index: int, item: Any, seen: set) -> tuple[hou.VopNode, str, str] | str:
+    """(node, input, kind) for a valid promotion item, or what is wrong with it."""
+    if not isinstance(item, dict):
+        return f"promotions[{index}] must be an object, got {type(item).__name__}"
+    unknown = sorted(set(item) - {"node_path", "input", "name", "label", "kind", "use_input_value"})
+    if unknown:
+        return f"promotions[{index}]: unknown key(s) {unknown}"
+    node = hou.node(str(item.get("node_path", "")))
+    if node is None:
+        return f"promotions[{index}]: node not found: {item.get('node_path')!r}"
+    if not isinstance(node, hou.VopNode):
+        return f"promotions[{index}]: {node.path()} is a {node.type().category().name()} node, not a VOP"
+    wanted = str(item.get("input", ""))
+    names = list(node.inputNames())
+    if wanted not in names:
+        close = get_close_matches(wanted, names, n=3, cutoff=0.5)
+        hint = f" Did you mean {close}?" if close else ""
+        return f"promotions[{index}]: {node.path()} has no input {wanted!r}.{hint} Inputs: {names}"
+    kind = str(item.get("kind", "parameter"))
+    if kind not in _PARM_GEN_KINDS:
+        return f"promotions[{index}]: kind must be one of {sorted(_PARM_GEN_KINDS)}, got {kind!r}"
+    name = item.get("name")
+    if name is not None and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(name)):
+        return f"promotions[{index}]: name {name!r} is not a parameter name (letters, digits, _)"
+    if (node.path(), wanted) in seen:
+        return f"promotions[{index}]: {node.path()} input {wanted!r} is listed twice"
+    seen.add((node.path(), wanted))
+    source = (
+        node.inputs()[names.index(wanted)] if names.index(wanted) < len(node.inputs()) else None
+    )
+    if source is not None:
+        return (
+            f"promotions[{index}]: {node.path()} input {wanted!r} is already wired from "
+            f"{source.path()}; promoting it would replace that wire. Disconnect it first."
+        )
+    return node, wanted, kind
+
+
+def _vop_owners(node: hou.Node) -> list[hou.Node]:
+    """The VOP node's ancestors, nearest first, up to the network outside VOPs."""
+    chain = []
+    parent = node.parent()
+    while parent is not None and parent.path() != "/":
+        chain.append(parent)
+        if parent.type().category().name() != "Vop":
+            break
+        parent = parent.parent()
+    return chain
+
+
+def _promote_vop_parameters(promotions: list, **_: Any) -> dict[str, Any]:
+    """Promote VOP inputs, as the network editor's Promote Parameter does.
+
+    insertParmGenerator makes the Parameter VOP and wires it in, but the parm
+    appears on the VOP network that owns it (a POP VOP, an Attribute VOP)
+    only once that network is compiled: measured on 22.0.429, a cook did not
+    bring it, vop_forcecompile did. Each owner is compiled once
+    for the whole batch, and the reply says where every parm landed.
+    """
+    if not isinstance(promotions, list) or not promotions:
+        raise ValueError("promotions must be a non-empty list of {node_path, input, ...}")
+    seen: set = set()
+    checked = [_check_promotion(i, item, seen) for i, item in enumerate(promotions)]
+    errors = [c for c in checked if isinstance(c, str)]
+    if errors:
+        raise ValueError("Nothing was promoted. " + "; ".join(errors))
+
+    made: list[hou.Node] = []
+    results: list[dict[str, Any]] = []
+    try:
+        for item, (node, input_name, kind) in zip(promotions, checked, strict=True):
+            gen_type = getattr(hou.vopParmGenType, _PARM_GEN_KINDS[kind])
+            generator = node.insertParmGenerator(
+                input_name, gen_type, bool(item.get("use_input_value", True))
+            )
+            made.append(generator)
+            if item.get("name") and generator.parm("parmname") is not None:
+                generator.parm("parmname").set(str(item["name"]))
+                with contextlib.suppress(Exception):
+                    generator.setName(str(item["name"]), unique_name=True)
+            if item.get("label") and generator.parm("parmlabel") is not None:
+                generator.parm("parmlabel").set(str(item["label"]))
+            results.append(
+                {
+                    "node_path": node.path(),
+                    "input": input_name,
+                    "kind": kind,
+                    "generator": generator.path(),
+                }
+            )
+    except Exception:
+        for generator in made:
+            with contextlib.suppress(Exception):
+                generator.destroy()
+        raise
+
+    compiled: list[str] = []
+    for node, _input, kind in checked:
+        if kind != "parameter":
+            continue
+        for owner in _vop_owners(node):
+            button = owner.parm("vop_forcecompile")
+            if button is None or owner.path() in compiled:
+                continue
+            with contextlib.suppress(Exception):
+                press(button)
+                compiled.append(owner.path())
+            with contextlib.suppress(Exception):
+                owner.cook(force=True)
+            break
+
+    for entry, generator, (node, _input, kind) in zip(results, made, checked, strict=True):
+        name_parm = generator.parm("parmname")
+        if name_parm is not None:
+            entry["parm_name"] = name_parm.eval()
+        if kind != "parameter" or name_parm is None:
+            continue
+        for owner in _vop_owners(node):
+            tup = owner.parmTuple(entry["parm_name"])
+            if tup is not None:
+                entry["owner"] = owner.path()
+                with contextlib.suppress(Exception):
+                    value = tup.eval()
+                    entry["value"] = list(value) if len(value) > 1 else value[0]
+                break
+        else:
+            entry["owner"] = None
+            entry["note"] = (
+                f"The Parameter VOP is wired in, but no network above {node.path()} shows "
+                f"a parm {entry['parm_name']!r}; compile its VOP network (vop_forcecompile)."
+            )
+    return {
+        "success": all(
+            e.get("owner") for e, c in zip(results, checked, strict=True) if c[2] == "parameter"
+        ),
+        "promoted": results,
+        "compiled": compiled,
+    }
+
+
+register_handler("parameters.promote_vop_parameters", _promote_vop_parameters)

@@ -141,6 +141,7 @@
     "parameters.get_parm_template_tree",
     "parameters.link_parameters",
     "parameters.lock_parameter",
+    "parameters.promote_vop_parameters",
     "parameters.revert_parameter",
     "parameters.set_expression",
     "parameters.set_parameter",

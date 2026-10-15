@@ -390,6 +390,22 @@ class TestRemainingNodesParamsScene:
         )
         assert hou.node(box).parm("amount") is not None
 
+    def test_promote_vop_parameters(self, call):
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="pv")["node_path"]
+        dop = call("nodes.create_node", parent_path=geo, node_type="dopnet")["node_path"]
+        vop = call("nodes.create_node", parent_path=dop, node_type="popvop")["node_path"]
+        fit = call("nodes.create_node", parent_path=vop, node_type="fit")["node_path"]
+        reply = call(
+            "parameters.promote_vop_parameters",
+            promotions=[
+                {"node_path": fit, "input": "destmin"},
+                {"node_path": fit, "input": "destmax", "name": "top", "label": "Top"},
+            ],
+        )
+        assert [p["owner"] for p in reply["promoted"]] == [vop, vop]
+        assert hou.node(vop).parm("destmin") is not None
+        assert hou.node(vop).parm("top").description() == "Top"
+
     def test_scene_save_and_load(self, call, tmp_path):
         call("nodes.create_node", parent_path="/obj", node_type="geo", name="persisted")
         hip = str(tmp_path / "scene.hip").replace("\\", "/")

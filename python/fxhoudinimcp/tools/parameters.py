@@ -502,6 +502,27 @@ async def create_spare_parameters(
 
 
 @mcp.tool()
+async def promote_vop_parameters(ctx: Context, promotions: list[dict[str, Any]]) -> dict:
+    """Promote VOP inputs to parameters, as the network editor's Promote Parameter does.
+
+    Each input gets a Parameter VOP wired in, and its parm appears on the VOP
+    network that owns it (POP VOP, Attribute VOP, ...): the owner is compiled
+    once for the whole batch, and the reply names, per input, the parm and the
+    node it landed on, with its value. Nothing is promoted if any item is
+    wrong; an input that is already wired is refused, not rewired.
+
+    Args:
+        promotions: One dict per input: node_path (the VOP node), input (its
+            input name, e.g. "input2", "destmin"), and optionally name (the
+            parm name; default the input's), label, kind ("parameter",
+            "constant" or "subnet_input"; default "parameter") and
+            use_input_value (start from the input's current value; default True).
+    """
+    bridge = _get_bridge(ctx)
+    return await bridge.execute("parameters.promote_vop_parameters", {"promotions": promotions})
+
+
+@mcp.tool()
 async def get_parameters(
     ctx: Context,
     node_path: str | None = None,
