@@ -84,6 +84,27 @@ def _non_default_parms(node: hou.Node) -> dict[str, Any]:
 ###### context.get_network_overview
 
 
+_NAMED_INPUT_CATEGORIES = ("Vop", "Cop")
+
+
+def _name_connectors(wire: dict, source, target, named_inputs: bool) -> None:
+    """Add the connector names that tell wires apart.
+
+    The output's name when the source has more than one output (an index alone
+    does not say v from P); the input's name where inputs are named by design
+    (VOP, Copernicus), not "input1".
+    """
+    with contextlib.suppress(Exception):
+        names = source.outputNames()
+        if len(names) > 1 and wire["from_output"] < len(names):
+            wire["from_output_name"] = names[wire["from_output"]]
+    if named_inputs:
+        with contextlib.suppress(Exception):
+            names = target.inputNames()
+            if wire["to_input"] < len(names):
+                wire["to_input_name"] = names[wire["to_input"]]
+
+
 def _get_network_overview(
     path: str = "/obj",
     depth: int = 2,
@@ -119,26 +140,26 @@ def _get_network_overview(
                 render_node = child.name()
             nodes_info.append(info)
 
-        # Build connections as adjacency list
+        # Build connections as adjacency list. Read off the target's
+        # inputConnections(): both indices are the wire's own. Looking the
+        # output up in source.outputConnections() matched inputNode() -- the
+        # source itself there -- against the target, so it never matched and
+        # every wire read from_output 0: a VOP wire from geometryvopglobal's
+        # v and one from its P looked the same.
         for child in children:
-            for input_idx, source in enumerate(child.inputs()):
-                if source is not None:
-                    connections.append(
-                        {
-                            "from": source.name(),
-                            "from_output": 0,
-                            "to": child.name(),
-                            "to_input": input_idx,
-                        }
-                    )
-                    # Try to find actual output index
-                    for out_conn in source.outputConnections():
-                        if (
-                            out_conn.inputNode().path() == child.path()
-                            and out_conn.inputIndex() == input_idx
-                        ):
-                            connections[-1]["from_output"] = out_conn.outputIndex()
-                            break
+            named_inputs = child.type().category().name() in _NAMED_INPUT_CATEGORIES
+            for conn in sorted(child.inputConnections(), key=lambda c: c.inputIndex()):
+                source = conn.inputNode()
+                if source is None:
+                    continue
+                wire: dict[str, Any] = {
+                    "from": source.name(),
+                    "from_output": conn.outputIndex(),
+                    "to": child.name(),
+                    "to_input": conn.inputIndex(),
+                }
+                _name_connectors(wire, source, child, named_inputs)
+                connections.append(wire)
 
         # Build ASCII art representation
         ascii_lines = _build_ascii_flow(children)

@@ -471,6 +471,25 @@ def _non_default_parms(node: hou.Node, parms: list[hou.Parm]) -> list[dict[str, 
     return summary
 
 
+def _name_input(entry: dict, node, source, output_index: int, named_inputs: bool) -> None:
+    """Name the wire into *entry*'s input where an index alone is ambiguous.
+
+    output_index / output_name when the source has more than one output;
+    input_name where inputs are named by design (VOP, Copernicus).
+    """
+    with contextlib.suppress(Exception):
+        names = list(source.outputNames())
+        if len(names) > 1:
+            entry["output_index"] = output_index
+            if output_index < len(names):
+                entry["output_name"] = names[output_index]
+    if named_inputs:
+        with contextlib.suppress(Exception):
+            names = list(node.inputNames())
+            if entry["index"] < len(names):
+                entry["input_name"] = names[entry["index"]]
+
+
 def get_node_info(node_path: str) -> dict:
     """Return comprehensive information about a node.
 
@@ -504,17 +523,24 @@ def get_node_info(node_path: str) -> dict:
     all_parms = node.parms()
     parms_summary = _non_default_parms(node, all_parms)
 
-    # Inputs
+    # Inputs. Which output of the source feeds each one is the wire's own
+    # outputIndex(): a VOP input fed by geometryvopglobal's v and one fed by
+    # its P differ only there.
+    output_of: dict[int, int] = {}
+    named_inputs = False
+    with contextlib.suppress(Exception):
+        output_of = {c.inputIndex(): c.outputIndex() for c in node.inputConnections()}
+        named_inputs = node.type().category().name() in ("Vop", "Cop")
     inputs = []
     for i, conn in enumerate(node.inputs()):
         if conn is not None:
-            inputs.append(
-                {
-                    "index": i,
-                    "node_path": conn.path(),
-                    "node_name": conn.name(),
-                }
-            )
+            entry = {
+                "index": i,
+                "node_path": conn.path(),
+                "node_name": conn.name(),
+            }
+            _name_input(entry, node, conn, output_of.get(i, 0), named_inputs)
+            inputs.append(entry)
         else:
             inputs.append({"index": i, "node_path": None, "node_name": None})
 
