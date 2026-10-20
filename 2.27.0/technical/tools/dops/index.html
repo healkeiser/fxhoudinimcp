@@ -3123,7 +3123,7 @@
   &lt;/span&gt; (&lt;code&gt;fxhoudinimcp.tools.dops.get_simulation_info&lt;/code&gt;)" href="./#fxhoudinimcp.tools.dops.get_simulation_info">get_simulation_info</a></code></td>
               <td>
                 <div class="doc-md-description">
-                  <p>Get DOP network simulation state.</p>
+                  <p>Get DOP network simulation state, cooked at the current frame.</p>
                 </div>
               </td>
             </tr>
@@ -3491,7 +3491,12 @@
 
     <div class="doc doc-contents ">
 
-        <p>Get DOP network simulation state.</p>
+        <p>Get DOP network simulation state, cooked at the current frame.</p>
+<p><code>simulation_frame</code> is the frame the simulation actually holds. Going
+back to a frame the memory cache no longer keeps, Houdini gives the
+frame it kept instead of simulating again; <code>note</code> then says so, and
+every node reading the network has that frame too. Check this before
+measuring or rendering a frame reached backwards.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
