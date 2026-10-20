@@ -4079,7 +4079,9 @@ reader to look at it. Prefer get_geometry_info, get_node_info or
 get_scene_summary unless visual confirmation is genuinely needed.
 A Scene Viewer capture names the network it shows (<code>viewer_network</code>);
 <code>viewer_note</code> says when that is a DOP network, drawn as the simulation's
-objects rather than the SOP display.</p>
+objects rather than the SOP display; <code>visible_objects_note</code>, when the
+viewport's Visible Objects pattern leaves out the object the viewer is
+in, so the frame shows none of it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4536,6 +4538,10 @@ the work is seen on its own and the rest of the scene does not cook.</p>
 <p>A DOP network becomes the current one, where DOP shelf tools build (the
 reply names <code>current_dop_network</code>), as entering it in Houdini does; with
 other_objects=None that is all it changes besides the editor.</p>
+<p>A Visible Objects pattern (saved with the hip) that leaves this object
+out is set back to "*", named in <code>visible_objects_reset</code>.</p>
+<p>A node that is not a network (a SOP) is made current in its own network,
+named in <code>entered</code> and <code>current_node</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
