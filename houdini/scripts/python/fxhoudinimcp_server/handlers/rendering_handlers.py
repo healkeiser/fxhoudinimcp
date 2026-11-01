@@ -80,17 +80,20 @@ def _find_flipbook_output(output_path: str, frame: float) -> str:
 def _size_flipbook(settings, resolution: list | None) -> None:
     """Write *resolution* if one is asked for, else the viewport as it is.
 
-    A stash carries the flipbook's own default, 1280x720 with Use Resolution
-    on (22.0.466), whatever the viewport's shape: an 897x853 view came out
-    cropped top and bottom (a top view framed to a 2020x2360 box showed 1550
-    of its 2360), and through an 800x400 camera the whole view was squeezed
-    into 16:9. Off, the frame is the viewport's own size.
+    A stash copies the viewer's Flipbook dialog settings, 1280x720 with Use
+    Resolution on until an artist changes them (22.0.466), whatever the
+    viewport's shape: an 897x853 view came out cropped top and bottom (a top
+    view framed to a 2020x2360 box showed 1550 of its 2360), and through an
+    800x400 camera the whole view was squeezed into 16:9. Off, the frame is
+    the viewport's own size. The dialog's Output Zoom (25-100%) scales either,
+    so it is put back to 100.
     """
     if resolution is not None:
         settings.useResolution(True)
         settings.resolution(tuple(resolution))
     else:
         settings.useResolution(False)
+    settings.outputZoom(100)
 
 
 def render_viewport(

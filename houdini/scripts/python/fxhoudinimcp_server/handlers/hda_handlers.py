@@ -820,8 +820,8 @@ def _describe_template(template) -> dict:
     # Read back so a help text that did not reach the definition shows as
     # missing here rather than only in its DialogScript.
     with contextlib.suppress(Exception):
-        if template.help():
-            info["help"] = template.help()
+        if help_text := template.help():
+            info["help"] = help_text
     with contextlib.suppress(Exception):
         expressions = tuple(template.defaultExpression())
         if any(expressions):
