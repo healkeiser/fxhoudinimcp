@@ -74,6 +74,33 @@ def _attrib_meta(attrib: hou.Attrib) -> dict[str, Any]:
     }
 
 
+# "primitive" is what attribcreate's Class menu, the UI and hou.attribType.Prim
+# call it; a session guessed "prim" only after a refusal that listed nothing.
+_ATTRIB_CLASS_ALIASES = {
+    "point": "point",
+    "points": "point",
+    "prim": "prim",
+    "prims": "prim",
+    "primitive": "prim",
+    "primitives": "prim",
+    "vertex": "vertex",
+    "vertices": "vertex",
+    "detail": "detail",
+    "global": "detail",
+}
+
+
+def _attrib_class_key(attrib_class: str) -> str:
+    """ "point", "prim", "vertex" or "detail" for *attrib_class* and its aliases."""
+    key = _ATTRIB_CLASS_ALIASES.get(str(attrib_class).strip().lower())
+    if key is None:
+        raise ValueError(
+            f"Invalid attrib_class: {attrib_class!r}. "
+            "Use 'point', 'prim' (or 'primitive'), 'vertex' or 'detail'."
+        )
+    return key
+
+
 def _attrib_class_obj(geo: hou.Geometry, attrib_class: str) -> Any:
     """Map a string class name to the hou.attribType enum value."""
     mapping = {
@@ -81,14 +108,8 @@ def _attrib_class_obj(geo: hou.Geometry, attrib_class: str) -> Any:
         "prim": hou.attribType.Prim,
         "vertex": hou.attribType.Vertex,
         "detail": hou.attribType.Global,
-        "global": hou.attribType.Global,
     }
-    cls = mapping.get(attrib_class.lower())
-    if cls is None:
-        raise ValueError(
-            f"Invalid attrib_class: {attrib_class!r}. Use one of {list(mapping.keys())}"
-        )
-    return cls
+    return mapping[_attrib_class_key(attrib_class)]
 
 
 ###### geometry.get_geometry_info
@@ -359,7 +380,7 @@ def _get_attrib_values(
     """
     geo = _get_sop_geo(node_path)
 
-    cls = attrib_class.lower()
+    cls = _attrib_class_key(attrib_class)
     finders = {
         "point": geo.findPointAttrib,
         "prim": geo.findPrimAttrib,
@@ -581,6 +602,8 @@ def _get_group_members(
     geo = _get_sop_geo(node_path)
 
     gt = group_type.lower()
+    # The same spelling get_attrib_values accepts for the class.
+    gt = {"points": "point", "primitive": "prim", "primitives": "prim", "prims": "prim"}.get(gt, gt)
     if gt == "point":
         grp = geo.findPointGroup(group_name)
         if grp is None:
@@ -655,7 +678,7 @@ def _get_attribute_info(
     """Detailed attribute info: type, size, default value."""
     geo = _get_sop_geo(node_path)
 
-    cls = attrib_class.lower()
+    cls = _attrib_class_key(attrib_class)
     finders = {
         "point": geo.findPointAttrib,
         "prim": geo.findPrimAttrib,
@@ -1204,7 +1227,7 @@ def _attrib_stats_once(
     """
     geo = _get_sop_geo(node_path)
 
-    cls = attrib_class.lower()
+    cls = _attrib_class_key(attrib_class)
     listers = {
         "point": (geo.pointAttribs, geo.points),
         "prim": (geo.primAttribs, geo.prims),

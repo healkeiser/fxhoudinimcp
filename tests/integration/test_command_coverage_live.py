@@ -594,6 +594,40 @@ class TestMopUp:
         )
         assert members, members
 
+    def test_attrib_class_takes_houdinis_word_primitive(self, call):
+        """attribcreate's menu says "primitive"; the readers took only "prim"."""
+        geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="g")["node_path"]
+        box = call("nodes.create_node", parent_path=geo, node_type="box")["node_path"]
+        mask = call("nodes.create_node", parent_path=geo, node_type="attribcreate", name="mask")[
+            "node_path"
+        ]
+        call("nodes.connect_nodes", source_path=box, dest_path=mask)
+        for parm, value in (("name1", "mask"), ("class1", 1), ("value1v1", 0.25)):
+            call("parameters.set_parameter", node_path=mask, parm_name=parm, value=value)
+        values = call(
+            "geometry.get_attrib_values",
+            node_path=mask,
+            attrib_name="mask",
+            attrib_class="primitive",
+        )
+        assert values["total_elements"] == 6, values
+        assert values["values"] == [0.25] * 6, values
+        info = call(
+            "geometry.get_attribute_info",
+            node_path=mask,
+            attrib_name="mask",
+            attrib_class="Primitive",
+        )
+        assert info["type"] == "Float", info
+        refused = call(
+            "geometry.get_attrib_values",
+            assert_failure=True,
+            node_path=mask,
+            attrib_name="mask",
+            attrib_class="face",
+        )
+        assert "'primitive'" in str(refused.get("message")), refused
+
     def test_context_and_scene_extras(self, call):
         geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="g")["node_path"]
         explained = call("context.explain_node", node_path=geo)
