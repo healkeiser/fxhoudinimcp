@@ -809,6 +809,49 @@ class TestEditHdaInterface:
         with pytest.raises(ValueError, match="not an HDA instance"):
             hda.edit_hda_interface("/obj/geo1", [{"op": "hide", "name": "r"}])
 
+    def _insert_with_help(self, monkeypatch, stored_help):
+        node, definition, group, templates = self._asset(monkeypatch)
+        asked = "Материалы читают RVT: без него — синий"
+        built = _template("unreal_rvt", "String")
+        built.help.return_value = asked
+        kept = _template("unreal_rvt", "String")
+        kept.help.return_value = stored_help
+        monkeypatch.setattr(
+            hda, "_build_parm_template", lambda spec, seen: (seen.add(spec["name"]), built)[1]
+        )
+        group.append.side_effect = lambda t: group.live.append(t)
+        group.stored.extra.append(kept)
+        return hda.edit_hda_interface(
+            "/obj/asset1",
+            [{"op": "insert", "spec": {"name": "unreal_rvt", "type": "string", "help": asked}}],
+        )
+
+    def test_a_help_the_definition_did_not_keep_is_named(self, monkeypatch):
+        result = self._insert_with_help(monkeypatch, stored_help="")
+        assert result["help_not_stored"] == ["unreal_rvt"]
+
+    def test_a_kept_help_says_nothing(self, monkeypatch):
+        result = self._insert_with_help(monkeypatch, "Материалы читают RVT: без него — синий")
+        assert "help_not_stored" not in result
+
+
+class TestHelpIsReadBack:
+    def test_stored_carries_the_help_text(self, monkeypatch):
+        template = _template("unreal_rvt", "String")
+        template.help.return_value = "Путь к RVT — ассет Unreal: /Game/RVT"
+        monkeypatch.setattr(
+            hda, "_template_to_dict", lambda t: {"name": t.name(), "type": "String"}
+        )
+        assert hda._describe_template(template)["help"] == "Путь к RVT — ассет Unreal: /Game/RVT"
+
+    def test_no_help_adds_no_key(self, monkeypatch):
+        template = _template("plain", "String")
+        template.help.return_value = ""
+        monkeypatch.setattr(
+            hda, "_template_to_dict", lambda t: {"name": t.name(), "type": "String"}
+        )
+        assert "help" not in hda._describe_template(template)
+
 
 class TestExtendedSpecs:
     def test_naming_scheme_is_looked_up_case_insensitively(self):

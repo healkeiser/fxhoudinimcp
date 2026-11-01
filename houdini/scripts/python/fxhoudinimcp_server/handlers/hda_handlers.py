@@ -817,6 +817,11 @@ def _describe_template(template) -> dict:
     the default value and hidden state and uses get_parameter_schema's keys.
     """
     info = _template_to_dict(template)
+    # Read back so a help text that did not reach the definition shows as
+    # missing here rather than only in its DialogScript.
+    with contextlib.suppress(Exception):
+        if template.help():
+            info["help"] = template.help()
     with contextlib.suppress(Exception):
         expressions = tuple(template.defaultExpression())
         if any(expressions):
@@ -1404,6 +1409,17 @@ def _edit_interface(node_path: str, ops: list, dry_run: bool, clear_first: bool)
     result["not_found_after_write"] = sorted(
         name for name in planned if name not in stored and name not in renamed
     )
+    # A help text the definition did not keep is otherwise visible only in
+    # its DialogScript (a session reported one lost; it did not reproduce).
+    lost_help = []
+    for name in sorted(planned & set(stored)):
+        with contextlib.suppress(Exception):
+            if planned_templates[name].help() and (
+                stored[name].help() != planned_templates[name].help()
+            ):
+                lost_help.append(name)
+    if lost_help:
+        result["help_not_stored"] = lost_help
     for record in records:
         target = record.get("renamed_to") or record.get("target")
         if record.get("op") in ("hide", "show") and target in stored:

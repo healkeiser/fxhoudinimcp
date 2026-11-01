@@ -267,7 +267,7 @@ async def set_hda_interface(
     interface are refused before anything is written, and the reply is read
     back off the definition — `ops[].stored`, `renamed_by_houdini` (a tab
     folder joins the existing tab set's naming series), `not_found_after_write`,
-    `instance_parms_missing` and `instance_expression_errors`.
+    `help_not_stored`, `instance_parms_missing` and `instance_expression_errors`.
 
     Args:
         ctx: MCP context.
@@ -330,7 +330,8 @@ async def edit_hda_interface(
     "python"; given alone in a modify, it changes the language of the
     expression already there. `stored` reads both back, and
     `instance_expression_errors` names a default expression that does not
-    evaluate on the instance.
+    evaluate on the instance. `stored` carries each template's help, and
+    `help_not_stored` names one whose help the definition did not keep.
 
     Args:
         ctx: MCP context.

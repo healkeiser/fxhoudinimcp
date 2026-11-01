@@ -59,6 +59,17 @@ class TestSetHdaInterface:
 
 
 class TestEditHdaInterface:
+    def test_an_inserted_help_is_read_back_off_the_definition(self, call, asset):
+        text = "Материалы читают RVT: без него ландшафт синий — пусто не назначать"
+        data = call(
+            "hda.edit_hda_interface",
+            node_path=asset.path(),
+            ops=[{"op": "insert", "spec": {"name": "rvt", "type": "string", "help": text}}],
+        )
+        assert data["ops"][0]["stored"][0]["help"] == text
+        assert "help_not_stored" not in data
+        assert asset.type().definition().parmTemplateGroup().find("rvt").help() == text
+
     def test_a_parameter_of_a_removed_folder_can_be_inserted_again(self, call, asset):
         call("hda.set_hda_interface", node_path=asset.path(), parameters=[CONTROLS])
         data = call(
