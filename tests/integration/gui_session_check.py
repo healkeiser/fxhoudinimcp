@@ -271,6 +271,24 @@ async def main() -> int:
                 record("PASS", "capture_screenshot", f"{viewport_png} ({size // 1024} KB)")
             else:
                 record("FAIL", "capture_screenshot", f"claimed success, file size {size}")
+            # The frame is the viewport's own size, not the flipbook stash's
+            # 1280x720 (which cropped a viewport of any other shape).
+            shown = await call(
+                "code.execute_python",
+                code="import toolutils\nsize = list(toolutils.sceneViewer().curViewport().size()[2:])",
+                return_expression="size",
+            )
+            with open(viewport_png, "rb") as fh:
+                header = fh.read(24)
+            written = [int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")]
+            if written == shown.get("return_value"):
+                record("PASS", "capture_screenshot is the viewport's size", f"{written}")
+            else:
+                record(
+                    "FAIL",
+                    "capture_screenshot size",
+                    f"wrote {written}, viewport {shown.get('return_value')}",
+                )
 
         network_png = str(out_dir / "network.png").replace("\\", "/")
         result = await call(

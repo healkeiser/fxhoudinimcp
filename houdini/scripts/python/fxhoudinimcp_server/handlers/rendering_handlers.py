@@ -77,6 +77,22 @@ def _find_flipbook_output(output_path: str, frame: float) -> str:
     return output_path
 
 
+def _size_flipbook(settings, resolution: list | None) -> None:
+    """Write *resolution* if one is asked for, else the viewport as it is.
+
+    A stash carries the flipbook's own default, 1280x720 with Use Resolution
+    on (22.0.466), whatever the viewport's shape: an 897x853 view came out
+    cropped top and bottom (a top view framed to a 2020x2360 box showed 1550
+    of its 2360), and through an 800x400 camera the whole view was squeezed
+    into 16:9. Off, the frame is the viewport's own size.
+    """
+    if resolution is not None:
+        settings.useResolution(True)
+        settings.resolution(tuple(resolution))
+    else:
+        settings.useResolution(False)
+
+
 def render_viewport(
     output_path: str,
     resolution: list = None,
@@ -125,11 +141,9 @@ def render_viewport(
     settings.frameRange((cur_frame, cur_frame))
     settings.output(output_path)
 
-    if resolution is not None:
-        if len(resolution) != 2:
-            raise ValueError("resolution must be a list of [width, height]")
-        settings.useResolution(True)
-        settings.resolution(tuple(resolution))
+    if resolution is not None and len(resolution) != 2:
+        raise ValueError("resolution must be a list of [width, height]")
+    _size_flipbook(settings, resolution)
 
     # Use the flipbook approach for a single-frame capture
     # A selected object would be drawn with its selection outline.
@@ -207,9 +221,7 @@ def render_quad_view(
             settings.frameRange((hou.frame(), hou.frame()))
             settings.output(vp_output)
 
-            if resolution is not None:
-                settings.useResolution(True)
-                settings.resolution(tuple(resolution))
+            _size_flipbook(settings, resolution)
 
             with selection_hidden():
                 scene_viewer.flipbook(vp, settings)

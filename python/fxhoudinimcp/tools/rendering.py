@@ -36,7 +36,7 @@ async def render_viewport(
 
     Args:
         output_path: Image file path. Default: a new PNG in the temp dir.
-        resolution: [width, height] in pixels.
+        resolution: [width, height] in pixels. Default: the viewport's own size.
         camera: Camera node path.
         settle_seconds: Wait this long before capturing, without blocking
             Houdini, so a Karma viewport can converge after a change. Use
@@ -64,7 +64,7 @@ async def render_quad_view(
     Args:
         output_path: Base image path; viewport names are appended.
             Default: a new PNG in the temp dir.
-        resolution: [width, height] in pixels.
+        resolution: [width, height] in pixels. Default: the viewport's own size.
     """
     bridge = _get_bridge(ctx)
     params: dict[str, Any] = {"output_path": capture_path(output_path, "quad")}

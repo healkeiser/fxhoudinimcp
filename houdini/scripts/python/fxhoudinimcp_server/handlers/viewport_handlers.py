@@ -926,17 +926,22 @@ def capture_screenshot(
         # Which network the image shows, and a note when it is a DOP view.
         viewer = viewer_context(pane_tab)
         viewport = pane_tab.curViewport()
+        from fxhoudinimcp_server.handlers.rendering_handlers import (
+            _find_flipbook_output,
+            _size_flipbook,
+        )
+
         settings = pane_tab.flipbookSettings().stash()
         settings.frameRange((cur_frame, cur_frame))
         settings.output(output_path)
         _no_mplay(settings)
+        # The viewport as it is, not the stash's 1280x720.
+        _size_flipbook(settings, None)
         # A selected object would be drawn with its selection outline.
         with selection_hidden():
             pane_tab.flipbook(viewport, settings)
 
         # Handle frame number that flipbook may insert
-        from fxhoudinimcp_server.handlers.rendering_handlers import _find_flipbook_output
-
         actual_path = _find_flipbook_output(output_path, cur_frame)
     else:
         actual_path = output_path
