@@ -4254,7 +4254,8 @@ top level and the reply says so in <code>reinstated_by_houdini</code>; hide them
 "python"; given alone in a modify, it changes the language of the
 expression already there. <code>stored</code> reads both back, and
 <code>instance_expression_errors</code> names a default expression that does not
-evaluate on the instance.</p>
+evaluate on the instance. <code>stored</code> carries each template's help, and
+<code>help_not_stored</code> names one whose help the definition did not keep.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4974,7 +4975,7 @@ thing: it adds parameters to one node instance and never reaches the type.</p>
 interface are refused before anything is written, and the reply is read
 back off the definition — <code>ops[].stored</code>, <code>renamed_by_houdini</code> (a tab
 folder joins the existing tab set's naming series), <code>not_found_after_write</code>,
-<code>instance_parms_missing</code> and <code>instance_expression_errors</code>.</p>
+<code>help_not_stored</code>, <code>instance_parms_missing</code> and <code>instance_expression_errors</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
