@@ -101,17 +101,6 @@ def _attrib_class_key(attrib_class: str) -> str:
     return key
 
 
-def _attrib_class_obj(geo: hou.Geometry, attrib_class: str) -> Any:
-    """Map a string class name to the hou.attribType enum value."""
-    mapping = {
-        "point": hou.attribType.Point,
-        "prim": hou.attribType.Prim,
-        "vertex": hou.attribType.Vertex,
-        "detail": hou.attribType.Global,
-    }
-    return mapping[_attrib_class_key(attrib_class)]
-
-
 ###### geometry.get_geometry_info
 
 
@@ -393,7 +382,7 @@ def _get_attrib_values(
                 f"{cls.capitalize()} attribute '{attrib_name}' not found on {node_path}"
             )
         all_values = _attrib_array(geo, cls, attrib)
-    elif cls in ("detail", "global"):
+    else:
         attrib = geo.findGlobalAttrib(attrib_name)
         if attrib is None:
             raise hou.OperationFailed(f"Detail attribute '{attrib_name}' not found on {node_path}")
@@ -406,8 +395,6 @@ def _get_attrib_values(
             "type": attrib.dataType().name(),
             "value": _vec_to_list(val),
         }
-    else:
-        raise ValueError(f"Invalid attrib_class: {attrib_class!r}")
 
     tuple_size = max(attrib.size(), 1)
     total_elements = len(all_values) // tuple_size
@@ -601,9 +588,9 @@ def _get_group_members(
     """Get element indices belonging to a group, with pagination."""
     geo = _get_sop_geo(node_path)
 
-    gt = group_type.lower()
+    gt = str(group_type).strip().lower()
     # The same spelling get_attrib_values accepts for the class.
-    gt = {"points": "point", "primitive": "prim", "primitives": "prim", "prims": "prim"}.get(gt, gt)
+    gt = _ATTRIB_CLASS_ALIASES.get(gt, gt)
     if gt == "point":
         grp = geo.findPointGroup(group_name)
         if grp is None:
@@ -684,16 +671,11 @@ def _get_attribute_info(
         "prim": geo.findPrimAttrib,
         "vertex": geo.findVertexAttrib,
         "detail": geo.findGlobalAttrib,
-        "global": geo.findGlobalAttrib,
     }
-    finder = finders.get(cls)
-    if finder is None:
-        raise ValueError(f"Invalid attrib_class: {attrib_class!r}")
-
-    attrib = finder(attrib_name)
+    attrib = finders[cls](attrib_name)
     if attrib is None:
         raise hou.OperationFailed(
-            f"{attrib_class.title()} attribute '{attrib_name}' not found on {node_path}"
+            f"{cls.capitalize()} attribute '{attrib_name}' not found on {node_path}"
         )
 
     default = attrib.defaultValue()
@@ -1235,10 +1217,7 @@ def _attrib_stats_once(
         # texture's tiling multiplier.
         "vertex": (geo.vertexAttribs, lambda: [v for prim in geo.prims() for v in prim.vertices()]),
         "detail": (geo.globalAttribs, None),
-        "global": (geo.globalAttribs, None),
     }
-    if cls not in listers:
-        raise ValueError(f"Invalid attrib_class: {attrib_class!r}")
     lister, element_getter = listers[cls]
 
     if isinstance(attribs, str):
@@ -1253,7 +1232,7 @@ def _attrib_stats_once(
     missing = [name for name in wanted if name not in available]
     wanted = [name for name in wanted if name in available][:_STATS_ATTRIB_CAP]
 
-    if cls in ("detail", "global"):
+    if cls == "detail":
         if group or distance_to or ratios:
             # Refused rather than dropped: there is one detail element.
             raise ValueError(
@@ -1269,12 +1248,6 @@ def _attrib_stats_once(
             "stats": stats,
             "missing": missing,
         }
-
-    if element_getter is None:
-        raise ValueError(
-            f"attrib_class {attrib_class!r} has no per-element statistics; "
-            "use point, prim, vertex or detail"
-        )
 
     # Element numbers in the group, or None for all: counting only the
     # particles, without a collider's points merged into the same geometry.

@@ -116,7 +116,7 @@ async def get_attrib_values(
     Args:
         node_path: Node path.
         attrib_name: Attribute name.
-        attrib_class: "point", "prim", "vertex", or "detail".
+        attrib_class: "point", "prim" (or "primitive"), "vertex", or "detail".
         start: First element index to return.
         count: Max elements per page (default 200).
     """
@@ -193,7 +193,7 @@ async def get_group_members(
     Args:
         node_path: Node path.
         group_name: Group name.
-        group_type: "point", "prim", or "edge".
+        group_type: "point", "prim" (or "primitive"), or "edge".
         start: First element index to return.
         count: Max elements per page (default 5 000).
     """
@@ -238,7 +238,7 @@ async def get_attribute_info(
     Args:
         node_path: Node path.
         attrib_name: Attribute name.
-        attrib_class: "point", "prim", "vertex", or "detail".
+        attrib_class: "point", "prim" (or "primitive"), "vertex", or "detail".
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(
@@ -367,8 +367,8 @@ async def get_attrib_stats(
         attribs: Attribute names. Omit for every attribute of the class. A
             name written "age/life" is the ratio of two attributes, per
             element (elements dividing by zero are counted, not used).
-        attrib_class: "point", "prim", "vertex" (uv and N usually live
-            there) or "detail".
+        attrib_class: "point", "prim" (or "primitive"), "vertex" (uv and N
+            usually live there) or "detail".
         frames: Measure at each of these frames: a row per node per frame,
             frames cooked in increasing order, the current frame put back.
             element_count is the point count and P's per-component min/max

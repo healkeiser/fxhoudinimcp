@@ -52,6 +52,12 @@ class TestSizeFlipbook:
         settings.useResolution.assert_called_once_with(True)
         settings.resolution.assert_called_once_with((640, 360))
 
+    def test_the_dialogs_output_zoom_is_put_back_to_100(self):
+        for resolution in (None, [640, 360]):
+            settings = MagicMock()
+            rendering._size_flipbook(settings, resolution)
+            settings.outputZoom.assert_called_once_with(100)
+
     def test_every_flipbook_site_sizes_its_frame(self):
         for name in ("viewport_handlers.py", "rendering_handlers.py"):
             with open(os.path.join(_HANDLER_DIR, name), encoding="utf-8") as fh:
