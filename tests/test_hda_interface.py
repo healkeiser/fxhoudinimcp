@@ -853,6 +853,40 @@ class TestHelpIsReadBack:
         assert "help" not in hda._describe_template(template)
 
 
+class TestCallbackAndColumnsAreReadBack:
+    """A button's callback and a label's columns were written but not read
+    back: a set_hda_interface reply could not show either had landed."""
+
+    def _describe(self, monkeypatch, kind, callback="", language=None, columns=()):
+        template = _template("t", kind)
+        template.help.return_value = ""
+        template.scriptCallback.return_value = callback
+        template.scriptCallbackLanguage.return_value = language
+        template.columnLabels.return_value = tuple(columns)
+        monkeypatch.setattr(hda, "_template_to_dict", lambda t: {"name": "t", "type": kind})
+        return hda._describe_template(template)
+
+    def test_a_buttons_callback_and_its_language(self, monkeypatch):
+        # str(hou.scriptLanguage.Python) is "scriptLanguage.Python" in Houdini.
+        info = self._describe(
+            monkeypatch,
+            "Button",
+            callback="hou.phm().fn(kwargs['node'])",
+            language="scriptLanguage.Python",
+        )
+        assert info["callback"] == "hou.phm().fn(kwargs['node'])"
+        assert info["callback_language"] == "python"
+
+    def test_a_labels_columns(self, monkeypatch):
+        info = self._describe(monkeypatch, "Label", columns=("Name", "Value"))
+        assert info["column_labels"] == ["Name", "Value"]
+
+    def test_nothing_is_added_without_them(self, monkeypatch):
+        info = self._describe(monkeypatch, "Float")
+        assert "callback" not in info
+        assert "column_labels" not in info
+
+
 class TestExtendedSpecs:
     def test_naming_scheme_is_looked_up_case_insensitively(self):
         hou = hda.hou

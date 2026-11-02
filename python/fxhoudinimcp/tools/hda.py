@@ -247,11 +247,14 @@ async def set_hda_interface(
     thing: it adds parameters to one node instance and never reaches the type.
 
     Each entry of `parameters` is a dict:
-        name, label, type (int|float|string|toggle|menu|folder),
+        name, label, type (int|float|vector|color|string|file|oppath|toggle|
+        menu|button|separator|label|folder),
         default, min, max, min_strict, max_strict, components,
         menu_items ([value, label] pairs or plain strings),
         folder_type (tabs|simple|collapsible|radio) + children for folders,
-        hide_when / disable_when (Houdini conditionals), help.
+        hide_when / disable_when (Houdini conditionals), help,
+        callback (+ callback_language, python by default) for a button,
+        column_labels for a label.
 
     Example — a Controls tab whose Bevel disappears for a single stud:
         [{"name": "controls", "label": "Controls", "type": "folder",
@@ -330,8 +333,9 @@ async def edit_hda_interface(
     "python"; given alone in a modify, it changes the language of the
     expression already there. `stored` reads both back, and
     `instance_expression_errors` names a default expression that does not
-    evaluate on the instance. `stored` carries each template's help, and
-    `help_not_stored` names one whose help the definition did not keep.
+    evaluate on the instance. `stored` carries each template's help, a
+    button's `callback` and a label's `column_labels`, and `help_not_stored`
+    names one whose help the definition did not keep.
 
     Args:
         ctx: MCP context.
