@@ -284,6 +284,21 @@ class TestVolumeInfo:
         # exactly the empty-field bug this tool exists to catch.
         assert entry["active_voxels"] > 0, entry
 
+    def test_the_grid_is_placed_by_its_voxel_centres(self, call, volumes):
+        entry = call("geometry.get_volume_info", node_path=volumes)["volumes"][0]
+        prim = hou.node(volumes).geometry().prims()[0]
+        box = prim.activeVoxelBoundingBox()
+        first = prim.indexToPos(tuple(int(c) for c in box.minvec()))
+        last = prim.indexToPos(tuple(int(c) - 1 for c in box.maxvec()))
+        assert entry["voxel_size"] == pytest.approx(list(prim.voxelSize()), rel=1e-6)
+        assert entry["first_voxel_center"] == pytest.approx(list(first), abs=1e-5)
+        assert entry["last_voxel_center"] == pytest.approx(list(last), abs=1e-5)
+        # The centres sit half a voxel inside the bbox.
+        half = entry["voxel_size"][0] / 2
+        assert entry["first_voxel_center"][0] == pytest.approx(
+            entry["bbox_min"][0] + half, abs=1e-4
+        )
+
     def test_no_volumes_is_an_empty_answer_not_an_error(self, call):
         geo = call("nodes.create_node", parent_path="/obj", node_type="geo", name="novol")[
             "node_path"
