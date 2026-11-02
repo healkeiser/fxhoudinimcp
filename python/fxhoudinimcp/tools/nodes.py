@@ -314,11 +314,13 @@ async def change_node_type(
 @mcp.tool()
 async def press_button(
     ctx: Context,
-    node_path: str,
-    parm_name: str,
+    node_path: str | None = None,
+    parm_name: str | None = None,
     arguments: dict[str, Any] | None = None,
     cook: bool = False,
     action: bool = False,
+    node_paths: list[str] | None = None,
+    set_first: dict[str, Any] | None = None,
 ) -> dict:
     """Press a button parameter — "Stash Input", "Reload Geometry", an
     asset's own Build button — and read the node's errors and warnings
@@ -343,6 +345,13 @@ async def press_button(
     parameters" on a VEXpression) runs with action=True; an action that
     opens a picker holds the bridge like a dialog does.
 
+    node_paths presses the same button on each node in turn (results[] per
+    node), and set_first writes parameters on each node before its press, as
+    set_parameters does: {"aovs": 0} then Add AOVs on eight File COPs is one
+    call. Every node, button and parameter is checked before anything is
+    written; the batch is one undo step and stops at a failing press, naming
+    the nodes already pressed.
+
     Args:
         node_path: Node that owns the button.
         parm_name: The button parameter's name.
@@ -351,9 +360,18 @@ async def press_button(
         cook: Cook the node after the press so errors describe the result.
         action: Run the parm's action button (script_action) instead of its
             callback.
+        node_paths: Press the same button on each of these nodes instead of
+            node_path.
+        set_first: Parameter values written on each node before its press.
     """
     bridge = _get_bridge(ctx)
-    payload: dict[str, Any] = {"node_path": node_path, "parm_name": parm_name}
+    payload: dict[str, Any] = {"parm_name": parm_name}
+    if node_path is not None:
+        payload["node_path"] = node_path
+    if node_paths is not None:
+        payload["node_paths"] = node_paths
+    if set_first is not None:
+        payload["set_first"] = set_first
     if arguments:
         payload["arguments"] = arguments
     if cook:

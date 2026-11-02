@@ -1122,44 +1122,8 @@ def change_node_type(
 _BUTTON_ARGUMENT_TYPES = (bool, int, float, str)
 
 
-def press_button(
-    node_path: str,
-    parm_name: str,
-    arguments: dict | None = None,
-    cook: bool = False,
-    action: bool = False,
-) -> dict:
-    """Press a button parameter and report what the node says afterwards.
-
-    Runs the button's callback exactly as a click would ("Stash Input",
-    "Reload Geometry", an asset's own Build button). The call holds until
-    the callback returns, with no deadline; a callback that opens a dialog
-    of its own holds Houdini's main thread, and with it this bridge, until
-    the dialog is closed. A Python callback that RAISES does not: it runs
-    here rather than through pressButton(), whose modal "Error running
-    callback" window would hold the bridge, and its error is the reply.
-    `callback_route` says which way the press went.
-
-    A press usually only dirties the node: `errors` and `warnings` are from
-    its last cook, which may predate the press. `cook=True` cooks the node
-    after the press so they describe the result; without it `needs_cook`
-    says whether they are stale (a cook that failed leaves it True too).
-
-    A parameter that is not a button and has no callback is refused:
-    pressButton() on it does nothing. The small action button beside a
-    field ("Create spare parameters" on a VEXpression) is the parm's
-    ``script_action`` tag, not its callback; ``action=True`` runs it.
-
-    Args:
-        node_path: Node that owns the button.
-        parm_name: The button parameter's name.
-        arguments: Optional kwargs handed to the callback script; values
-            must be int, bool, float or str.
-        cook: Cook the node after the press (default False).
-        action: Run the parm's action button (``script_action``) instead of
-            its callback (default False).
-    """
-    node = _get_node(node_path)
+def _check_press(node, parm_name: str, arguments: dict | None, action: bool) -> tuple:
+    """The button *parm_name* on *node*, refused before anything is run."""
     parm = node.parm(parm_name)
     if parm is None:
         names = [p.name() for p in node.parms()]
@@ -1202,6 +1166,24 @@ def press_button(
                 f"bridge until it is closed."
             )
         raise ValueError(message)
+    return parm, template, parm_type, action_code, action_help
+
+
+def _press_one(
+    node, parm_name: str, arguments: dict | None, cook: bool, action: bool, set_first, checked
+) -> dict:
+    """Press one checked button, after writing *set_first* on its node."""
+    parm, template, parm_type, action_code, action_help = checked
+    written = None
+    if set_first:
+        from fxhoudinimcp_server.handlers.parameter_handlers import _set_parameters
+
+        written = _set_parameters(node.path(), dict(set_first))
+        if written["errors"]:
+            raise ValueError(
+                f"set_first on {node.path()} failed: {written['errors']}. "
+                f"{parm_name} was not pressed there."
+            )
     started = time.perf_counter()
     try:
         if action:
@@ -1248,12 +1230,104 @@ def press_button(
         # Built-in buttons (File's Reload, Stash's Stash Input) are handled in
         # C++ and have no script callback; False does not mean inert.
         result["has_script_callback"] = bool(template.scriptCallback())
+    if written is not None:
+        result["set_first"] = written["set"]
     if parm_type != "Button" and not action:
         result["note"] = (
             f"'{parm_name}' is a {parm_type} parameter, not a Button; its callback "
             f"script (if any) was triggered the way pressButton does for any parameter."
         )
     return result
+
+
+def press_button(
+    node_path: str | None = None,
+    parm_name: str | None = None,
+    arguments: dict | None = None,
+    cook: bool = False,
+    action: bool = False,
+    node_paths: list | None = None,
+    set_first: dict | None = None,
+) -> dict:
+    """Press a button parameter and report what the node says afterwards.
+
+    Runs the button's callback exactly as a click would ("Stash Input",
+    "Reload Geometry", an asset's own Build button). The call holds until
+    the callback returns, with no deadline; a callback that opens a dialog
+    of its own holds Houdini's main thread, and with it this bridge, until
+    the dialog is closed. A Python callback that RAISES does not: it runs
+    here rather than through pressButton(), whose modal "Error running
+    callback" window would hold the bridge, and its error is the reply.
+    `callback_route` says which way the press went.
+
+    A press usually only dirties the node: `errors` and `warnings` are from
+    its last cook, which may predate the press. `cook=True` cooks the node
+    after the press so they describe the result; without it `needs_cook`
+    says whether they are stale (a cook that failed leaves it True too).
+
+    A parameter that is not a button and has no callback is refused:
+    pressButton() on it does nothing. The small action button beside a
+    field ("Create spare parameters" on a VEXpression) is the parm's
+    ``script_action`` tag, not its callback; ``action=True`` runs it.
+
+    ``node_paths`` presses the same button on each node in turn, and
+    ``set_first`` writes parameters on each node before its press, as
+    set_parameters does (``{"aovs": 0}`` before a File COP's Add AOVs):
+    resetting and pressing eight File COPs was sixteen calls. Every node,
+    button and parameter is checked before anything is written; the batch is
+    one undo step, and a press that fails stops it, naming those already
+    pressed.
+
+    Args:
+        node_path: Node that owns the button.
+        parm_name: The button parameter's name.
+        arguments: Optional kwargs handed to the callback script; values
+            must be int, bool, float or str.
+        cook: Cook the node after the press (default False).
+        action: Run the parm's action button (``script_action``) instead of
+            its callback (default False).
+        node_paths: Press the same button on each of these nodes instead.
+        set_first: Parameter values written on each node before its press.
+    """
+    if (node_path is None) == (node_paths is None):
+        raise ValueError("Give node_path, or node_paths to press the same button on several nodes.")
+    paths = [node_path] if node_paths is None else list(node_paths)
+    if not paths:
+        raise ValueError("node_paths is empty: nothing to press.")
+    nodes = [_get_node(path) for path in paths]  # a bad path is named first
+    if not parm_name:
+        raise ValueError("parm_name is required: the button to press.")
+    if set_first is not None and (not isinstance(set_first, dict) or not set_first):
+        raise ValueError('set_first must be a non-empty dict of parameter values ({"aovs": 0}).')
+    checked = [_check_press(node, parm_name, arguments, action) for node in nodes]
+    for node in nodes:
+        for name in set_first or {}:
+            if node.parm(name) is None and node.parmTuple(name) is None:
+                raise ValueError(
+                    f"{node.path()} has no parameter '{name}' to set first. Nothing was run."
+                )
+    if node_paths is None and not set_first:
+        return _press_one(nodes[0], parm_name, arguments, cook, action, None, checked[0])
+    results: list[dict] = []
+    with hou.undos.group(f"Press {parm_name} on {len(nodes)} node(s)"):
+        for node, check in zip(nodes, checked, strict=True):
+            try:
+                results.append(
+                    _press_one(node, parm_name, arguments, cook, action, set_first, check)
+                )
+            except ValueError as exc:
+                done = [result["node_path"] for result in results]
+                raise ValueError(
+                    f"{exc} Pressed before it: {done or 'none'}; one undo reverts the batch."
+                ) from exc
+    if node_paths is None:
+        return results[0]
+    return {
+        "success": True,
+        "parm_name": parm_name,
+        "pressed": len(results),
+        "results": results,
+    }
 
 
 ###### nodes.connect_nodes_batch
