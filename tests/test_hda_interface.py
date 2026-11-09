@@ -881,6 +881,11 @@ class TestCallbackAndColumnsAreReadBack:
         info = self._describe(monkeypatch, "Label", columns=("Name", "Value"))
         assert info["column_labels"] == ["Name", "Value"]
 
+    def test_a_label_without_columns_adds_none(self, monkeypatch):
+        # Houdini answers ("",) for a label that has no columns.
+        info = self._describe(monkeypatch, "Label", columns=("",))
+        assert "column_labels" not in info
+
     def test_nothing_is_added_without_them(self, monkeypatch):
         info = self._describe(monkeypatch, "Float")
         assert "callback" not in info

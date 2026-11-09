@@ -831,7 +831,8 @@ def _describe_template(template) -> dict:
                 str(template.scriptCallbackLanguage()).rsplit(".", 1)[-1].lower()
             )
     with contextlib.suppress(Exception):
-        if info["type"] == "Label" and (columns := template.columnLabels()):
+        # A label without columns reads back ("",), not ().
+        if info["type"] == "Label" and any(columns := template.columnLabels()):
             info["column_labels"] = list(columns)
     with contextlib.suppress(Exception):
         expressions = tuple(template.defaultExpression())
