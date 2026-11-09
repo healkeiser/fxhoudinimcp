@@ -822,6 +822,18 @@ def _describe_template(template) -> dict:
     with contextlib.suppress(Exception):
         if help_text := template.help():
             info["help"] = help_text
+    # A button's callback and a label's columns were written but not read
+    # back, so a set_hda_interface reply could not show either had landed.
+    with contextlib.suppress(Exception):
+        if callback := template.scriptCallback():
+            info["callback"] = callback
+            info["callback_language"] = (
+                str(template.scriptCallbackLanguage()).rsplit(".", 1)[-1].lower()
+            )
+    with contextlib.suppress(Exception):
+        # A label without columns reads back ("",), not ().
+        if info["type"] == "Label" and any(columns := template.columnLabels()):
+            info["column_labels"] = list(columns)
     with contextlib.suppress(Exception):
         expressions = tuple(template.defaultExpression())
         if any(expressions):
@@ -858,11 +870,14 @@ def set_hda_interface(
     tab folders, strict ranges, ordered menus and Hide/Disable When.
 
     Each entry of `parameters` is a dict:
-        name, label, type (int|float|string|toggle|menu|folder),
+        name, label, type (int|float|vector|color|string|file|oppath|toggle|
+        menu|button|separator|label|folder),
         default, min, max, min_strict, max_strict, components,
         menu_items ([value, label] pairs or plain strings),
         folder_type (tabs|simple|collapsible|radio) and children for folders,
-        hide_when / disable_when (Houdini conditional expressions), help.
+        hide_when / disable_when (Houdini conditional expressions), help,
+        callback (+ callback_language, python by default) for a button,
+        column_labels for a label.
     create_spare_parameters' spelling (parm_name, parm_type, default_value,
     min_val, max_val) is accepted too.
 
