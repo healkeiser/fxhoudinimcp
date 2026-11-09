@@ -1598,7 +1598,37 @@ def _volume_entry(prim: Any) -> dict[str, Any]:
         bbox = prim.boundingBox()
         entry["bbox_min"] = list(bbox.minvec())
         entry["bbox_max"] = list(bbox.maxvec())
+    with contextlib.suppress(Exception):
+        entry.update(_voxel_grid(prim))
     return entry
+
+
+def _voxel_grid(prim: Any) -> dict[str, Any]:
+    """Voxel size and the world centres of the first and last voxel.
+
+    The bbox cannot say whether two volumes share a grid: two heightfields
+    of one size read +-1008 and +-1008.5, and only the voxel centres told
+    whether one was shifted. A VDB's grid is its active voxels' index box,
+    whose max is one past the last voxel.
+    """
+    if type(prim).__name__ == "VDB":
+        box = prim.activeVoxelBoundingBox()
+        first = [int(c) for c in box.minvec()]
+        last = [int(c) - 1 for c in box.maxvec()]
+    else:
+        first = [0, 0, 0]
+        last = [int(c) - 1 for c in prim.resolution()]
+    if any(b < a for a, b in zip(first, last, strict=True)):
+        return {}  # an empty VDB has no voxel to place
+
+    def _world(index: list[int]) -> list[float]:
+        return [float(f"{c:.7g}") for c in prim.indexToPos(tuple(index))]
+
+    return {
+        "voxel_size": [float(f"{c:.7g}") for c in prim.voxelSize()],
+        "first_voxel_center": _world(first),
+        "last_voxel_center": _world(last),
+    }
 
 
 def _volume_prims(geo: hou.Geometry) -> list:

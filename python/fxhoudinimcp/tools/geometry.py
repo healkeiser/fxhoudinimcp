@@ -429,6 +429,10 @@ async def get_volume_info(
     histogram, the count over threshold and box_above_threshold, the world box
     of the voxels over it: where the smoke is, not where the grid is.
 
+    voxel_size, first_voxel_center and last_voxel_center place the grid (a
+    VDB's: its active voxels): two volumes share a grid when all three match,
+    which their bboxes cannot tell.
+
     Args:
         node_path: SOP node path holding volume or VDB primitives.
         max_volumes: Cap on volumes reported.
