@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../images/favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -4228,7 +4228,7 @@ insert at a position, remove, hide/show, replace, modify, move.</p>
 parameter group; all ops are applied to a copy, the result is checked
 for component-name collisions, and it is written once — a failing op
 changes nothing. Read the interface first with get_parm_template_tree.</p>
-<p _="|" _after_="&quot;after&quot;" _before_="&quot;before&quot;" _in_folder_:="&quot;in_folder&quot;:" _move_="&quot;move&quot;," _name_:="&quot;name&quot;:" _op_:="&quot;op&quot;:" class=".., ..">Ops (dicts, applied in order):
+<p _ _after_ _before_ _in_folder_: _move_ _name_: _op_: class=".., ..">Ops (dicts, applied in order):
     {"op": "insert", "spec": {...}, "after": name | "before": name |
         "in_folder": label or [labels]}  — omit the position to append.
         spec is a set_hda_interface spec, plus types button (with
@@ -4254,8 +4254,9 @@ top level and the reply says so in <code>reinstated_by_houdini</code>; hide them
 "python"; given alone in a modify, it changes the language of the
 expression already there. <code>stored</code> reads both back, and
 <code>instance_expression_errors</code> names a default expression that does not
-evaluate on the instance. <code>stored</code> carries each template's help, and
-<code>help_not_stored</code> names one whose help the definition did not keep.</p>
+evaluate on the instance. <code>stored</code> carries each template's help, a
+button's <code>callback</code> and a label's <code>column_labels</code>, and <code>help_not_stored</code>
+names one whose help the definition did not keep.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4957,11 +4958,14 @@ fragment). <code>truncated</code> says when <code>limit</code> cut the list.</p>
 ordered menus, Hide/Disable When. <code>create_spare_parameter</code> is a different
 thing: it adds parameters to one node instance and never reaches the type.</p>
 <p>Each entry of <code>parameters</code> is a dict:
-    name, label, type (int|float|string|toggle|menu|folder),
+    name, label, type (int|float|vector|color|string|file|oppath|toggle|
+    menu|button|separator|label|folder),
     default, min, max, min_strict, max_strict, components,
     menu_items ([value, label] pairs or plain strings),
     folder_type (tabs|simple|collapsible|radio) + children for folders,
-    hide_when / disable_when (Houdini conditionals), help.</p>
+    hide_when / disable_when (Houdini conditionals), help,
+    callback (+ callback_language, python by default) for a button,
+    column_labels for a label.</p>
 <p>Example — a Controls tab whose Bevel disappears for a single stud:
     [{"name": "controls", "label": "Controls", "type": "folder",
       "children": [
