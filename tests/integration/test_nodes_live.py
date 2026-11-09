@@ -233,6 +233,40 @@ class TestPressButton:
         assert data["callback_route"] == "action"
         assert force.parm("amp2") is not None
 
+    def test_one_call_writes_then_presses_on_each_node(self, call):
+        # Resetting a multiparm and pressing a button on eight File COPs was
+        # sixteen calls; here the File SOP's path is the parameter written.
+        geo = _make_geo(call)
+        files = [hou.node(geo).createNode("file") for _ in range(3)]
+        data = call(
+            "nodes.press_button",
+            node_paths=[node.path() for node in files],
+            parm_name="reload",
+            set_first={"file": "/nonexistent/fxh_press_many.bgeo"},
+            cook=True,
+        )
+        assert data["pressed"] == 3
+        assert [entry["node_path"] for entry in data["results"]] == [n.path() for n in files]
+        for node, entry in zip(files, data["results"], strict=True):
+            assert node.parm("file").eval() == "/nonexistent/fxh_press_many.bgeo"
+            assert entry["set_first"]
+            assert any("fxh_press_many" in e for e in entry["errors"])
+
+    def test_a_node_without_the_button_stops_it_before_anything_is_written(self, call):
+        geo = _make_geo(call)
+        file_sop = hou.node(geo).createNode("file")
+        null = hou.node(geo).createNode("null")
+        before = file_sop.parm("file").eval()
+        error = call(
+            "nodes.press_button",
+            node_paths=[file_sop.path(), null.path()],
+            parm_name="reload",
+            set_first={"file": "/nonexistent/fxh_never.bgeo"},
+            expect_error=True,
+        )
+        assert null.path() in error["message"] and "reload" in error["message"]
+        assert file_sop.parm("file").eval() == before
+
 
 class TestSubnetInputConnectors:
     def _subnet(self):
