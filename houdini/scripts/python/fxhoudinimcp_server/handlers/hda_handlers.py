@@ -103,12 +103,12 @@ def _parm_template_to_dict(pt) -> dict:
         "type": str(pt.type()),
     }
     try:
-        info["default_value"] = list(pt.defaultValue())
+        value = pt.defaultValue()
+        # A toggle or a menu answers a scalar (True, 0), not a tuple; list()
+        # of its "on"/"off" default expression spelt it out letter by letter.
+        info["default_value"] = list(value) if isinstance(value, (tuple, list)) else value
     except Exception:
-        try:
-            info["default_value"] = list(pt.defaultExpression())
-        except Exception:
-            info["default_value"] = None
+        info["default_value"] = None
 
     try:
         info["num_components"] = pt.numComponents()
