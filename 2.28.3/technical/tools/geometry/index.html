@@ -6108,6 +6108,9 @@ sourcing. This is the SOP counterpart of get_cop_vdb.</p>
 <p>threshold or bins read the voxels (VDB: active ones) for percentiles, a
 histogram, the count over threshold and box_above_threshold, the world box
 of the voxels over it: where the smoke is, not where the grid is.</p>
+<p>voxel_size, first_voxel_center and last_voxel_center place the grid (a
+VDB's: its active voxels): two volumes share a grid when all three match,
+which their bboxes cannot tell.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
