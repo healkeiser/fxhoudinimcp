@@ -1298,31 +1298,53 @@ def _is_multiparm_parent(parm: hou.Parm) -> bool:
     return False
 
 
-def _instance_patterns(parent: hou.Parm) -> list[str]:
-    """The '#' names of one multiparm entry: sloperamp#pos, pt#x, ...
+#: Component suffixes of a tuple parm, by hou.parmNamingScheme.
+_SCHEME_SUFFIXES = {
+    "Base1": [str(i) for i in range(1, 17)],
+    "XYZW": list("xyzw"),
+    "XYWH": list("xywh"),
+    "UVW": list("uvw"),
+    "RGBA": list("rgba"),
+    "MinMax": ["min", "max"],
+    "MaxMin": ["max", "min"],
+    "StartEnd": ["start", "end"],
+    "BeginEnd": ["begin", "end"],
+}
 
-    Read off instance 1 (a ramp's instance templates carry no '#', so the
-    ramp's own name is the prefix); a folder multiparm's child templates
-    give theirs. Empty when the parm has no instance to read.
+
+def _entry_patterns(parent: hou.Parm) -> list[str]:
+    """The '#' parm names of one multiparm entry: sloperamp#pos, pt#x, ...
+
+    Built from the template, so an empty multiparm has them too. A ramp
+    whose name ends in a digit separates the index with "_" (cr2_1pos).
+    Folders, labels and buttons inside the entry carry no value to link.
     """
-    first = [p for p in parent.multiParmInstances() if p.multiParmInstanceIndices()[-1:] == (1,)]
-    if not first:
-        return []
-    if parent.parmTemplate().type() == hou.parmTemplateType.Ramp:
-        prefix = f"{parent.name()}1"
-        return [
-            f"{parent.name()}#{p.name()[len(prefix) :]}"
-            for p in first
-            if p.name().startswith(prefix)
-        ]
-    templates = [t.name() for t in parent.parmTemplate().parmTemplates() if "#" in t.name()]
+    template = parent.parmTemplate()
+    name = parent.name()
+    if template.type() == hou.parmTemplateType.Ramp:
+        sep = "_" if name[-1:].isdigit() else ""
+        if template.parmType() == hou.rampParmType.Color:
+            suffixes = ("pos", "cr", "cg", "cb", "interp")
+        else:
+            suffixes = ("pos", "value", "interp")
+        return [f"{name}{sep}#{suffix}" for suffix in suffixes]
+    skip = {
+        hou.parmTemplateType.Folder,
+        hou.parmTemplateType.FolderSet,
+        hou.parmTemplateType.Separator,
+        hou.parmTemplateType.Label,
+        hou.parmTemplateType.Button,
+    }
     patterns = []
-    for p in first:
-        for name in templates:
-            stem = name.replace("#", "1")
-            if p.name().startswith(stem):
-                patterns.append(name + p.name()[len(stem) :])
-                break
+    for child in template.parmTemplates():
+        if "#" not in child.name() or child.type() in skip:
+            continue
+        count = child.numComponents()
+        if count == 1:
+            patterns.append(child.name())
+            continue
+        suffixes = _SCHEME_SUFFIXES.get(child.namingScheme().name(), _SCHEME_SUFFIXES["Base1"])
+        patterns += [child.name() + suffix for suffix in suffixes[:count]]
     return patterns
 
 
@@ -1352,19 +1374,20 @@ def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, An
     instances created after it, so the destination is emptied first and
     then follows the source's count.
     """
-    if src.parmTemplate().type() != dst.parmTemplate().type():
+    src_template, dst_template = src.parmTemplate(), dst.parmTemplate()
+    is_ramp = dst_template.type() == hou.parmTemplateType.Ramp
+    # A color ramp and a float ramp are both Ramp templates.
+    if src_template.type() != dst_template.type() or (
+        is_ramp and src_template.parmType() != dst_template.parmType()
+    ):
+        raise ValueError(f"{dst.path()} and {src.path()} are not the same kind of multiparm.")
+    mine, theirs = _entry_patterns(dst), _entry_patterns(src)
+    if not mine or len(mine) != len(theirs):
         raise ValueError(
-            f"{dst.path()} and {src.path()} are not the same kind of multiparm "
-            f"({dst.parmTemplate().type().name()} / {src.parmTemplate().type().name()})."
+            f"The entries of {dst.path()} and {src.path()} do not line up: {mine} / {theirs}."
         )
-    patterns = _instance_patterns(dst)
-    if not patterns:
-        raise ValueError(f"{dst.path()} has no entry to read its parameter names from.")
-    is_ramp = dst.parmTemplate().type() == hou.parmTemplateType.Ramp
-    pairs = []
-    for pattern in patterns:
-        source = src.name() + pattern[len(dst.name()) :] if is_ramp else pattern
-        pairs.append((pattern, f"{rel_node}/{source}" if rel_node else source))
+    # Paired in order: a folder multiparm's entries may be named differently.
+    pairs = [(m, f"{rel_node}/{t}" if rel_node else t) for m, t in zip(mine, theirs, strict=True)]
     dst.deleteAllKeyframes()
     dst.set(0)
     args = " ".join(f"'{a}' '{b}'" for a, b in pairs)
@@ -1372,6 +1395,25 @@ def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, An
     if errors.strip():
         raise ValueError(f"opmultiparm refused the link: {errors.strip()}")
     return {"multiparm_links": [list(pair) for pair in pairs], "is_ramp": is_ramp}
+
+
+def _link_surviving_entries(dst: hou.Parm, links: list) -> None:
+    """Link the entries opmultiparm did not: a ramp never drops below one key.
+
+    opmultiparm only links entries created after it, and set(0) leaves a
+    ramp's first key in place with its old values.
+    """
+    node = dst.node()
+    indices = sorted({p.multiParmInstanceIndices()[-1] for p in dst.multiParmInstances()})
+    for index in indices:
+        for mine, theirs in links:
+            parm = node.parm(mine.replace("#", str(index)))
+            if parm is None or parm.keyframes():
+                continue
+            reference = theirs.replace("#", str(index))
+            set_whole_expression(
+                parm, f'{_channel_function(parm)}("{reference}")', hou.exprLanguage.Hscript
+            )
 
 
 def _link_parameters(
@@ -1416,6 +1458,8 @@ def _link_parameters(
         rel_node = channel_path[: -len(src.name())].rstrip("/")
         linked = _link_multiparm(src, dst, rel_node)
     set_whole_expression(dst, ref_expr, hou.exprLanguage.Hscript)
+    if linked is not None:
+        _link_surviving_entries(dst, linked["multiparm_links"])
 
     reply: dict[str, Any] = {
         "source": src.path(),
