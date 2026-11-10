@@ -27,6 +27,7 @@ import hou
 # Internal
 from fxhoudinimcp_server.config import (
     layout_if_enabled,
+    mark_placed,
     place_new_node,
     place_new_nodes,
     update_mode_warning,
@@ -1356,7 +1357,8 @@ def build_network(
             flags (dict): display/render/bypass/template booleans.
             color (list[3]) and comment (str): network annotations.
             position ([x, y]): where the node goes in the network editor;
-                a positioned node is not auto-placed.
+                a positioned node is not auto-placed (layout=True with
+                auto-layout on still rearranges the network).
             Any other key, in a spec or in an input entry, is a validation
             error with a did-you-mean, not a request dropped in silence.
         dry_run: Validate only; never mutates the scene.
@@ -1861,6 +1863,8 @@ def build_network(
                 # Where the user arranges nodes by hand, a position per node
                 # saved two set_node_position calls each.
                 node.setPosition(hou.Vector2(*spec["position"]))
+                # Untagged, a node asked at (0, 0) looks unplaced and gets moved.
+                mark_placed(node)
                 positioned.add(node.path())
     except Exception as exc:
         for node in created.values():

@@ -54,7 +54,8 @@ async def build_network(
         or {"indirect_input": n} to wire from connector n of
         the parent subnet itself), flags (display/render/bypass/template),
         color [r,g,b], comment, position [x, y] (network units; the node is
-        then not auto-placed), override_expression, run_callbacks. Parms
+        then not auto-placed, unless layout=True with auto-layout on),
+        override_expression, run_callbacks. Parms
         are written in the order given.
 
     A string aimed at a numeric parameter is caught during validation and
