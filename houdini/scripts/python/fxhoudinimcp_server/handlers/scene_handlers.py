@@ -363,14 +363,18 @@ def load_scene(
     adds new ones in `globals_added`.
 
     Args:
-        file_path: Path to the .hip/.hipnc/.hiplc file.
+        file_path: Path to the .hip/.hipnc/.hiplc file; variables ($JOB,
+            $HIP) are expanded.
         merge: If True, merge nodes into the current scene instead of replacing it.
         node_paths: With merge, the absolute node paths to merge; default everything.
         overwrite_on_conflict: With merge, overwrite same-named nodes instead
             of renaming the merged copy.
     """
     require_inside_project_root(file_path, "hip file")
-    if not os.path.isfile(hou.text.expandString(file_path)):
+    # hipFile.load()/merge() take the path as written: "$JOB/scenes/a.hiplc"
+    # passed the check below and then failed "Unable to open file".
+    file_path = hou.text.expandString(file_path)
+    if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     if not merge and (node_paths is not None or overwrite_on_conflict):
         raise ValueError("node_paths and overwrite_on_conflict apply only with merge=True.")

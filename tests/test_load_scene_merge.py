@@ -312,7 +312,20 @@ class TestLoad:
             scene.hou.text, "expandString", lambda s: s.replace("$HIP", os.path.dirname(hip))
         )
         scene.load_scene("$HIP/other.hip")
-        assert hip_file.load.call_args.args[0] == "$HIP/other.hip"
+        # hipFile.load() does not expand $JOB itself: "Unable to open file".
+        # Built as the fake expands it: on Windows tmp_path has backslashes.
+        assert hip_file.load.call_args.args[0] == os.path.dirname(hip) + "/other.hip"
+
+    def test_a_merge_gets_the_expanded_path_too(self, monkeypatch, hip):
+        fake = _Scene([], FILE)
+        _install(monkeypatch, fake)
+        monkeypatch.setattr(
+            scene.hou.text, "expandString", lambda s: s.replace("$JOB", os.path.dirname(hip))
+        )
+        scene.load_scene("$JOB/other.hip", merge=True, node_paths=["/obj/building"])
+        calls = scene.hou.hipFile.merge.call_args_list
+        expanded = os.path.dirname(hip) + "/other.hip"
+        assert calls and all(call.args[0] == expanded for call in calls)
 
     def test_merge_options_without_merge_are_refused(self, monkeypatch, hip):
         _install(monkeypatch, _Scene([], []))
