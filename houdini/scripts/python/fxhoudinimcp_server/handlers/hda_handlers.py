@@ -1787,29 +1787,84 @@ def get_hda_section_content(node_path: str, section_name: str) -> dict:
 ###### hda.set_hda_section_content
 
 
+#: Event-script sections: Houdini runs them as HScript unless the
+#: definition's ExtraFileOptions say <section>/IsPython.
+_EVENT_SECTIONS = frozenset(
+    {
+        "OnCreated",
+        "OnLoaded",
+        "OnUpdated",
+        "OnDeleted",
+        "OnInputChanged",
+        "OnNameChanged",
+        "PreFirstCreate",
+        "PostLastDelete",
+        "OnInstall",
+        "OnUninstall",
+        "SyncNodeVersion",
+        "PythonModule",
+    }
+)
+
+_LOOKS_PYTHON = re.compile(r"\bkwargs\b|\bhou\.|^\s*(import|from|def)\s", re.MULTILINE)
+
+
+def _event_script_language(definition, section_name: str) -> str:
+    options = definition.extraFileOptions()
+    return "python" if options.get(f"{section_name}/IsPython") else "hscript"
+
+
 def set_hda_section_content(
     node_path: str,
     section_name: str,
     content: str,
+    language: str | None = None,
 ) -> dict:
     """Write content to a specific section in an HDA definition.
 
-    Creates the section if it does not exist.
+    Creates the section if it does not exist. An event script (OnCreated,
+    OnLoaded, OnUpdated, OnDeleted, ...) is HScript to Houdini unless the
+    definition's ExtraFileOptions mark it Python: a Python OnCreated written
+    alone silently did nothing. For those sections `language`
+    ("python" | "hscript") sets the options as Type Properties does; left
+    out, Python code (kwargs, hou., import) is marked Python and anything
+    else keeps the language it had. `script_language` reads it back.
 
     Args:
         node_path: Path to an HDA node instance.
         section_name: Name of the section to write (e.g. "PythonModule", "Help").
         content: The content to write to the section.
+        language: For an event script, "python" or "hscript".
     """
     node = _get_node(node_path)
     definition = _get_definition(node)
+    event = section_name in _EVENT_SECTIONS
+    if language is not None:
+        language = str(language).strip().lower()
+        if language not in ("python", "hscript"):
+            raise ValueError(f"language must be 'python' or 'hscript', got {language!r}.")
+        if not event:
+            raise ValueError(
+                f"language applies to event scripts ({sorted(_EVENT_SECTIONS)}); "
+                f"'{section_name}' is not one. Nothing was written."
+            )
+        if section_name == "PythonModule" and language == "hscript":
+            # IsPython=False would be stored, yet hdaModule() still runs it as Python.
+            raise ValueError("PythonModule is always Python. Nothing was written.")
+    looks_python = section_name == "PythonModule" or _LOOKS_PYTHON.search(content or "")
+    if event and language is None and looks_python:
+        language = "python"
 
     try:
         definition.addSection(section_name, content)
+        if event and language is not None:
+            definition.setExtraFileOption(f"{section_name}/IsScript", True)
+            definition.setExtraFileOption(f"{section_name}/IsExpr", False)
+            definition.setExtraFileOption(f"{section_name}/IsPython", language == "python")
     except Exception as e:
         raise ValueError(f"Failed to write section '{section_name}': {readable_message(e)}") from e
 
-    return {
+    result = {
         "success": True,
         "node_path": node.path(),
         "type_name": definition.nodeTypeName(),
@@ -1817,6 +1872,9 @@ def set_hda_section_content(
         "size_bytes": len(content) if content else 0,
         "message": f"Section '{section_name}' updated.",
     }
+    if event:
+        result["script_language"] = _event_script_language(definition, section_name)
+    return result
 
 
 ###### hda.list_hda_versions
