@@ -1291,6 +1291,89 @@ def _reaches(parm: hou.Parm, goal: str, seen: set[str]) -> bool:
     return False
 
 
+def _is_multiparm_parent(parm: hou.Parm) -> bool:
+    # `is True`: HOM answers a bool; anything else is not a multiparm.
+    with contextlib.suppress(Exception):
+        return parm.isMultiParmParent() is True
+    return False
+
+
+def _instance_patterns(parent: hou.Parm) -> list[str]:
+    """The '#' names of one multiparm entry: sloperamp#pos, pt#x, ...
+
+    Read off instance 1 (a ramp's instance templates carry no '#', so the
+    ramp's own name is the prefix); a folder multiparm's child templates
+    give theirs. Empty when the parm has no instance to read.
+    """
+    first = [p for p in parent.multiParmInstances() if p.multiParmInstanceIndices()[-1:] == (1,)]
+    if not first:
+        return []
+    if parent.parmTemplate().type() == hou.parmTemplateType.Ramp:
+        prefix = f"{parent.name()}1"
+        return [
+            f"{parent.name()}#{p.name()[len(prefix) :]}"
+            for p in first
+            if p.name().startswith(prefix)
+        ]
+    templates = [t.name() for t in parent.parmTemplate().parmTemplates() if "#" in t.name()]
+    patterns = []
+    for p in first:
+        for name in templates:
+            stem = name.replace("#", "1")
+            if p.name().startswith(stem):
+                patterns.append(name + p.name()[len(stem) :])
+                break
+    return patterns
+
+
+def _raw_entries_match(src: hou.Parm, dst: hou.Parm, links: list) -> bool:
+    """Every raw entry parm of *dst* evaluates like its source, count included.
+
+    Not evalAsRamp(): on a ramp whose count alone is linked it shows the
+    source's ramp while the node cooks its own leftover keys.
+    """
+    count = dst.evalAsInt()
+    if count != src.evalAsInt():
+        return False
+    for index in range(1, count + 1):
+        for mine, theirs in links:
+            here = dst.node().parm(mine.replace("#", str(index)))
+            there = dst.node().parm(theirs.replace("#", str(index)))
+            if here is None or there is None or here.eval() != there.eval():
+                return False
+    return True
+
+
+def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, Any]:
+    """Link every entry of a ramp or multiparm, present and future (opmultiparm).
+
+    A ch() on the count alone left the keys as they were: the lesson ran
+    opmultiparm in execute_hscript. opmultiparm only links the
+    instances created after it, so the destination is emptied first and
+    then follows the source's count.
+    """
+    if src.parmTemplate().type() != dst.parmTemplate().type():
+        raise ValueError(
+            f"{dst.path()} and {src.path()} are not the same kind of multiparm "
+            f"({dst.parmTemplate().type().name()} / {src.parmTemplate().type().name()})."
+        )
+    patterns = _instance_patterns(dst)
+    if not patterns:
+        raise ValueError(f"{dst.path()} has no entry to read its parameter names from.")
+    is_ramp = dst.parmTemplate().type() == hou.parmTemplateType.Ramp
+    pairs = []
+    for pattern in patterns:
+        source = src.name() + pattern[len(dst.name()) :] if is_ramp else pattern
+        pairs.append((pattern, f"{rel_node}/{source}" if rel_node else source))
+    dst.deleteAllKeyframes()
+    dst.set(0)
+    args = " ".join(f"'{a}' '{b}'" for a, b in pairs)
+    _, errors = hou.hscript(f"opmultiparm {dst.node().path()} {args}")
+    if errors.strip():
+        raise ValueError(f"opmultiparm refused the link: {errors.strip()}")
+    return {"multiparm_links": [list(pair) for pair in pairs], "is_ramp": is_ramp}
+
+
 def _link_parameters(
     source_path: str,
     source_parm: str,
@@ -1309,9 +1392,13 @@ def _link_parameters(
     A destination that already has keyframes or an expression is refused
     unless *replace_existing* is set, and a link whose source already reads
     the destination through static ch() references is refused as a cycle.
+
+    A ramp or multiparm linked to another links its entries too, now and as
+    the source gains or loses some (opmultiparm), not only the count.
     """
     src = _resolve_parm(source_path, source_parm)
     dst = _resolve_parm(dest_path, dest_parm)
+    multiparm = _is_multiparm_parent(dst) and _is_multiparm_parent(src)
 
     if dst.keyframes() and not replace_existing:
         raise ValueError(
@@ -1324,6 +1411,10 @@ def _link_parameters(
     function = _channel_function(dst)
     channel_path = _relative_channel_path(dst, src)
     ref_expr = f'{function}("{channel_path}")'
+    linked = None
+    if multiparm:
+        rel_node = channel_path[: -len(src.name())].rstrip("/")
+        linked = _link_multiparm(src, dst, rel_node)
     set_whole_expression(dst, ref_expr, hou.exprLanguage.Hscript)
 
     reply: dict[str, Any] = {
@@ -1335,6 +1426,11 @@ def _link_parameters(
     }
     with contextlib.suppress(Exception):
         reply["value"] = _serialize_value(dst.eval())
+    if linked is not None:
+        reply.update(linked)
+        reply.pop("value", None)
+        reply["entries"] = dst.evalAsInt()
+        reply["follows_source"] = _raw_entries_match(src, dst, linked["multiparm_links"])
     src_kind = _channel_function(src)
     if src_kind != function:
         reply["warning"] = (
