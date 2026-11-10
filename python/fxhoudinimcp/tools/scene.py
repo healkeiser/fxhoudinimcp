@@ -160,7 +160,8 @@ async def load_scene(
     variables the file adds are listed in `globals_added`.
 
     Args:
-        file_path: Path to the hip file to open.
+        file_path: Path to the hip file to open; $JOB, $HIP and other
+            variables are expanded.
         merge: Merge into the current scene instead of replacing it.
         node_paths: With merge, the absolute node paths to merge; default
             everything.
