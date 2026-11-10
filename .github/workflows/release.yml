@@ -148,10 +148,10 @@ jobs:
         with:
           ref: main
 
-      - name: Create draft release
+      - name: Create release
         uses: softprops/action-gh-release@v3
         with:
-          draft: true
+          draft: false
           name: ${{ github.ref_name }}
           body: |
             ## What's Changed
