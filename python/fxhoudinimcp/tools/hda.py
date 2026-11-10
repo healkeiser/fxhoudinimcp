@@ -248,13 +248,21 @@ async def set_hda_interface(
 
     Each entry of `parameters` is a dict:
         name, label, type (int|float|vector|color|string|file|oppath|toggle|
-        menu|button|separator|label|folder),
+        menu|button|separator|label|folder|ramp_float|ramp_color),
         default, min, max, min_strict, max_strict, components,
         menu_items ([value, label] pairs or plain strings),
         folder_type (tabs|simple|collapsible|radio) + children for folders,
         hide_when / disable_when (Houdini conditionals), help,
         callback (+ callback_language, python by default) for a button,
         column_labels for a label.
+        ramp_float / ramp_color types: default is the keys,
+        [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
+        look (logarithmic|angle|vector|color|huecircle) for numbers,
+        label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+        from_parm ("/path/node/parm"): copy that parameter's template under
+        `name` (label, help, conditionals still apply) — a stock node's ramp
+        comes with its default keys.
+        Any other key is refused with a did-you-mean (it used to be dropped).
 
     Example — a Controls tab whose Bevel disappears for a single stud:
         [{"name": "controls", "label": "Controls", "type": "folder",

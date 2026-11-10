@@ -539,7 +539,162 @@ _SPEC_ALIASES = {
     "default_value": "default",
     "min_val": "min",
     "max_val": "max",
+    "is_label_hidden": "label_hidden",
 }
+
+#: Every key a parameter spec may carry (after the aliases). Anything else
+#: was dropped without a word: `look` and `is_label_hidden` came back as
+#: success over a template that had neither.
+_TEMPLATE_KEYS = frozenset(
+    {
+        "name",
+        "label",
+        "type",
+        "default",
+        "min",
+        "max",
+        "min_strict",
+        "max_strict",
+        "components",
+        "menu_items",
+        "folder_type",
+        "children",
+        "hide_when",
+        "disable_when",
+        "help",
+        "callback",
+        "callback_language",
+        "column_labels",
+        "hidden",
+        "join_with_next",
+        "label_hidden",
+        "naming_scheme",
+        "default_expression",
+        "default_expression_language",
+        "tags",
+        "look",
+        "from_parm",
+    }
+)
+
+#: Spellings of hou.parmLook a spec may use.
+_LOOKS = {
+    "regular": "Regular",
+    "logarithmic": "Logarithmic",
+    "log": "Logarithmic",
+    "angle": "Angle",
+    "vector": "Vector",
+    "color": "ColorSquare",
+    "colorsquare": "ColorSquare",
+    "huecircle": "HueCircle",
+    "crgbaplanechooser": "CRGBAPlaneChooser",
+}
+
+#: Not bare "ramp": float or color has to be said.
+_RAMP_TYPES = {
+    "ramp_float": "Float",
+    "rampfloat": "Float",
+    "ramp_color": "Color",
+    "rampcolor": "Color",
+}
+
+_RAMP_INTERPOLATIONS = (
+    "constant",
+    "linear",
+    "catmull-rom",
+    "monotonecubic",
+    "bezier",
+    "bspline",
+    "hermite",
+)
+
+
+def _check_spec_keys(spec: dict) -> None:
+    unknown = [key for key in spec if key not in _TEMPLATE_KEYS]
+    if not unknown:
+        return
+    hints = []
+    for key in unknown:
+        close = get_close_matches(key, sorted(_TEMPLATE_KEYS), n=2, cutoff=0.5)
+        hints.append(f"'{key}'" + (f" (did you mean {', '.join(close)}?)" if close else ""))
+    raise ValueError(
+        f"{spec.get('name')!r}: unknown key(s) {', '.join(hints)}. Known: {sorted(_TEMPLATE_KEYS)}."
+    )
+
+
+def _look(spec: dict):
+    value = str(spec["look"]).strip().replace(" ", "").replace("_", "").lower()
+    value = value.removeprefix("parmlook.")
+    if value not in _LOOKS:
+        raise ValueError(
+            f"{spec.get('name')!r}: unknown look {spec['look']!r}. Use one of: "
+            f"{sorted(set(_LOOKS) - {'log', 'color'})}."
+        )
+    return getattr(hou.parmLook, _LOOKS[value])
+
+
+def _ramp_default_tag(spec: dict, color: bool) -> tuple[str, int]:
+    """The rampfloatdefault / rampcolordefault string from `default` keys."""
+    keys = spec.get("default")
+    if keys is None:
+        keys = [
+            {"pos": 0, "value": 0 if not color else [0, 0, 0]},
+            {"pos": 1, "value": 1 if not color else [1, 1, 1]},
+        ]
+    if not isinstance(keys, (list, tuple)) or not keys:
+        raise ValueError(
+            f"{spec.get('name')!r}: a ramp default is a list of keys, "
+            '[{"pos": 0, "value": 0, "interp": "linear"}, ...].'
+        )
+    parts = []
+    for n, key in enumerate(keys, 1):
+        if not isinstance(key, dict) or "pos" not in key or "value" not in key:
+            raise ValueError(f"{spec.get('name')!r}: ramp key {n} needs pos and value.")
+        interp = str(key.get("interp", "linear")).lower()
+        if interp not in _RAMP_INTERPOLATIONS:
+            raise ValueError(
+                f"{spec.get('name')!r}: ramp key {n} interp {interp!r} is not one of "
+                f"{list(_RAMP_INTERPOLATIONS)}."
+            )
+        value = key["value"]
+        if color:
+            if not isinstance(value, (list, tuple)) or len(value) != 3:
+                raise ValueError(f"{spec.get('name')!r}: color ramp key {n} value is [r, g, b].")
+            value_text = f"{n}c ( {' '.join(str(float(c)) for c in value)} )"
+        else:
+            value_text = f"{n}value ( {float(value)} )"
+        parts.append(f"{n}pos ( {float(key['pos'])} ) {value_text} {n}interp ( {interp} )")
+    return " ".join(parts), len(keys)
+
+
+def _cloned_template(spec: dict, name: str):
+    """A copy of another node's parameter template, renamed (`from_parm`).
+
+    A ramp keeps its default keys (the rampfloatdefault tag); a lesson
+    rebuilt heightfield_maskbyfeature's ramp by hand for five assets.
+    """
+    path = str(spec["from_parm"])
+    parm = hou.parm(path) or hou.parmTuple(path)
+    if parm is None:
+        raise ValueError(
+            f"{name!r}: from_parm {path!r} is not a parameter (give /path/to/node/parm)."
+        )
+    template = parm.parmTemplate().clone()
+    template.setName(name)
+    if spec.get("label"):
+        template.setLabel(str(spec["label"]))
+    if spec.get("hidden"):
+        template.hide(True)
+    if spec.get("join_with_next"):
+        template.setJoinWithNext(True)
+    if spec.get("label_hidden"):
+        template.hideLabel(True)
+    if spec.get("callback"):
+        template.setScriptCallback(str(spec["callback"]))
+        template.setScriptCallbackLanguage(_script_language(spec))
+    if "look" in spec:
+        template.setLook(_look(spec))
+    return template
 
 
 def _menu_default(spec: dict, values: tuple) -> int:
@@ -577,12 +732,38 @@ def _build_parm_template(spec: dict, seen: set):
         raise ValueError(f"Duplicate parameter name {name!r} in this interface.")
     seen.add(name)
 
+    _check_spec_keys(spec)
     label = spec.get("label") or name.replace("_", " ").title()
     kind = str(spec.get("type", "float")).lower()
     components = int(spec.get("components", 1))
     common = _common_template_kwargs(spec)
+    if (
+        "look" in spec
+        and kind not in ("float", "vector", "color", "int", "integer")
+        and not spec.get("from_parm")
+    ):
+        raise ValueError(f"{name!r}: look applies to float, vector, color and int parameters.")
 
-    if kind == "folder":
+    if spec.get("from_parm"):
+        template = _cloned_template(spec, name)
+    elif kind in _RAMP_TYPES:
+        color = _RAMP_TYPES[kind] == "Color"
+        tag, count = _ramp_default_tag(spec, color)
+        template = hou.RampParmTemplate(
+            name,
+            label,
+            getattr(hou.rampParmType, _RAMP_TYPES[kind]),
+            default_value=count,
+            **{
+                k: v
+                for k, v in common.items()
+                if k in ("is_hidden", "join_with_next", "is_label_hidden")
+            },
+        )
+        tags = dict(template.tags())
+        tags["rampcolordefault" if color else "rampfloatdefault"] = tag
+        template.setTags(tags)
+    elif kind == "folder":
         folder_key = str(spec.get("folder_type", "tabs")).lower()
         if folder_key not in _FOLDER_TYPES:
             raise ValueError(
@@ -610,6 +791,8 @@ def _build_parm_template(spec: dict, seen: set):
             naming_scheme=_naming_scheme(spec, hou.parmNamingScheme.XYZW),
             **common,
         )
+        if "look" in spec:
+            template.setLook(_look(spec))
     elif kind in ("float", "vector", "color"):
         if kind in ("vector", "color") and "components" not in spec:
             components = 3
@@ -620,6 +803,8 @@ def _build_parm_template(spec: dict, seen: set):
             default_scheme = hou.parmNamingScheme.RGBA
         elif kind == "vector":
             look = hou.parmLook.Vector
+        if "look" in spec:
+            look = _look(spec)
         template = hou.FloatParmTemplate(
             name,
             label,
@@ -683,7 +868,8 @@ def _build_parm_template(spec: dict, seen: set):
         raise ValueError(
             f"Unknown parameter type {kind!r} on {name!r}. Use one of: "
             f"int, float, vector, color, string, file, oppath, toggle, menu, "
-            f"button, separator, label, folder."
+            f"button, separator, label, folder, ramp_float, ramp_color "
+            f"(or from_parm to copy another node's)."
         )
 
     for key, cond_type in (
@@ -700,7 +886,10 @@ def _build_parm_template(spec: dict, seen: set):
     _apply_default_expression(template, spec)
 
     if spec.get("tags"):
-        template.setTags({str(k): str(v) for k, v in dict(spec["tags"]).items()})
+        # Merged, so a ramp's default keys survive user tags.
+        tags = dict(template.tags())
+        tags.update({str(k): str(v) for k, v in dict(spec["tags"]).items()})
+        template.setTags(tags)
 
     return template
 
@@ -831,6 +1020,18 @@ def _describe_template(template) -> dict:
                 str(template.scriptCallbackLanguage()).rsplit(".", 1)[-1].lower()
             )
     with contextlib.suppress(Exception):
+        look = str(template.look()).rsplit(".", 1)[-1]
+        if look not in ("Regular",):
+            info["look"] = look
+    with contextlib.suppress(Exception):
+        if template.isLabelHidden():
+            info["is_label_hidden"] = True
+    with contextlib.suppress(Exception):
+        tags = template.tags()
+        for key in ("rampfloatdefault", "rampcolordefault"):
+            if tags.get(key):
+                info["ramp_default"] = tags[key]
+    with contextlib.suppress(Exception):
         # A label without columns reads back ("",), not ().
         if info["type"] == "Label" and any(columns := template.columnLabels()):
             info["column_labels"] = list(columns)
@@ -871,13 +1072,21 @@ def set_hda_interface(
 
     Each entry of `parameters` is a dict:
         name, label, type (int|float|vector|color|string|file|oppath|toggle|
-        menu|button|separator|label|folder),
+        menu|button|separator|label|folder|ramp_float|ramp_color),
         default, min, max, min_strict, max_strict, components,
         menu_items ([value, label] pairs or plain strings),
         folder_type (tabs|simple|collapsible|radio) and children for folders,
         hide_when / disable_when (Houdini conditional expressions), help,
         callback (+ callback_language, python by default) for a button,
         column_labels for a label.
+        ramp_float / ramp_color types: default is the keys,
+        [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
+        look (logarithmic|angle|vector|color|huecircle) for numbers,
+        label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+        from_parm ("/path/node/parm"): copy that parameter's template under
+        `name` (label, help, conditionals still apply) — a stock node's ramp
+        comes with its default keys.
+        Any other key is refused with a did-you-mean (it used to be dropped).
     create_spare_parameters' spelling (parm_name, parm_type, default_value,
     min_val, max_val) is accepted too.
 
