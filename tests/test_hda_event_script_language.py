@@ -76,3 +76,5 @@ class TestEventScriptLanguage:
             hda.set_hda_section_content("/obj/k", "Help", "= K =", language="python")
         with pytest.raises(ValueError, match="'python' or 'hscript'"):
             hda.set_hda_section_content("/obj/k", "OnCreated", "x", language="vex")
+        with pytest.raises(ValueError, match="PythonModule is always Python"):
+            hda.set_hda_section_content("/obj/k", "PythonModule", "x = 1", language="hscript")

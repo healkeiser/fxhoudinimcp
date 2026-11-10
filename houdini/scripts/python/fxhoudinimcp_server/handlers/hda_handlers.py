@@ -1710,6 +1710,9 @@ def set_hda_section_content(
                 f"language applies to event scripts ({sorted(_EVENT_SECTIONS)}); "
                 f"'{section_name}' is not one. Nothing was written."
             )
+        if section_name == "PythonModule" and language == "hscript":
+            # IsPython=False would be stored, yet hdaModule() still runs it as Python.
+            raise ValueError("PythonModule is always Python. Nothing was written.")
     looks_python = section_name == "PythonModule" or _LOOKS_PYTHON.search(content or "")
     if event and language is None and looks_python:
         language = "python"
