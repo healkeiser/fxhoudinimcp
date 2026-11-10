@@ -113,6 +113,9 @@ async def set_parameters(
 ) -> dict:
     """Batch-set multiple parameters on a node, in the order given.
 
+    Expressions go in the same call: {"tx": {"expr": "ch('../size')"}} sets
+    an expression, so no set_expression per parameter is needed.
+
     Inside a DOP network a write does not reset frames already simulated:
     `simulation_cache` names the network to pass to reset_simulation.
 

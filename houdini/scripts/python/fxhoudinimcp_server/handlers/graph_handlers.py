@@ -785,6 +785,7 @@ _SPEC_KEYS = frozenset(
         "flags",
         "color",
         "comment",
+        "position",
         "override_expression",
         "run_callbacks",
     }
@@ -808,6 +809,15 @@ def _unknown_key_error(label: str, kind: str, key: str, known: frozenset) -> str
     close = get_close_matches(str(key), sorted(known), n=3, cutoff=0.4)
     hint = f" Did you mean: {close}?" if close else f" Known keys: {sorted(known)}."
     return f"node {label}: unknown {kind} key '{key}'.{hint}"
+
+
+def _is_xy(value: Any) -> bool:
+    """[x, y] of two numbers (bools are not positions)."""
+    return (
+        isinstance(value, (list, tuple))
+        and len(value) == 2
+        and all(isinstance(c, (int, float)) and not isinstance(c, bool) for c in value)
+    )
 
 
 def _is_numeric_text(value: str) -> bool:
@@ -1345,6 +1355,8 @@ def build_network(
                 itself.
             flags (dict): display/render/bypass/template booleans.
             color (list[3]) and comment (str): network annotations.
+            position ([x, y]): where the node goes in the network editor;
+                a positioned node is not auto-placed.
             Any other key, in a spec or in an input entry, is a validation
             error with a did-you-mean, not a request dropped in silence.
         dry_run: Validate only; never mutates the scene.
@@ -1398,6 +1410,11 @@ def build_network(
         for key in spec:
             if key not in _SPEC_KEYS:
                 errors.append(_unknown_key_error(label, "spec", key, _SPEC_KEYS))
+        position = spec.get("position")
+        if position is not None and not _is_xy(position):
+            errors.append(
+                f"node {label}: position must be [x, y] in network units, got {position!r}"
+            )
         # {"lock": true} or {"Display": true} used to vanish without a word.
         for key in spec.get("flags") or {}:
             if key not in _FLAG_KEYS:
@@ -1755,6 +1772,7 @@ def build_network(
     # Per node path: what the literals in `parms` did to expressions.
     parm_reports: dict[str, dict[str, dict[str, str]]] = {}
     flags_not_applied: dict[str, list[str]] = {}
+    positioned: set[str] = set()
     display_moved: dict[str, str] = {}
     try:
         for spec in nodes:
@@ -1839,6 +1857,11 @@ def build_network(
             if spec.get("comment"):
                 node.setComment(spec["comment"])
                 node.setGenericFlag(hou.nodeFlag.DisplayComment, True)
+            if spec.get("position") is not None:
+                # Where the user arranges nodes by hand, a position per node
+                # saved two set_node_position calls each.
+                node.setPosition(hou.Vector2(*spec["position"]))
+                positioned.add(node.path())
     except Exception as exc:
         for node in created.values():
             with contextlib.suppress(Exception):
@@ -1868,7 +1891,7 @@ def build_network(
     # left stacked at the origin. Each lands relative to its inputs, in
     # creation order; nodes that already existed are never moved, so building
     # into a hand-arranged network stays safe.
-    place_new_nodes(created.values())
+    place_new_nodes(node for node in created.values() if node.path() not in positioned)
 
     if layout:
         # The caller also asked for a layout of the parent, which stays gated
