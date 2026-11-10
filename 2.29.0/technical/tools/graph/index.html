@@ -3297,7 +3297,9 @@ never a silently dropped request:
     VOP with parmname "orient" is wired from "orient");
     or {"indirect_input": n} to wire from connector n of
     the parent subnet itself), flags (display/render/bypass/template),
-    color [r,g,b], comment, override_expression, run_callbacks. Parms
+    color [r,g,b], comment, position [x, y] (network units; the node is
+    then not auto-placed, unless layout=True with auto-layout on),
+    override_expression, run_callbacks. Parms
     are written in the order given.</p>
 <p>A string aimed at a numeric parameter is caught during validation and
 answered with the {"expr": ...} spelling, instead of failing mid-build
@@ -3689,6 +3691,10 @@ include their children), so compare siblings to locate the hotspot.</p>
     <div class="doc doc-contents ">
 
         <p>Whether a node has cooked, how often, and whether it is time dependent.</p>
+<p><code>cook_count</code> is the node's cook counter and <code>needs_to_cook</code> whether it is
+dirty (its next read cooks it): compare them around a parameter change.
+Nodes that never cook (/obj, OBJ containers, VOPs) always report
+needs_to_cook True; a generator TOP reports False with no cooks.</p>
 <p>Note the shape of the limitation: every command runs on Houdini's main
 thread, so a long cook blocks the bridge and cannot be polled while it runs.
 This answers the after-the-fact question instead -- did it really recook, is

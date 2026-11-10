@@ -6307,6 +6307,8 @@ as editing it in the UI does (<code>callback_run</code> in the reply, and
     <div class="doc doc-contents ">
 
         <p>Batch-set multiple parameters on a node, in the order given.</p>
+<p>Expressions go in the same call: {"tx": {"expr": "ch('../size')"}} sets
+an expression, so no set_expression per parameter is needed.</p>
 <p>Inside a DOP network a write does not reset frames already simulated:
 <code>simulation_cache</code> names the network to pass to reset_simulation.</p>
 <p>Parameters that held an expression and therefore ignored the literal are
