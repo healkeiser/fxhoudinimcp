@@ -970,6 +970,97 @@ def _resolve_source(
     return item
 
 
+def _input_wires(dest: hou.Node) -> list:
+    return [
+        (c.inputIndex(), c.inputItem(), c.inputItemOutputIndex()) for c in dest.inputConnections()
+    ]
+
+
+def _check_wired(
+    dest: hou.Node, input_index: int, source: Any, output_index: int, before: list
+) -> int:
+    """The input the wire landed on; raise if setInput made none.
+
+    A merge, a switch or an Add VOP packs its inputs: a wire asked into
+    input 3 with only input 0 taken lands on input 1. That wire is new
+    against `before` (the wires ahead of setInput), so it counts.
+
+    Inside a locked asset Houdini takes setInput without a word and makes no
+    wire, even between nodes its EditableNodes section names one by one (a
+    named network is editable, wires included); the verb used to answer
+    success over an unchanged network.
+    """
+    after = _input_wires(dest)
+    if (input_index, source, output_index) in after:
+        return input_index
+    for wire in after:
+        if wire[1:] == (source, output_index) and wire not in before:
+            return wire[0]
+    where = ""
+    with contextlib.suppress(Exception):
+        if dest.isInsideLockedHDA():
+            owner = dest.parent()
+            while owner is not None and not owner.isLockedHDA():
+                owner = owner.parent()
+            where = (
+                f" {dest.path()} is inside the locked asset {owner.path() if owner else '?'}: "
+                "Houdini made no wire there: nodes named one by one in EditableNodes open "
+                "their parameters only; naming the network that holds them opens its wiring. "
+                "Or unlock it with allow_editing_of_contents, or wire the asset's definition."
+            )
+    raise ValueError(f"Houdini made no wire into {dest.path()} input {input_index}.{where}")
+
+
+#: Keys of one entry of connect_nodes_batch's `connections`.
+_CONNECTION_KEYS = frozenset(
+    {"source_path", "dest_path", "output_index", "input_index", "input_name", "indirect_input"}
+)
+
+#: Other verbs' spellings of the same keys (build_network's `inputs` entries
+#: say `index` and `source_output`); difflib does not find these.
+_CONNECTION_KEY_SYNONYMS = {
+    "dest_input": "input_index",
+    "input": "input_index",
+    "index": "input_index",
+    "source_output": "output_index",
+    "output": "output_index",
+    "source": "source_path",
+    "dest": "dest_path",
+}
+
+
+def _check_connection_keys(connections: Any) -> None:
+    """Refuse the whole batch over a malformed entry, before any wire is made.
+
+    An unknown key was dropped: `dest_input: 2` wired input 0 and replaced
+    the wire already there, and the reply said input_index 0 to nobody who
+    was reading it.
+    """
+    if not isinstance(connections, (list, tuple)) or not connections:
+        raise ValueError("connections must be a non-empty list of dicts.")
+    problems = []
+    for n, conn in enumerate(connections):
+        if not isinstance(conn, dict):
+            problems.append(f"connections[{n}] is not a dict")
+            continue
+        for key in conn:
+            if key not in _CONNECTION_KEYS:
+                close = (
+                    [_CONNECTION_KEY_SYNONYMS[key]]
+                    if key in _CONNECTION_KEY_SYNONYMS
+                    else get_close_matches(key, sorted(_CONNECTION_KEYS), n=3, cutoff=0.4)
+                )
+                hint = f" (did you mean {', '.join(close)}?)" if close else ""
+                problems.append(f"connections[{n}]: unknown key '{key}'{hint}")
+        for key in ("source_path", "dest_path"):
+            if not conn.get(key):
+                problems.append(f"connections[{n}]: '{key}' is required")
+    if problems:
+        raise ValueError(
+            "; ".join(problems) + f". Known keys: {sorted(_CONNECTION_KEYS)}. Nothing was wired."
+        )
+
+
 def connect_nodes(
     source_path: str,
     dest_path: str,
@@ -994,7 +1085,9 @@ def connect_nodes(
     source = _resolve_source(source_path, indirect_input, dest, output_index)
 
     input_index = _resolve_input_index(dest, input_index, input_name)
+    before = _input_wires(dest)
     dest.setInput(input_index, source, output_index)
+    landed = _check_wired(dest, input_index, source, output_index, before)
 
     _focus_network_editor(dest, place_unpositioned=False)
 
@@ -1003,8 +1096,10 @@ def connect_nodes(
         "source_path": _get_node(source_path).path(),
         "dest_path": dest.path(),
         "output_index": output_index,
-        "input_index": input_index,
+        "input_index": landed,
     }
+    if landed != input_index:
+        result["input_index_requested"] = input_index
     if indirect_input is not None:
         # source_path stays a path a caller can reuse; the connector is here.
         result["indirect_input"] = int(indirect_input)
@@ -1344,7 +1439,10 @@ def connect_nodes_batch(
             input_name (optional; a connector name or label, wins over input_index),
             indirect_input (optional; source_path is then a subnet and this is the
             index of its input connector to wire from).
+            Any other key refuses the whole batch before a wire is made, and
+            a wire Houdini does not make (inside a locked asset) is an error.
     """
+    _check_connection_keys(connections)
     results = []
     errors = []
     wired: list = []
@@ -1359,15 +1457,19 @@ def connect_nodes_batch(
             dest = _get_node(dst_path)
             source = _resolve_source(src_path, conn.get("indirect_input"), dest, out_idx)
             in_idx = _resolve_input_index(dest, in_idx, conn.get("input_name"))
+            before = _input_wires(dest)
             dest.setInput(in_idx, source, out_idx)
+            landed = _check_wired(dest, in_idx, source, out_idx, before)
             last_dest = dest
             wired.append(dest)
             entry = {
                 "source_path": _get_node(src_path).path(),
                 "dest_path": dest.path(),
                 "output_index": out_idx,
-                "input_index": in_idx,
+                "input_index": landed,
             }
+            if landed != in_idx:
+                entry["input_index_requested"] = in_idx
             if conn.get("indirect_input") is not None:
                 entry["indirect_input"] = int(conn["indirect_input"])
             results.append(entry)
