@@ -2751,6 +2751,9 @@ def get_cook_status(node_path: str = "/obj", **_: Any) -> dict:
     }
     for key, method in (
         ("cook_count", "cookCount"),
+        # Dirty now: the next read cooks it. Read with cook_count around a
+        # change, it shows whether the change reached this node.
+        ("needs_to_cook", "needsToCook"),
         ("is_time_dependent", "isTimeDependent"),
     ):
         with contextlib.suppress(Exception):

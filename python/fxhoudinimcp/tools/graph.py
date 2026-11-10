@@ -287,6 +287,11 @@ async def cook_frame_range(
 async def get_cook_status(ctx: Context, node_path: str = "/obj") -> dict:
     """Whether a node has cooked, how often, and whether it is time dependent.
 
+    `cook_count` is the node's cook counter and `needs_to_cook` whether it is
+    dirty (its next read cooks it): compare them around a parameter change.
+    Nodes that never cook (/obj, OBJ containers, VOPs) always report
+    needs_to_cook True; a generator TOP reports False with no cooks.
+
     Note the shape of the limitation: every command runs on Houdini's main
     thread, so a long cook blocks the bridge and cannot be polled while it runs.
     This answers the after-the-fact question instead -- did it really recook, is
