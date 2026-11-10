@@ -2751,6 +2751,9 @@ def get_cook_status(node_path: str = "/obj", **_: Any) -> dict:
     }
     for key, method in (
         ("cook_count", "cookCount"),
+        # Dirty: the next read cooks it. Told apart from cook_count, it says
+        # whether a cook came from a change upstream or from the asking.
+        ("needs_to_cook", "needsToCook"),
         ("is_time_dependent", "isTimeDependent"),
     ):
         with contextlib.suppress(Exception):
