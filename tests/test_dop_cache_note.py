@@ -174,7 +174,8 @@ class TestNodeEdits:
         solver.setInput = MagicMock()
         monkeypatch.setattr(nodes, "_get_node", {solver.path(): solver, source.path(): source}.get)
         monkeypatch.setattr(nodes, "_resolve_source", lambda *args: source)
-        monkeypatch.setattr(nodes, "_check_wired", lambda *args: None)
+        monkeypatch.setattr(nodes, "_input_wires", lambda dest: [])
+        monkeypatch.setattr(nodes, "_check_wired", lambda *args: args[1])
         result = nodes.connect_nodes(source.path(), solver.path(), input_index=2)
         solver.setInput.assert_called_once_with(2, source, 0)
         assert result["simulation_cache"]["networks"] == [popnet.path()]

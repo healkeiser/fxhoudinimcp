@@ -121,3 +121,14 @@ class TestWireIsReadBack:
         dest.inputConnections.side_effect = lambda: [_conn(0, net["/obj/g/a"], 1)]
         with pytest.raises(ValueError, match="made no wire"):
             nodes.connect_nodes("/obj/g/a", "/obj/g/m")
+
+    def test_a_merge_packs_the_wire_onto_its_first_free_input(self, net):
+        # Measured: a box into merge input 3 with only input 0 wired lands on 1.
+        dest = net["/obj/g/m"]
+        wires = [_conn(0, net["/obj/g/a"])]
+        dest.inputConnections.side_effect = lambda: list(wires)
+        dest.setInput.side_effect = lambda i, item, out=0: wires.append(
+            _conn(len(wires), item, out)
+        )
+        result = nodes.connect_nodes("/obj/g/a", "/obj/g/m", input_index=3)
+        assert result["input_index"] == 1 and result["input_index_requested"] == 3

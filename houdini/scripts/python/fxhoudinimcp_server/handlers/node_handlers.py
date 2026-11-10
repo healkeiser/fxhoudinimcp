@@ -970,19 +970,32 @@ def _resolve_source(
     return item
 
 
-def _check_wired(dest: hou.Node, input_index: int, source: Any, output_index: int) -> None:
-    """Raise unless the wire setInput was asked for is there.
+def _input_wires(dest: hou.Node) -> list:
+    return [
+        (c.inputIndex(), c.inputItem(), c.inputItemOutputIndex()) for c in dest.inputConnections()
+    ]
+
+
+def _check_wired(
+    dest: hou.Node, input_index: int, source: Any, output_index: int, before: list
+) -> int:
+    """The input the wire landed on; raise if setInput made none.
+
+    A merge, a switch or an Add VOP packs its inputs: a wire asked into
+    input 3 with only input 0 taken lands on input 1. That wire is new
+    against `before` (the wires ahead of setInput), so it counts.
 
     Inside a locked asset Houdini takes setInput without a word and makes no
     wire, even between nodes its EditableNodes section names one by one (a
     named network is editable, wires included); the verb used to answer
     success over an unchanged network.
     """
-    for connection in dest.inputConnections():
-        if connection.inputIndex() != input_index:
-            continue
-        if connection.inputItem() == source and connection.inputItemOutputIndex() == output_index:
-            return
+    after = _input_wires(dest)
+    if (input_index, source, output_index) in after:
+        return input_index
+    for wire in after:
+        if wire[1:] == (source, output_index) and wire not in before:
+            return wire[0]
     where = ""
     with contextlib.suppress(Exception):
         if dest.isInsideLockedHDA():
@@ -1072,8 +1085,9 @@ def connect_nodes(
     source = _resolve_source(source_path, indirect_input, dest, output_index)
 
     input_index = _resolve_input_index(dest, input_index, input_name)
+    before = _input_wires(dest)
     dest.setInput(input_index, source, output_index)
-    _check_wired(dest, input_index, source, output_index)
+    landed = _check_wired(dest, input_index, source, output_index, before)
 
     _focus_network_editor(dest, place_unpositioned=False)
 
@@ -1082,8 +1096,10 @@ def connect_nodes(
         "source_path": _get_node(source_path).path(),
         "dest_path": dest.path(),
         "output_index": output_index,
-        "input_index": input_index,
+        "input_index": landed,
     }
+    if landed != input_index:
+        result["input_index_requested"] = input_index
     if indirect_input is not None:
         # source_path stays a path a caller can reuse; the connector is here.
         result["indirect_input"] = int(indirect_input)
@@ -1441,16 +1457,19 @@ def connect_nodes_batch(
             dest = _get_node(dst_path)
             source = _resolve_source(src_path, conn.get("indirect_input"), dest, out_idx)
             in_idx = _resolve_input_index(dest, in_idx, conn.get("input_name"))
+            before = _input_wires(dest)
             dest.setInput(in_idx, source, out_idx)
-            _check_wired(dest, in_idx, source, out_idx)
+            landed = _check_wired(dest, in_idx, source, out_idx, before)
             last_dest = dest
             wired.append(dest)
             entry = {
                 "source_path": _get_node(src_path).path(),
                 "dest_path": dest.path(),
                 "output_index": out_idx,
-                "input_index": in_idx,
+                "input_index": landed,
             }
+            if landed != in_idx:
+                entry["input_index_requested"] = in_idx
             if conn.get("indirect_input") is not None:
                 entry["indirect_input"] = int(conn["indirect_input"])
             results.append(entry)
