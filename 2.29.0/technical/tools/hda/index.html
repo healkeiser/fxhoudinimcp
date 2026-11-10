@@ -2391,6 +2391,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.hda.set_hda_section_content(language)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;language
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3604,6 +3615,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;content
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fxhoudinimcp.tools.hda.set_hda_section_content(language)" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;language
       </span>
     </span>
   </a>
@@ -4962,13 +4984,23 @@ ordered menus, Hide/Disable When. <code>create_spare_parameter</code> is a diffe
 thing: it adds parameters to one node instance and never reaches the type.</p>
 <p>Each entry of <code>parameters</code> is a dict:
     name, label, type (int|float|vector|color|string|file|oppath|toggle|
-    menu|button|separator|label|folder),
+    menu|button|separator|label|folder|ramp_float|ramp_color),
     default, min, max, min_strict, max_strict, components,
     menu_items ([value, label] pairs or plain strings),
     folder_type (tabs|simple|collapsible|radio) + children for folders,
     hide_when / disable_when (Houdini conditionals), help,
     callback (+ callback_language, python by default) for a button,
-    column_labels for a label.</p>
+    column_labels for a label.
+    ramp_float / ramp_color types: default is the keys,
+    [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
+    look (logarithmic|angle|vector|color|huecircle) for numbers,
+    label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+    from_parm ("/path/node/parm"): copy that parameter's template under
+    <code>name</code> (label, help, conditionals still apply; the source's own
+    conditionals and callback are dropped, and type/default/min/max/
+    components/menu_items are refused). A stock node's ramp comes with
+    its default keys.
+    Any other key is refused with a did-you-mean (it used to be dropped).</p>
 <p>Example — a Controls tab whose Bevel disappears for a single stud:
     [{"name": "controls", "label": "Controls", "type": "folder",
       "children": [
@@ -5100,13 +5132,21 @@ type cannot be removed: Houdini puts them back
 
 <a href="#fxhoudinimcp.tools.hda.set_hda_section_content" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_hda_section_content</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(node_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;section_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(section_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(section_name)">section_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;content&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(content)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(content)">content</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;ctx&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(ctx)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(ctx)">ctx</a></span><span class="p">:</span> <span class="n"><span title="fxhoudinimcp._sdk.Context">Context</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;node_path&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(node_path)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(node_path)">node_path</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;section_name&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(section_name)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(section_name)">section_name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;content&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(content)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(content)">content</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="&lt;code&gt;language&lt;/code&gt; (&lt;code&gt;fxhoudinimcp.tools.hda.set_hda_section_content(language)&lt;/code&gt;)" href="./#fxhoudinimcp.tools.hda.set_hda_section_content(language)">language</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Write content to a specific section in an HDA definition.</p>
+<p>Event scripts (OnCreated, OnLoaded, OnUpdated, OnDeleted, OnInputChanged,
+PreFirstCreate, PostLastDelete, ...) are HScript unless marked Python:
+pass language="python" (or "hscript"); left out, code using kwargs,
+hou. or import is marked Python. <code>script_language</code> reads it back.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5182,6 +5222,22 @@ type cannot be removed: Houdini puts them back
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h5 id="fxhoudinimcp.tools.hda.set_hda_section_content(language)" class="doc doc-heading doc-heading-parameter">                  <code>language</code>
+<a href="#fxhoudinimcp.tools.hda.set_hda_section_content(language)" class="headerlink" title="Permanent link">&para;</a></h5>            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an event script, "python" or "hscript".</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
