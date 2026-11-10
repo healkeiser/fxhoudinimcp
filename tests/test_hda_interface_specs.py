@@ -104,3 +104,10 @@ class TestInterfaceSpecs:
         monkeypatch.setattr(hda.hou, "parmTuple", lambda path: None, raising=False)
         with pytest.raises(ValueError, match="from_parm '/obj/m/nope' is not a parameter"):
             hda._cloned_template({"from_parm": "/obj/m/nope"}, "x")
+
+    def test_from_parm_refuses_keys_it_would_ignore(self):
+        # The clone keeps the source's type, default and range whole.
+        with pytest.raises(
+            ValueError, match=r"from_parm copies the template whole, so \['default'\]"
+        ):
+            hda._build_parm_template({"name": "s", "from_parm": "/obj/n/ramp", "default": 1}, set())

@@ -540,6 +540,11 @@ _SPEC_ALIASES = {
     "min_val": "min",
     "max_val": "max",
     "is_label_hidden": "label_hidden",
+    # The "stored" read-back's spelling, so it can be pasted back as a spec.
+    "is_hidden": "hidden",
+    "num_components": "components",
+    "min_is_strict": "min_strict",
+    "max_is_strict": "max_strict",
 }
 
 #: Every key a parameter spec may carry (after the aliases). Anything else
@@ -574,6 +579,26 @@ _TEMPLATE_KEYS = frozenset(
         "tags",
         "look",
         "from_parm",
+    }
+)
+
+#: Keys from_parm cannot honour: they describe the template it copies.
+_NOT_WITH_FROM_PARM = frozenset(
+    {
+        "type",
+        "default",
+        "min",
+        "max",
+        "min_strict",
+        "max_strict",
+        "components",
+        "menu_items",
+        "naming_scheme",
+        "default_expression",
+        "default_expression_language",
+        "folder_type",
+        "children",
+        "column_labels",
     }
 )
 
@@ -673,6 +698,12 @@ def _cloned_template(spec: dict, name: str):
     A ramp keeps its default keys (the rampfloatdefault tag); a lesson
     rebuilt heightfield_maskbyfeature's ramp by hand for five assets.
     """
+    ignored = sorted(set(spec) & _NOT_WITH_FROM_PARM)
+    if ignored:
+        raise ValueError(
+            f"{name!r}: from_parm copies the template whole, so {ignored} would be "
+            "ignored. Drop them, or build the parameter without from_parm."
+        )
     path = str(spec["from_parm"])
     parm = hou.parm(path) or hou.parmTuple(path)
     if parm is None:
@@ -681,6 +712,11 @@ def _cloned_template(spec: dict, name: str):
         )
     template = parm.parmTemplate().clone()
     template.setName(name)
+    # The source's conditionals and callback name parms of the source node,
+    # not of this asset; the spec's own are applied afterwards.
+    template.setConditional(hou.parmCondType.HideWhen, "")
+    template.setConditional(hou.parmCondType.DisableWhen, "")
+    template.setScriptCallback("")
     if spec.get("label"):
         template.setLabel(str(spec["label"]))
     if spec.get("hidden"):
@@ -754,12 +790,18 @@ def _build_parm_template(spec: dict, seen: set):
             label,
             getattr(hou.rampParmType, _RAMP_TYPES[kind]),
             default_value=count,
+            # RampParmTemplate takes no join_with_next or is_label_hidden
+            # keyword (a TypeError); those are set on the template below.
             **{
                 k: v
                 for k, v in common.items()
-                if k in ("is_hidden", "join_with_next", "is_label_hidden")
+                if k in ("is_hidden", "script_callback", "script_callback_language")
             },
         )
+        if spec.get("join_with_next"):
+            template.setJoinWithNext(True)
+        if spec.get("label_hidden"):
+            template.hideLabel(True)
         tags = dict(template.tags())
         tags["rampcolordefault" if color else "rampfloatdefault"] = tag
         template.setTags(tags)
@@ -1084,7 +1126,8 @@ def set_hda_interface(
         look (logarithmic|angle|vector|color|huecircle) for numbers,
         label_hidden (or is_label_hidden), hidden, join_with_next, tags.
         from_parm ("/path/node/parm"): copy that parameter's template under
-        `name` (label, help, conditionals still apply) — a stock node's ramp
+        `name` (label, help, conditionals still apply; the source's own conditionals and
+        callback are dropped). A stock node's ramp
         comes with its default keys.
         Any other key is refused with a did-you-mean (it used to be dropped).
     create_spare_parameters' spelling (parm_name, parm_type, default_value,

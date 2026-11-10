@@ -260,8 +260,10 @@ async def set_hda_interface(
         look (logarithmic|angle|vector|color|huecircle) for numbers,
         label_hidden (or is_label_hidden), hidden, join_with_next, tags.
         from_parm ("/path/node/parm"): copy that parameter's template under
-        `name` (label, help, conditionals still apply) — a stock node's ramp
-        comes with its default keys.
+        `name` (label, help, conditionals still apply; the source's own
+        conditionals and callback are dropped, and type/default/min/max/
+        components/menu_items are refused). A stock node's ramp comes with
+        its default keys.
         Any other key is refused with a did-you-mean (it used to be dropped).
 
     Example — a Controls tab whose Bevel disappears for a single stud:
