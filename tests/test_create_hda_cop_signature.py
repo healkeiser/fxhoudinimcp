@@ -42,7 +42,7 @@ class _Definition:
         section.contents.return_value = self.script
         return {"DialogScript": section}
 
-    def addSection(self, name, contents):  # noqa: N802 — HOM's name
+    def addSection(self, name, contents):  # noqa: N802 (HOM's name)
         assert name == "DialogScript"
         self.script = contents
 
