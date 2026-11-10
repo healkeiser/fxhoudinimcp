@@ -1291,6 +1291,131 @@ def _reaches(parm: hou.Parm, goal: str, seen: set[str]) -> bool:
     return False
 
 
+def _is_multiparm_parent(parm: hou.Parm) -> bool:
+    # `is True`: HOM answers a bool; anything else is not a multiparm.
+    with contextlib.suppress(Exception):
+        return parm.isMultiParmParent() is True
+    return False
+
+
+#: Component suffixes of a tuple parm, by hou.parmNamingScheme.
+_SCHEME_SUFFIXES = {
+    "Base1": [str(i) for i in range(1, 17)],
+    "XYZW": list("xyzw"),
+    "XYWH": list("xywh"),
+    "UVW": list("uvw"),
+    "RGBA": list("rgba"),
+    "MinMax": ["min", "max"],
+    "MaxMin": ["max", "min"],
+    "StartEnd": ["start", "end"],
+    "BeginEnd": ["begin", "end"],
+}
+
+
+def _entry_patterns(parent: hou.Parm) -> list[str]:
+    """The '#' parm names of one multiparm entry: sloperamp#pos, pt#x, ...
+
+    Built from the template, so an empty multiparm has them too. A ramp
+    whose name ends in a digit separates the index with "_" (cr2_1pos).
+    Folders, labels and buttons inside the entry carry no value to link.
+    """
+    template = parent.parmTemplate()
+    name = parent.name()
+    if template.type() == hou.parmTemplateType.Ramp:
+        sep = "_" if name[-1:].isdigit() else ""
+        if template.parmType() == hou.rampParmType.Color:
+            suffixes = ("pos", "cr", "cg", "cb", "interp")
+        else:
+            suffixes = ("pos", "value", "interp")
+        return [f"{name}{sep}#{suffix}" for suffix in suffixes]
+    skip = {
+        hou.parmTemplateType.Folder,
+        hou.parmTemplateType.FolderSet,
+        hou.parmTemplateType.Separator,
+        hou.parmTemplateType.Label,
+        hou.parmTemplateType.Button,
+    }
+    patterns = []
+    for child in template.parmTemplates():
+        if "#" not in child.name() or child.type() in skip:
+            continue
+        count = child.numComponents()
+        if count == 1:
+            patterns.append(child.name())
+            continue
+        suffixes = _SCHEME_SUFFIXES.get(child.namingScheme().name(), _SCHEME_SUFFIXES["Base1"])
+        patterns += [child.name() + suffix for suffix in suffixes[:count]]
+    return patterns
+
+
+def _raw_entries_match(src: hou.Parm, dst: hou.Parm, links: list) -> bool:
+    """Every raw entry parm of *dst* evaluates like its source, count included.
+
+    Not evalAsRamp(): on a ramp whose count alone is linked it shows the
+    source's ramp while the node cooks its own leftover keys.
+    """
+    count = dst.evalAsInt()
+    if count != src.evalAsInt():
+        return False
+    for index in range(1, count + 1):
+        for mine, theirs in links:
+            here = dst.node().parm(mine.replace("#", str(index)))
+            there = dst.node().parm(theirs.replace("#", str(index)))
+            if here is None or there is None or here.eval() != there.eval():
+                return False
+    return True
+
+
+def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, Any]:
+    """Link every entry of a ramp or multiparm, present and future (opmultiparm).
+
+    A ch() on the count alone left the keys as they were: the lesson ran
+    opmultiparm in execute_hscript. opmultiparm only links the
+    instances created after it, so the destination is emptied first and
+    then follows the source's count.
+    """
+    src_template, dst_template = src.parmTemplate(), dst.parmTemplate()
+    is_ramp = dst_template.type() == hou.parmTemplateType.Ramp
+    # A color ramp and a float ramp are both Ramp templates.
+    if src_template.type() != dst_template.type() or (
+        is_ramp and src_template.parmType() != dst_template.parmType()
+    ):
+        raise ValueError(f"{dst.path()} and {src.path()} are not the same kind of multiparm.")
+    mine, theirs = _entry_patterns(dst), _entry_patterns(src)
+    if not mine or len(mine) != len(theirs):
+        raise ValueError(
+            f"The entries of {dst.path()} and {src.path()} do not line up: {mine} / {theirs}."
+        )
+    # Paired in order: a folder multiparm's entries may be named differently.
+    pairs = [(m, f"{rel_node}/{t}" if rel_node else t) for m, t in zip(mine, theirs, strict=True)]
+    dst.deleteAllKeyframes()
+    dst.set(0)
+    args = " ".join(f"'{a}' '{b}'" for a, b in pairs)
+    _, errors = hou.hscript(f"opmultiparm {dst.node().path()} {args}")
+    if errors.strip():
+        raise ValueError(f"opmultiparm refused the link: {errors.strip()}")
+    return {"multiparm_links": [list(pair) for pair in pairs], "is_ramp": is_ramp}
+
+
+def _link_surviving_entries(dst: hou.Parm, links: list) -> None:
+    """Link the entries opmultiparm did not: a ramp never drops below one key.
+
+    opmultiparm only links entries created after it, and set(0) leaves a
+    ramp's first key in place with its old values.
+    """
+    node = dst.node()
+    indices = sorted({p.multiParmInstanceIndices()[-1] for p in dst.multiParmInstances()})
+    for index in indices:
+        for mine, theirs in links:
+            parm = node.parm(mine.replace("#", str(index)))
+            if parm is None or parm.keyframes():
+                continue
+            reference = theirs.replace("#", str(index))
+            set_whole_expression(
+                parm, f'{_channel_function(parm)}("{reference}")', hou.exprLanguage.Hscript
+            )
+
+
 def _link_parameters(
     source_path: str,
     source_parm: str,
@@ -1309,9 +1434,13 @@ def _link_parameters(
     A destination that already has keyframes or an expression is refused
     unless *replace_existing* is set, and a link whose source already reads
     the destination through static ch() references is refused as a cycle.
+
+    A ramp or multiparm linked to another links its entries too, now and as
+    the source gains or loses some (opmultiparm), not only the count.
     """
     src = _resolve_parm(source_path, source_parm)
     dst = _resolve_parm(dest_path, dest_parm)
+    multiparm = _is_multiparm_parent(dst) and _is_multiparm_parent(src)
 
     if dst.keyframes() and not replace_existing:
         raise ValueError(
@@ -1324,7 +1453,13 @@ def _link_parameters(
     function = _channel_function(dst)
     channel_path = _relative_channel_path(dst, src)
     ref_expr = f'{function}("{channel_path}")'
+    linked = None
+    if multiparm:
+        rel_node = channel_path[: -len(src.name())].rstrip("/")
+        linked = _link_multiparm(src, dst, rel_node)
     set_whole_expression(dst, ref_expr, hou.exprLanguage.Hscript)
+    if linked is not None:
+        _link_surviving_entries(dst, linked["multiparm_links"])
 
     reply: dict[str, Any] = {
         "source": src.path(),
@@ -1335,6 +1470,11 @@ def _link_parameters(
     }
     with contextlib.suppress(Exception):
         reply["value"] = _serialize_value(dst.eval())
+    if linked is not None:
+        reply.update(linked)
+        reply.pop("value", None)
+        reply["entries"] = dst.evalAsInt()
+        reply["follows_source"] = _raw_entries_match(src, dst, linked["multiparm_links"])
     src_kind = _channel_function(src)
     if src_kind != function:
         reply["warning"] = (

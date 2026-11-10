@@ -375,6 +375,11 @@ async def link_parameters(
     instancing an HDA. The reply carries the expression, the function used
     and the destination's evaluated value.
 
+    Two ramps (or two multiparms) are linked entry by entry as well, now and
+    whenever the source gains or loses keys: the opmultiparm links Promote
+    Parameter makes. The reply lists `multiparm_links` and `follows_source`.
+    Inside an asset, update_hda afterwards to keep the link in its contents.
+
     Args:
         source_path: Source node path.
         source_parm: Source parameter name.
