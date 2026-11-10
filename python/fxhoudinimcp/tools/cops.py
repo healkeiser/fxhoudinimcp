@@ -52,21 +52,30 @@ async def get_cop_layer(
     ctx: Context,
     node_path: str,
     output_index: int = 0,
+    wire: int | str | None = None,
+    wire_sum: bool = False,
 ) -> dict:
     """Get image layer data from a COP node.
+
+    A cable output (more than one wire) answers `is_cable` and `wires` (name,
+    data type and each wire's layer summary); `copernicus_layer` is the wire
+    named by `wire` (index or name, default the first), see `layer_read`.
+    `wire_sum=True` adds min/max/average of the per-pixel sum of the
+    one-channel wires, e.g. to check that blend weights sum to 1.
 
     Args:
         node_path: Path to the COP node.
         output_index: Output connector index.
+        wire: On a cable output, the wire to read (index or name).
+        wire_sum: On a cable output, stats of the per-pixel sum of its wires.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "cops.get_cop_layer",
-        {
-            "node_path": node_path,
-            "output_index": output_index,
-        },
-    )
+    params: dict = {"node_path": node_path, "output_index": output_index}
+    if wire is not None:
+        params["wire"] = wire
+    if wire_sum:
+        params["wire_sum"] = wire_sum
+    return await bridge.execute("cops.get_cop_layer", params)
 
 
 @mcp.tool()

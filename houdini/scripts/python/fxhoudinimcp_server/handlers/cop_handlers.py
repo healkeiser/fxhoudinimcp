@@ -219,12 +219,25 @@ def get_cop_geometry(node_path: str, output_index: int = 0) -> dict:
 ###### cops.get_cop_layer
 
 
-def get_cop_layer(node_path: str, output_index: int = 0) -> dict:
+def get_cop_layer(
+    node_path: str,
+    output_index: int = 0,
+    wire: int | str | None = None,
+    wire_sum: bool = False,
+) -> dict:
     """Get image layer data information from a COP node.
+
+    A cable output says so: ``is_cable`` and ``wires`` (name, data type and
+    each wire's own layer summary). It used to read back as its first wire,
+    with nothing to say the other wires existed.
 
     Args:
         node_path: Path to the COP node.
         output_index: Output connector index (default 0).
+        wire: On a cable output, the wire whose layer ``copernicus_layer``
+            describes (index or name); default the first.
+        wire_sum: On a cable output, min/max/average of the per-pixel sum of
+            its one-channel wires ("the weights sum to 1").
     """
     node = _get_cop_node(node_path)
 
@@ -267,6 +280,21 @@ def get_cop_layer(node_path: str, output_index: int = 0) -> dict:
         layer_data = node.layer(output_index)
     except Exception:
         layer_data = None
+    cable = _output_cable(node, output_index)
+    if cable is None and (wire is not None or wire_sum):
+        raise ValueError(
+            f"Output {output_index} of {node.path()} is not a cable: wire and wire_sum "
+            "read the wires of a cable."
+        )
+    if cable is not None:
+        index = 0 if wire is None else _resolve_wire(cable, wire)
+        layer_data = cable.layerByIndex(index)
+        result["is_cable"] = True
+        result["wire_count"] = cable.wireCount()
+        result["wires"] = _wire_entries(cable)
+        result["layer_read"] = {"wire": index, "name": cable.wireName(index)}
+        if wire_sum:
+            result["wire_sum"] = _wire_sum(cable)
     result["copernicus_layer"] = (
         _layer_summary(layer_data) if layer_data is not None else {"available": False}
     )
@@ -305,6 +333,102 @@ def _layer_summary(layer) -> dict:
     if ranges:
         summary["channel_ranges"] = ranges
     return summary
+
+
+###### cops.get_cop_layer: cables
+
+
+def _output_cable(node: hou.Node, output_index: int):
+    """The output's CopCable when it carries a cable, else None.
+
+    HOM has no "is a cable" flag: a plain layer output is a cable of one
+    wire, often named (a Fractal Noise's wire is "noise", and a Blur passes
+    it on), and outputDataTypes() answers Mono for a cablepack. More than
+    one wire is a cable; a cable of one wire reads as that wire's layer.
+    """
+    try:
+        cable = node.cable(output_index)
+        count = cable.wireCount()
+    except Exception:
+        return None
+    return cable if count > 1 else None
+
+
+def _wire_entries(cable) -> list[dict]:
+    wires = []
+    for index in range(cable.wireCount()):
+        entry: dict = {"index": index, "name": cable.wireName(index)}
+        with contextlib.suppress(Exception):
+            entry["data_type"] = str(cable.wireDataTypeByIndex(index)).rsplit(".", 1)[-1]
+        layer = None
+        with contextlib.suppress(Exception):
+            layer = cable.layerByIndex(index)
+        if layer is not None:
+            entry["layer"] = _layer_summary(layer)
+        wires.append(entry)
+    return wires
+
+
+def _resolve_wire(cable, wire) -> int:
+    names = list(cable.wireNames())
+    if isinstance(wire, str) and not wire.lstrip("-").isdigit():
+        if wire not in names:
+            raise ValueError(f"No wire named '{wire}' in this cable. Wires: {names}")
+        if names.count(wire) > 1:
+            raise ValueError(
+                f"{names.count(wire)} wires are named '{wire}'; give its index. Wires: {names}"
+            )
+        return names.index(wire)
+    index = int(wire)
+    if not 0 <= index < len(names):
+        raise ValueError(f"Wire index {index} out of range: the cable has {len(names)} wires.")
+    return index
+
+
+def _wire_sum(cable) -> dict:
+    """min/max/average of the per-pixel sum of a cable's one-channel wires.
+
+    For checks such as "the weights sum to 1"; wires that are not Mono
+    (an ID, a geometry) or of another resolution are named in `skipped`,
+    not added. Any storage is read as Float32, so 8- and 16-bit masks count.
+    """
+    import numpy
+
+    total, summed, skipped, resolution = None, [], [], None
+    for index in range(cable.wireCount()):
+        name = cable.wireName(index) or f"#{index}"
+        try:
+            # An ID wire is one Int32 channel too, but not a weight.
+            data_type = str(cable.wireDataTypeByIndex(index)).rsplit(".", 1)[-1]
+            if data_type != "Mono":
+                skipped.append({"wire": name, "why": data_type})
+                continue
+            layer = cable.layerByIndex(index)
+            res = tuple(layer.bufferResolution())
+            if resolution is not None and res != resolution:
+                skipped.append({"wire": name, "why": f"resolution {list(res)}"})
+                continue
+            values = numpy.frombuffer(
+                layer.allBufferElements(hou.imageLayerStorageType.Float32, 1), dtype="float32"
+            )
+        except Exception as exc:
+            skipped.append({"wire": name, "why": readable_message(exc)})
+            continue
+        resolution = res
+        values = values.astype("float64")
+        total = values if total is None else total + values
+        summed.append(name)
+    result: dict = {"wires": summed}
+    if total is not None:
+        result.update(
+            min=float(total.min()),
+            max=float(total.max()),
+            average=float(total.mean()),
+            resolution=list(resolution),
+        )
+    if skipped:
+        result["skipped"] = skipped
+    return result
 
 
 ###### cops.create_cop_node
