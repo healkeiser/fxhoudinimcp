@@ -121,6 +121,10 @@ async def create_hda(
 ) -> dict:
     """Create a new HDA from an existing subnet node.
 
+    A Copernicus subnet's connectors are signed from its own Input/Output
+    parms (inputtype#/outputtype#, labels): a cable output stays Cable.
+    `connectors` reads them back.
+
     Args:
         ctx: MCP context.
         node_path: Subnet node path.

@@ -9,6 +9,7 @@ from __future__ import annotations
 # Built-in
 import contextlib
 import os
+import re
 from difflib import get_close_matches
 
 # Third-party
@@ -389,6 +390,126 @@ def reload_hda(file_path: str) -> dict:
     }
 
 
+###### hda.create_hda: Copernicus connector signature
+
+#: A Copernicus subnet's inputtype#/outputtype# menu token -> the type its
+#: asset's DialogScript signature spells (the menu's labels, run together).
+_COP_SUBNET_TYPES = {
+    "int": "ID",
+    "float": "Mono",
+    "vector2": "UV",
+    "vector": "RGB",
+    "vector4": "RGBA",
+    "geo": "Geometry",
+    "metadata": "Metadata",
+    "ivdb": "IntVDB",
+    "fvdb": "FloatVDB",
+    "vvdb": "VectorVDB",
+    "aint": "IntAttrib",
+    "afloat": "FloatAttrib",
+    "avector2": "Vector2Attrib",
+    "avector": "VectorAttrib",
+    "avector4": "Vector4Attrib",
+    "cable": "Cable",
+}
+
+
+_CONNECTOR_LINE = re.compile(r"^    (input|output|signature)\t")
+
+
+def _quoted(text: str) -> str:
+    return '"' + str(text).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _unquoted(text: str) -> str:
+    text = text.strip()
+    if len(text) >= 2 and text[0] == text[-1] == '"':
+        return text[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return text
+
+
+def _read_connectors(definition) -> dict:
+    """Inputs, outputs and signatures as the definition's DialogScript has them."""
+    script = definition.sections()["DialogScript"].contents()
+    inputs, outputs, signatures = [], [], []
+    for line in script.splitlines():
+        if not _CONNECTOR_LINE.match(line):
+            continue
+        kind, _, rest = line.strip().partition("\t")
+        if kind == "signature":
+            groups = re.findall(r"\{([^}]*)\}", rest)
+            head = rest.split("{", 1)[0].split("\t")
+            signatures.append(
+                {
+                    "name": head[0].strip(),
+                    "label": _unquoted(head[1]) if len(head) > 1 else "",
+                    "inputs": groups[0].split() if groups else [],
+                    "outputs": groups[1].split() if len(groups) > 1 else [],
+                }
+            )
+            continue
+        name, _, label = rest.partition("\t")
+        (inputs if kind == "input" else outputs).append(
+            {"name": name.strip(), "label": _unquoted(label)}
+        )
+    if len(signatures) == 1:
+        for side, key in ((inputs, "inputs"), (outputs, "outputs")):
+            for entry, kind in zip(side, signatures[0][key], strict=False):
+                entry["type"] = kind
+    return {"inputs": inputs, "outputs": outputs, "signatures": signatures}
+
+
+def _write_connectors(definition, inputs: list[dict], outputs: list[dict]) -> None:
+    """Rewrite the input/output/signature lines of a COP asset's DialogScript.
+
+    Houdini keeps these lines through setParmTemplateGroup (measured on
+    22.0.466); the count of `input` lines and of the signature's input types
+    must agree, or the asset loses its connectors.
+    """
+    script = definition.sections()["DialogScript"].contents()
+    kept, at = [], None
+    for line in script.splitlines():
+        if _CONNECTOR_LINE.match(line):
+            at = len(kept) if at is None else at
+            continue
+        kept.append(line)
+    if at is None:
+        at = next((i + 1 for i, line in enumerate(kept) if line.startswith("    label\t")), 2)
+    block = [f"    input\t{c['name']}\t{_quoted(c['label'])}" for c in inputs]
+    block += [f"    output\t{c['name']}\t{_quoted(c['label'])}" for c in outputs]
+    types_in = " ".join(c["type"] for c in inputs)
+    types_out = " ".join(c["type"] for c in outputs)
+    block.append(f'    signature\tdefault\t"Default"\t{{ {types_in} }}\t{{ {types_out} }}')
+    kept[at:at] = block
+    tail = "\n" if script.endswith("\n") else ""
+    definition.addSection("DialogScript", "\n".join(kept) + tail)
+
+
+def _subnet_connectors(node) -> tuple[list[dict], list[dict]] | None:
+    """What a Copernicus subnet's own parms declare, or None for other nodes."""
+    if node.type().category().name() != "Cop" or node.parm("outputtype1") is None:
+        return None
+    sides = []
+    for side, count_parm, names in (
+        ("input", "inputs", node.inputNames()),
+        ("output", "outputs", node.outputNames()),
+    ):
+        count_of = node.parm(count_parm)
+        count = count_of.evalAsInt() if count_of is not None else len(names)
+        entries = []
+        for n in range(1, count + 1):
+            type_parm = node.parm(f"{side}type{n}")
+            label_parm = node.parm(f"{side}label{n}")
+            name = names[n - 1] if n - 1 < len(names) else f"{side}{n}"
+            label = label_parm.evalAsString() if label_parm is not None else ""
+            token = type_parm.evalAsString() if type_parm is not None else "vector4"
+            entries.append(
+                {"name": name, "label": label or name, "type": _COP_SUBNET_TYPES.get(token, "RGBA")}
+            )
+        sides.append(entries)
+    return sides[0], sides[1]
+
+
 ###### hda.create_hda
 
 
@@ -424,6 +545,14 @@ def create_hda(
         for index, item in enumerate(node.indirectInputs()):
             if item.outputConnections():
                 inputs_used = max(inputs_used, index + 1)
+    # A Copernicus subnet declares its connectors' types in its own parms;
+    # createDigitalAsset signs them with what the wires carry right now (a
+    # cable output became Mono or undef). Read them before the node is gone.
+    declared = None
+    with contextlib.suppress(Exception):
+        declared = _subnet_connectors(node)
+    if declared is not None:
+        inputs_used = max(inputs_used, len(declared[0]))
 
     try:
         hda_node = node.createDigitalAsset(
@@ -437,7 +566,13 @@ def create_hda(
         raise ValueError(f"Failed to create HDA: {readable_message(e)}") from e
 
     promoted = _promote_spares_to_definition(hda_node)
-    return {
+    connectors = None
+    if declared is not None:
+        definition = hda_node.type().definition()
+        _write_connectors(definition, *declared)
+        definition.setMaxNumInputs(len(declared[0]))
+        connectors = _read_connectors(definition)
+    result = {
         "success": True,
         "node_path": hda_node.path(),
         "hda_file": hda_file,
@@ -447,6 +582,10 @@ def create_hda(
         "max_num_inputs": inputs_used,
         "promoted_parameters": promoted,
     }
+    if connectors is not None:
+        # Signed from the subnet's inputtype#/outputtype# and labels.
+        result["connectors"] = connectors
+    return result
 
 
 def _promote_spares_to_definition(node: hou.Node) -> list[str]:
