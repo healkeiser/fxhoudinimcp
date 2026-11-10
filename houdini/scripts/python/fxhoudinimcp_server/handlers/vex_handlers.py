@@ -10,6 +10,7 @@ import contextlib
 
 # Built-in
 import re
+from typing import Any
 
 # Third-party
 import hou
@@ -188,12 +189,50 @@ def create_wrangle(
 ###### vex.set_wrangle_code
 
 
-def set_wrangle_code(node_path: str, vex_code: str) -> dict:
+def _apply_snippet_edits(code: str, edits: Any) -> tuple[str, list[dict]]:
+    """Apply exact {old, new} replacements in order; raise before any write.
+
+    Each `old` must occur exactly once in the text as the earlier edits left
+    it, so a replacement cannot land on the wrong copy of a repeated line.
+    """
+    if not isinstance(edits, (list, tuple)) or not edits:
+        raise ValueError('edits must be a non-empty list of {"old": ..., "new": ...}.')
+    applied = []
+    for n, edit in enumerate(edits):
+        if not isinstance(edit, dict) or set(edit) != {"old", "new"}:
+            raise ValueError(f'edits[{n}] must be {{"old": ..., "new": ...}}. Nothing was written.')
+        old, new = str(edit["old"]), str(edit["new"])
+        count = code.count(old) if old else 0
+        if count != 1:
+            where = "is empty" if not old else f"occurs {count} times"
+            raise ValueError(
+                f"edits[{n}]: old {where} in the snippet; it must occur exactly once "
+                "(add surrounding lines to make it unique). Nothing was written."
+            )
+        start = code.index(old)
+        code = code[:start] + new + code[start + len(old) :]
+        first = code.count("\n", 0, start) + 1
+        applied.append(
+            {
+                "index": n,
+                "lines": [first, first + new.count("\n")],
+                "text": new,
+            }
+        )
+    return code, applied
+
+
+def set_wrangle_code(node_path: str, vex_code: str | None = None, edits: Any = None) -> dict:
     """Set VEX code on an existing Attribute Wrangle node.
 
     Args:
         node_path: Path to the wrangle node.
         vex_code: The VEX snippet code to set.
+        edits: Instead of vex_code, exact replacements in the snippet as it
+            stands — [{"old": ..., "new": ...}], applied in order, each `old`
+            found exactly once; one bad edit writes nothing. A block of a
+            130-line snippet needed the whole text, or execute_python.
+            The reply then names the changed lines, not the code.
     """
     node = _get_node(node_path)
 
@@ -202,6 +241,11 @@ def set_wrangle_code(node_path: str, vex_code: str) -> dict:
         raise ValueError(
             f"Node {node_path} does not have a 'snippet' parameter. Is it an Attribute Wrangle?"
         )
+    if (vex_code is None) == (edits is None):
+        raise ValueError("Give vex_code (the whole snippet) or edits (replacements in it).")
+    applied = None
+    if edits is not None:
+        vex_code, applied = _apply_snippet_edits(snippet_parm.unexpandedString(), edits)
 
     snippet_parm.set(vex_code)
 
@@ -211,6 +255,10 @@ def set_wrangle_code(node_path: str, vex_code: str) -> dict:
         "vex_code": vex_code,
         "channel_prefix": "../",
     }
+    if applied is not None:
+        del result["vex_code"]
+        result["edits_applied"] = applied
+        result["line_count"] = vex_code.count("\n") + 1
     result.update(_validate_vex_quick(node))
 
     path_warnings = _check_channel_paths(vex_code)

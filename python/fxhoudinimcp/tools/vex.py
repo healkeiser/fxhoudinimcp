@@ -7,6 +7,8 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
+from typing import Any
+
 # Third-party
 from fxhoudinimcp._sdk import Context
 
@@ -62,22 +64,30 @@ async def create_wrangle(
 async def set_wrangle_code(
     ctx: Context,
     node_path: str,
-    vex_code: str,
+    vex_code: str | None = None,
+    edits: list[dict[str, str]] | None = None,
 ) -> dict:
-    """Set VEX code on an existing Attribute Wrangle node.
+    """Set VEX code on an existing Attribute Wrangle node — whole, or in part.
+
+    For one block of a long snippet, pass `edits` instead of `vex_code`:
+    [{"old": "<exact text now in the snippet>", "new": "<its replacement>"}],
+    applied in order; each `old` must occur exactly once (add a neighbouring
+    line to make it unique), and one bad edit writes nothing. The reply then
+    gives `edits_applied` (line range and new text of each) instead of the
+    whole code.
 
     Args:
         node_path: Path to the wrangle node.
         vex_code: VEX snippet to set.
+        edits: Exact replacements in the current snippet, instead of vex_code.
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "vex.set_wrangle_code",
-        {
-            "node_path": node_path,
-            "vex_code": vex_code,
-        },
-    )
+    payload: dict[str, Any] = {"node_path": node_path}
+    if vex_code is not None:
+        payload["vex_code"] = vex_code
+    if edits is not None:
+        payload["edits"] = edits
+    return await bridge.execute("vex.set_wrangle_code", payload)
 
 
 @mcp.tool()
