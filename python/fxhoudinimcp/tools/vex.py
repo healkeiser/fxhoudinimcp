@@ -67,7 +67,7 @@ async def set_wrangle_code(
     vex_code: str | None = None,
     edits: list[dict[str, str]] | None = None,
 ) -> dict:
-    """Set VEX code on an existing Attribute Wrangle node — whole, or in part.
+    """Set VEX code on an existing Attribute Wrangle node, whole or in part.
 
     For one block of a long snippet, pass `edits` instead of `vex_code`:
     [{"old": "<exact text now in the snippet>", "new": "<its replacement>"}],

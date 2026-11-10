@@ -57,7 +57,8 @@ class TestSnippetEdits:
         node = MagicMock()
         node.path.return_value = "/obj/g/w"
         parm = node.parm.return_value
-        parm.unexpandedString.return_value = _SNIPPET
+        # A promoted snippet is read through its reference; a plain one is its own.
+        parm.getReferencedParm.return_value.unexpandedString.return_value = _SNIPPET
         monkeypatch.setattr(vex, "_get_node", lambda path: node)
         monkeypatch.setattr(vex, "_validate_vex_quick", lambda n: {})
         result = vex.set_wrangle_code(
@@ -65,6 +66,20 @@ class TestSnippetEdits:
         )
         parm.set.assert_called_once_with(_SNIPPET.replace("a = 1", "a = 2"))
         assert "vex_code" not in result and result["line_count"] == 6
+
+    def test_a_trailing_newline_does_not_add_a_line(self):
+        _, applied = vex._apply_snippet_edits(
+            _SNIPPET,
+            [{"old": "float w = 0.5;\nfloat h = 0.25;\n", "new": "float w = 1;\nfloat h = 2;\n"}],
+        )
+        assert applied[0]["lines"] == [3, 4]
+
+    def test_a_crlf_snippet_matches_an_lf_old(self):
+        code, _ = vex._apply_snippet_edits(
+            _SNIPPET.replace("\n", "\r\n"),
+            [{"old": "int a = 1;\n// block", "new": "int a = 2;\n// block"}],
+        )
+        assert code == _SNIPPET.replace("a = 1", "a = 2")
 
     def test_code_and_edits_together_are_refused(self, monkeypatch):
         node = MagicMock()
