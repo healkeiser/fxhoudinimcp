@@ -7,6 +7,8 @@ via the HTTP bridge.
 from __future__ import annotations
 
 # Built-in
+from typing import Any
+
 # Third-party
 from fxhoudinimcp._sdk import Context
 
@@ -200,24 +202,31 @@ async def set_hda_section_content(
     node_path: str,
     section_name: str,
     content: str,
+    language: str | None = None,
 ) -> dict:
     """Write content to a specific section in an HDA definition.
+
+    Event scripts (OnCreated, OnLoaded, OnUpdated, OnDeleted, OnInputChanged,
+    PreFirstCreate, PostLastDelete, ...) are HScript unless marked Python:
+    pass language="python" (or "hscript"); left out, code using kwargs,
+    hou. or import is marked Python. `script_language` reads it back.
 
     Args:
         ctx: MCP context.
         node_path: Node path.
         section_name: Section name.
         content: Section content.
+        language: For an event script, "python" or "hscript".
     """
     bridge = _get_bridge(ctx)
-    return await bridge.execute(
-        "hda.set_hda_section_content",
-        {
-            "node_path": node_path,
-            "section_name": section_name,
-            "content": content,
-        },
-    )
+    payload: dict[str, Any] = {
+        "node_path": node_path,
+        "section_name": section_name,
+        "content": content,
+    }
+    if language is not None:
+        payload["language"] = language
+    return await bridge.execute("hda.set_hda_section_content", payload)
 
 
 @mcp.tool()
