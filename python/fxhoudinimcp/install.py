@@ -45,6 +45,7 @@ from fxhoudinimcp.houdini_package import (
     CLI,
     PACKAGE_NAME,
     candidate_package_dirs,
+    example_package_dir,
     existing_packages,
     plugin_path,
     write_package,
@@ -648,7 +649,7 @@ def _install_plugin_half(args, plugin: Path) -> int:
         print(f"  {reason.capitalize()}.")
         print(
             "  Create one inside your Houdini preferences directory, for "
-            "example\n      Documents/houdini22.0/packages\n"
+            f"example\n      {example_package_dir()}\n"
             "  then re-run this command."
         )
         return 1

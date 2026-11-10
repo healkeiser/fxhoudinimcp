@@ -118,6 +118,17 @@ class TestCandidateDirs:
 
         assert found == [tmp_path / "houdini22.0" / "packages"]
 
+    def test_macos_version_folders_have_no_houdini_prefix(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(hp.Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(hp.platform, "system", lambda: "Darwin")
+        prefs = tmp_path / "Library" / "Preferences" / "houdini"
+        (prefs / "22.0" / "packages").mkdir(parents=True)
+        (prefs / "19.0").mkdir()  # no packages/ inside
+        (prefs / "houdini.env").touch()
+
+        assert hp.candidate_package_dirs() == [prefs / "22.0" / "packages"]
+        assert hp.example_package_dir().startswith("~/Library/Preferences")
+
     def test_no_houdini_at_all_is_empty(self, monkeypatch, tmp_path):
         monkeypatch.setattr(hp.Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(hp.platform, "system", lambda: "Linux")

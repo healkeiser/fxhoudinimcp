@@ -127,11 +127,15 @@ def candidate_package_dirs() -> list[Path]:
     """
     home = Path.home()
     roots: list[Path] = []
+    # macOS names the version folders "22.0" under Library/Preferences/houdini;
+    # the other platforms name them "houdini22.0" (issue #184).
+    pattern = "houdini*"
     system = platform.system()
     if system == "Windows":
         roots += [home / "Documents", home / "OneDrive" / "Documents", home]
     elif system == "Darwin":
         roots += [home / "Library" / "Preferences" / "houdini"]
+        pattern = "[0-9]*.[0-9]*"
     else:
         roots += [home]
 
@@ -139,11 +143,18 @@ def candidate_package_dirs() -> list[Path]:
     for root in roots:
         if not root.is_dir():
             continue
-        for entry in sorted(root.glob("houdini*")):
+        for entry in sorted(root.glob(pattern)):
             packages = entry / "packages"
             if entry.is_dir() and packages.is_dir():
                 found.append(packages)
     return found
+
+
+def example_package_dir() -> str:
+    """Where Houdini 22.0 reads packages from on this platform, for hints."""
+    if platform.system() == "Darwin":
+        return "~/Library/Preferences/houdini/22.0/packages"
+    return "Documents/houdini22.0/packages"
 
 
 def _comparable(path: Path) -> Path:
@@ -300,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(
             "No Houdini packages directory found. Create one inside your Houdini\n"
-            "preferences directory (for example Documents/houdini22.0/packages)."
+            f"preferences directory (for example {example_package_dir()})."
         )
     print(
         "\nTo verify Houdini picked it up, start Houdini with "
