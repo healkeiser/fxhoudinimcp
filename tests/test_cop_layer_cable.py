@@ -27,11 +27,12 @@ import fxhoudinimcp_server.handlers.cop_handlers as cops  # noqa: E402
 
 
 class _Layer:
-    def __init__(self, values, channels=1, res=(2, 2), storage="Float32"):
+    def __init__(self, values, channels=1, res=(2, 2), storage="Float32", data_type=None):
         import array
 
         self._bytes = array.array("f", values).tobytes()
         self._channels, self._res, self._storage = channels, res, storage
+        self.data_type = data_type or ("Mono" if channels == 1 else "RGB")
 
     def storageType(self):  # noqa: N802
         return self._storage
@@ -42,7 +43,8 @@ class _Layer:
     def channelCount(self):  # noqa: N802
         return self._channels
 
-    def allBufferElements(self):  # noqa: N802
+    def allBufferElements(self, *_):  # noqa: N802
+        # Real hou converts to the storage asked for (Float32, 1 channel).
         return self._bytes
 
 
@@ -63,7 +65,7 @@ class _Cable:
         return self._wires[i][1]
 
     def wireDataTypeByIndex(self, i):  # noqa: N802
-        return "Mono"
+        return self._wires[i][1].data_type
 
 
 def _cop(cable):
@@ -91,6 +93,9 @@ class TestCable:
             cops._resolve_wire(cable, "sand")
         with pytest.raises(ValueError, match="out of range"):
             cops._resolve_wire(cable, 2)
+        # A cablepack of unnamed inputs names every wire "".
+        with pytest.raises(ValueError, match="2 wires are named ''; give its index"):
+            cops._resolve_wire(_Cable([("", None), ("", None)]), "")
 
     def test_the_wire_sum_is_per_pixel(self):
         pytest.importorskip("numpy")  # Houdini ships it; the test env may not
@@ -100,6 +105,8 @@ class TestCable:
                 ("rock", _Layer([0.8, 0.5, 0.0, 0.5])),
                 ("rgb", _Layer([0.0] * 12, channels=3)),
                 ("big", _Layer([0.0] * 16, res=(4, 4))),
+                # An ID wire is one Int32 channel, but not a weight.
+                ("ids", _Layer([1.0] * 4, storage="Int32", data_type="ID")),
             ]
         )
         result = cops._wire_sum(cable)
@@ -107,4 +114,4 @@ class TestCable:
         assert result["min"] == pytest.approx(0.5)
         assert result["max"] == pytest.approx(1.0)
         assert result["average"] == pytest.approx(0.875)
-        assert [s["wire"] for s in result["skipped"]] == ["rgb", "big"]
+        assert [s["wire"] for s in result["skipped"]] == ["rgb", "big", "ids"]

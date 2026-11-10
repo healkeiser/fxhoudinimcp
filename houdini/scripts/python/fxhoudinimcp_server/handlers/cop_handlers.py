@@ -337,9 +337,6 @@ def _layer_summary(layer) -> dict:
 
 ###### cops.get_cop_layer: cables
 
-#: ImageLayer storage -> numpy dtype, for the per-pixel wire sum.
-_BUFFER_DTYPES = {"Float32": "float32", "Float16": "float16", "Int32": "int32"}
-
 
 def _output_cable(node: hou.Node, output_index: int):
     """The output's CopCable when it carries a cable, else None.
@@ -377,6 +374,10 @@ def _resolve_wire(cable, wire) -> int:
     if isinstance(wire, str) and not wire.lstrip("-").isdigit():
         if wire not in names:
             raise ValueError(f"No wire named '{wire}' in this cable. Wires: {names}")
+        if names.count(wire) > 1:
+            raise ValueError(
+                f"{names.count(wire)} wires are named '{wire}'; give its index. Wires: {names}"
+            )
         return names.index(wire)
     index = int(wire)
     if not 0 <= index < len(names):
@@ -387,8 +388,9 @@ def _resolve_wire(cable, wire) -> int:
 def _wire_sum(cable) -> dict:
     """min/max/average of the per-pixel sum of a cable's one-channel wires.
 
-    For checks such as "the weights sum to 1"; wires of another channel
-    count or resolution are named in `skipped`, not added.
+    For checks such as "the weights sum to 1"; wires that are not Mono
+    (an ID, a geometry) or of another resolution are named in `skipped`,
+    not added. Any storage is read as Float32, so 8- and 16-bit masks count.
     """
     import numpy
 
@@ -396,16 +398,19 @@ def _wire_sum(cable) -> dict:
     for index in range(cable.wireCount()):
         name = cable.wireName(index) or f"#{index}"
         try:
-            layer = cable.layerByIndex(index)
-            storage = str(layer.storageType()).rsplit(".", 1)[-1]
-            res = tuple(layer.bufferResolution())
-            if layer.channelCount() != 1 or storage not in _BUFFER_DTYPES:
-                skipped.append({"wire": name, "why": f"{layer.channelCount()} channels, {storage}"})
+            # An ID wire is one Int32 channel too, but not a weight.
+            data_type = str(cable.wireDataTypeByIndex(index)).rsplit(".", 1)[-1]
+            if data_type != "Mono":
+                skipped.append({"wire": name, "why": data_type})
                 continue
+            layer = cable.layerByIndex(index)
+            res = tuple(layer.bufferResolution())
             if resolution is not None and res != resolution:
                 skipped.append({"wire": name, "why": f"resolution {list(res)}"})
                 continue
-            values = numpy.frombuffer(layer.allBufferElements(), dtype=_BUFFER_DTYPES[storage])
+            values = numpy.frombuffer(
+                layer.allBufferElements(hou.imageLayerStorageType.Float32, 1), dtype="float32"
+            )
         except Exception as exc:
             skipped.append({"wire": name, "why": readable_message(exc)})
             continue
