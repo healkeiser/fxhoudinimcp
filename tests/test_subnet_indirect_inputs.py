@@ -62,6 +62,13 @@ class TestConnectNodes:
     def _install(self, monkeypatch, lookup):
         monkeypatch.setattr(nodes, "_get_node", lambda path: lookup[path])
         monkeypatch.setattr(nodes, "_focus_network_editor", lambda *a, **k: None)
+        for node in lookup.values():
+            # The verb reads each wire back through inputConnections().
+            wires = []
+            node.inputConnections.side_effect = lambda wires=wires: list(wires)
+            node.setInput.side_effect = lambda i, item, out=0, wires=wires: wires.append(
+                _conn(i, item, out)
+            )
 
     def _inside(self, subnet, name="matchsize1"):
         dest = _node(f"{subnet.path()}/{name}", "matchsize")
