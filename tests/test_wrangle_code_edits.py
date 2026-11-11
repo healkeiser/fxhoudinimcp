@@ -86,3 +86,17 @@ class TestSnippetEdits:
         monkeypatch.setattr(vex, "_get_node", lambda path: node)
         with pytest.raises(ValueError, match="vex_code .* or edits"):
             vex.set_wrangle_code("/obj/g/w", vex_code="x", edits=[{"old": "a", "new": "b"}])
+
+
+def test_an_earlier_block_moves_with_lines_added_above_it():
+    code, applied = vex._apply_snippet_edits(
+        _SNIPPET,
+        [
+            {"old": "@P.y += a;", "new": "@P.y += a * w;"},
+            {"old": "int a = 1;", "new": "int a = 1;\nint b = 2;\nint c = 3;"},
+        ],
+    )
+    # The first block was on line 6; two lines were added above it.
+    assert code.splitlines()[7] == "@P.y += a * w;"
+    assert applied[0]["lines"] == [8, 8]
+    assert applied[1]["lines"] == [1, 3]

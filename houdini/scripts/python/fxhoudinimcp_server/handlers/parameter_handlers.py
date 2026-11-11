@@ -1348,6 +1348,13 @@ def _entry_patterns(parent: hou.Parm) -> list[str]:
     return patterns
 
 
+def _first_index(parent: hou.Parm) -> int:
+    """A multiparm's first entry number: 1, or 0 with multistartoffset 0."""
+    with contextlib.suppress(Exception):
+        return int(parent.parmTemplate().tags().get("multistartoffset", "1"))
+    return 1
+
+
 def _raw_entries_match(src: hou.Parm, dst: hou.Parm, links: list) -> bool:
     """Every raw entry parm of *dst* evaluates like its source, count included.
 
@@ -1357,10 +1364,11 @@ def _raw_entries_match(src: hou.Parm, dst: hou.Parm, links: list) -> bool:
     count = dst.evalAsInt()
     if count != src.evalAsInt():
         return False
-    for index in range(1, count + 1):
+    shift = _first_index(src) - _first_index(dst)
+    for index in range(_first_index(dst), _first_index(dst) + count):
         for mine, theirs in links:
             here = dst.node().parm(mine.replace("#", str(index)))
-            there = dst.node().parm(theirs.replace("#", str(index)))
+            there = dst.node().parm(theirs.replace("#", str(index + shift)))
             if here is None or there is None or here.eval() != there.eval():
                 return False
     return True
@@ -1397,20 +1405,21 @@ def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, An
     return {"multiparm_links": [list(pair) for pair in pairs], "is_ramp": is_ramp}
 
 
-def _link_surviving_entries(dst: hou.Parm, links: list) -> None:
+def _link_surviving_entries(src: hou.Parm, dst: hou.Parm, links: list) -> None:
     """Link the entries opmultiparm did not: a ramp never drops below one key.
 
     opmultiparm only links entries created after it, and set(0) leaves a
     ramp's first key in place with its old values.
     """
     node = dst.node()
+    shift = _first_index(src) - _first_index(dst)
     indices = sorted({p.multiParmInstanceIndices()[-1] for p in dst.multiParmInstances()})
     for index in indices:
         for mine, theirs in links:
             parm = node.parm(mine.replace("#", str(index)))
             if parm is None or parm.keyframes():
                 continue
-            reference = theirs.replace("#", str(index))
+            reference = theirs.replace("#", str(index + shift))
             set_whole_expression(
                 parm, f'{_channel_function(parm)}("{reference}")', hou.exprLanguage.Hscript
             )
@@ -1459,7 +1468,7 @@ def _link_parameters(
         linked = _link_multiparm(src, dst, rel_node)
     set_whole_expression(dst, ref_expr, hou.exprLanguage.Hscript)
     if linked is not None:
-        _link_surviving_entries(dst, linked["multiparm_links"])
+        _link_surviving_entries(src, dst, linked["multiparm_links"])
 
     reply: dict[str, Any] = {
         "source": src.path(),

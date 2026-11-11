@@ -115,3 +115,20 @@ class TestCable:
         assert result["max"] == pytest.approx(1.0)
         assert result["average"] == pytest.approx(0.875)
         assert [s["wire"] for s in result["skipped"]] == ["rgb", "big", "ids"]
+
+
+def test_a_cable_whose_first_wire_has_no_layer_answers_unavailable(monkeypatch):
+    class _GeoFirst(_Cable):
+        def layerByIndex(self, i):  # noqa: N802
+            if i == 0:
+                raise RuntimeError("wire 0 is Geometry")
+            return super().layerByIndex(i)
+
+    cable = _GeoFirst([("geo", _Layer([0] * 4, data_type="Geometry")), ("mask", _Layer([0] * 4))])
+    node = _cop(cable)
+    node.layer.side_effect = RuntimeError("no layer")
+    monkeypatch.setattr(cops, "_get_cop_node", lambda path: node)
+    result = cops.get_cop_layer("/obj/c/pack")
+    assert result["is_cable"] is True
+    assert result["copernicus_layer"] == {"available": False}
+    assert [w["name"] for w in result["wires"]] == ["geo", "mask"]

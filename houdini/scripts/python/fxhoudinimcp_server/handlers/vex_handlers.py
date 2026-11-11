@@ -214,15 +214,16 @@ def _apply_snippet_edits(code: str, edits: Any) -> tuple[str, list[dict]]:
             )
         start = code.index(old)
         code = code[:start] + new + code[start + len(old) :]
+        # An earlier block after this one moved with it; lines are read off the final text.
+        for spans in applied:
+            if spans["start"] >= start + len(old):
+                spans["start"] += len(new) - len(old)
+        applied.append({"index": n, "start": start, "text": new})
+    for entry in applied:
+        start, new = entry.pop("start"), entry["text"]
         first = code.count("\n", 0, start) + 1
-        applied.append(
-            {
-                "index": n,
-                # A trailing newline ends the last line, it does not start one.
-                "lines": [first, first + new.count("\n", 0, max(len(new) - 1, 0))],
-                "text": new,
-            }
-        )
+        # A trailing newline ends the last line, it does not start one.
+        entry["lines"] = [first, first + new.count("\n", 0, max(len(new) - 1, 0))]
     return code, applied
 
 
