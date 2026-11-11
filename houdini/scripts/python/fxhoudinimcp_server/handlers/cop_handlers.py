@@ -288,7 +288,10 @@ def get_cop_layer(
         )
     if cable is not None:
         index = 0 if wire is None else _resolve_wire(cable, wire)
-        layer_data = cable.layerByIndex(index)
+        # A geometry or metadata wire has no layer: say so, as _wire_entries does.
+        layer_data = None
+        with contextlib.suppress(Exception):
+            layer_data = cable.layerByIndex(index)
         result["is_cable"] = True
         result["wire_count"] = cable.wireCount()
         result["wires"] = _wire_entries(cable)

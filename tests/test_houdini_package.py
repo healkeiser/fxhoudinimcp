@@ -133,6 +133,8 @@ class TestCandidateDirs:
         monkeypatch.setattr(hp.Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(hp.platform, "system", lambda: "Linux")
         assert hp.candidate_package_dirs() == []
+        # Linux reads ~/houdini22.0, not a Documents folder.
+        assert hp.example_package_dir() == "~/houdini22.0/packages"
 
 
 ###### Detecting a conflicting install

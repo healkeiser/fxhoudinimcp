@@ -98,14 +98,14 @@ class TestMultiparmLink:
         assert calls == []
 
     def test_the_key_a_ramp_keeps_is_linked_too(self, ramps, monkeypatch):
-        _, dst, _ = ramps
+        src, dst, _ = ramps
         set_calls = []
         monkeypatch.setattr(
             params, "set_whole_expression", lambda parm, expr, lang: set_calls.append(expr)
         )
         monkeypatch.setattr(params, "_channel_function", lambda parm: "ch")
         dst.node.return_value.parm.return_value.keyframes.return_value = []
-        params._link_surviving_entries(dst, [("sloperamp#value", "../a/myramp#value")])
+        params._link_surviving_entries(src, dst, [("sloperamp#value", "../a/myramp#value")])
         dst.node.return_value.parm.assert_called_with("sloperamp1value")
         assert set_calls == ['ch("../a/myramp1value")']
 
@@ -121,3 +121,20 @@ class TestMultiparmLink:
 
     def test_a_mock_is_not_a_multiparm(self):
         assert params._is_multiparm_parent(MagicMock()) is False
+
+
+def test_entries_are_compared_from_each_multiparms_first_index():
+    # A folder multiparm with multistartoffset 0 numbers its entries 0..count-1.
+    values = {"d0": 1.0, "d1": 2.0, "s1": 1.0, "s2": 2.0}
+    node = MagicMock()
+    node.parm.side_effect = lambda name: (
+        MagicMock(eval=MagicMock(return_value=values[name])) if name in values else None
+    )
+    src, dst = MagicMock(), MagicMock()
+    src.evalAsInt.return_value = dst.evalAsInt.return_value = 2
+    src.parmTemplate.return_value.tags.return_value = {}
+    dst.parmTemplate.return_value.tags.return_value = {"multistartoffset": "0"}
+    dst.node.return_value = node
+    assert params._raw_entries_match(src, dst, [("d#", "s#")]) is True
+    values["s2"] = 9.0
+    assert params._raw_entries_match(src, dst, [("d#", "s#")]) is False

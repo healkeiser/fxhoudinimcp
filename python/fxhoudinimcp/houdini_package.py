@@ -154,6 +154,8 @@ def example_package_dir() -> str:
     """Where Houdini 22.0 reads packages from on this platform, for hints."""
     if platform.system() == "Darwin":
         return "~/Library/Preferences/houdini/22.0/packages"
+    if platform.system() == "Linux":
+        return "~/houdini22.0/packages"
     return "Documents/houdini22.0/packages"
 
 

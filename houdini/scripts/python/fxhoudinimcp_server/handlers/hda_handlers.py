@@ -566,12 +566,16 @@ def create_hda(
         raise ValueError(f"Failed to create HDA: {readable_message(e)}") from e
 
     promoted = _promote_spares_to_definition(hda_node)
-    connectors = None
+    connectors = connector_error = None
+    definition = hda_node.type().definition()
     if declared is not None:
-        definition = hda_node.type().definition()
-        _write_connectors(definition, *declared)
-        definition.setMaxNumInputs(len(declared[0]))
-        connectors = _read_connectors(definition)
+        # The asset exists and the subnet is gone: a failure here is reported, not raised.
+        try:
+            _write_connectors(definition, *declared)
+            definition.setMaxNumInputs(len(declared[0]))
+            connectors = _read_connectors(definition)
+        except Exception as e:
+            connector_error = readable_message(e)
     result = {
         "success": True,
         "node_path": hda_node.path(),
@@ -579,12 +583,16 @@ def create_hda(
         "type_name": type_name,
         "label": label,
         "version": version,
-        "max_num_inputs": inputs_used,
+        "max_num_inputs": definition.maxNumInputs(),
         "promoted_parameters": promoted,
     }
     if connectors is not None:
         # Signed from the subnet's inputtype#/outputtype# and labels.
         result["connectors"] = connectors
+    if connector_error is not None:
+        result["warning"] = (
+            f"The asset was created, but its connectors could not be signed: {connector_error}"
+        )
     return result
 
 

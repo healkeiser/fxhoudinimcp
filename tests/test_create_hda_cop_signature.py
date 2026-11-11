@@ -49,6 +49,9 @@ class _Definition:
     def setMaxNumInputs(self, n):  # noqa: N802
         self.max_inputs = n
 
+    def maxNumInputs(self):  # noqa: N802
+        return self.max_inputs
+
     def minNumInputs(self):  # noqa: N802
         return self.min_inputs
 
@@ -137,3 +140,21 @@ class TestCreateHdaSignsCopConnectors:
             {"name": "output1", "label": "Layers", "type": "Cable"}
         ]
         assert "{ RGBA }\t{ Cable }" in definition.script
+        assert result["max_num_inputs"] == definition.max_inputs
+
+    def test_a_signing_failure_after_the_asset_exists_is_a_warning(self, monkeypatch):
+        # The subnet is already an asset: raising would tell the caller nothing was made.
+        node = _cop_subnet(["vector4"], ["cable"], [], ["Layers"])
+        node.inputs.return_value = ()
+        node.indirectInputs.return_value = ()
+        definition = _Definition()
+        asset = MagicMock()
+        asset.type.return_value.definition.return_value = definition
+        node.createDigitalAsset.return_value = asset
+        monkeypatch.setattr(hda, "_get_node", lambda path: node)
+        monkeypatch.setattr(hda, "require_inside_project_root", lambda *a, **k: None)
+        monkeypatch.setattr(hda, "_promote_spares_to_definition", lambda n: [])
+        monkeypatch.setattr(hda, "_write_connectors", MagicMock(side_effect=KeyError("layout")))
+        result = hda.create_hda("/obj/cn/s", "/tmp/e1.hda", "e1", "E1")
+        assert result["success"] is True
+        assert "could not be signed" in result["warning"]
