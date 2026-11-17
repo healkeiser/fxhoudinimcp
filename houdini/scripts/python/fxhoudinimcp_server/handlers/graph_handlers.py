@@ -2209,7 +2209,17 @@ def get_node_card(
             # node. Settable like any other parm of the node.
             entry["added_on_create"] = True
         with contextlib.suppress(Exception):
-            entry["default"] = list(template.defaultValue())
+            value = template.defaultValue()
+            if template.type() == hou.parmTemplateType.Ramp:
+                # A ramp's defaultValue() is its key count; the keys live in
+                # a tag, the same string get_hda_info's read-back gives.
+                tags = template.tags()
+                keys = tags.get("rampfloatdefault") or tags.get("rampcolordefault")
+                entry["ramp_default"] = keys if keys else f"{value} keys"
+            else:
+                # A toggle answers a bool and a menu an int, not a tuple: list()
+                # raised and the card had no default for any of them.
+                entry["default"] = list(value) if isinstance(value, (tuple, list)) else value
         with contextlib.suppress(Exception):
             # A Time Shift is created with frame = $F; `default: [0.0]` alone
             # read as "a plain 0", and only a build's expressions_removed
