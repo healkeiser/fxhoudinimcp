@@ -515,6 +515,11 @@ def export_file(
         geo = node.geometry()
         if geo is None:
             raise ValueError(f"Node {node_path} has no geometry (cook may have failed).")
+        # saveToFile does not create a missing directory ("Could not write to the
+        # specified file"); stage.Export and a ROP's render (mkpath) do.
+        folder = os.path.dirname(file_path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
         if frame_range is not None:
             start = int(frame_range[0])
             end = int(frame_range[1])
