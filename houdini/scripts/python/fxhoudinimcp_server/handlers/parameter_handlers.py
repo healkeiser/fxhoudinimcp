@@ -1394,6 +1394,15 @@ def _link_multiparm(src: hou.Parm, dst: hou.Parm, rel_node: str) -> dict[str, An
         raise ValueError(
             f"The entries of {dst.path()} and {src.path()} do not line up: {mine} / {theirs}."
         )
+    # opmultiparm puts one number in both '#': entry 0 would read the source's
+    # entry 0, which a multiparm counted from 1 does not have.
+    first_dst, first_src = _first_index(dst), _first_index(src)
+    if first_dst != first_src:
+        raise ValueError(
+            f"{dst.path()} numbers its entries from {first_dst} and {src.path()} from "
+            f"{first_src} (multistartoffset): opmultiparm links entry N to entry N, so the "
+            "entries cannot follow the source. Link the entries one by one instead."
+        )
     # Paired in order: a folder multiparm's entries may be named differently.
     pairs = [(m, f"{rel_node}/{t}" if rel_node else t) for m, t in zip(mine, theirs, strict=True)]
     dst.deleteAllKeyframes()
