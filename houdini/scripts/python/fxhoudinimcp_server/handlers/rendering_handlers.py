@@ -108,6 +108,9 @@ def render_viewport(
         resolution: Optional [width, height] override.
         camera: Optional camera node path to look through before capture.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    output_path = hou.text.expandString(output_path)
     require_ui(
         "capture a viewport screenshot",
         alternative="For a rendered image without a UI, build a ROP and use start_render.",
@@ -181,6 +184,9 @@ def render_quad_view(
         output_path: Destination image path.
         resolution: Optional [width, height] override.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    output_path = hou.text.expandString(output_path)
     require_ui(
         "capture a quad view",
         alternative="For a rendered image without a UI, build a ROP and use start_render.",
@@ -932,6 +938,9 @@ def render_node_network(
         node_path: Path to the node whose network to capture.
         output_path: Destination image path.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    output_path = hou.text.expandString(output_path)
     require_ui(
         "screenshot the network editor",
         alternative="get_network_overview and list_children describe a network without a UI.",

@@ -51,7 +51,7 @@ async def get_hda_info(
     Args:
         ctx: MCP context.
         node_path: Node path.
-        hda_file: HDA file path.
+        hda_file: HDA file path; variables ($JOB) are expanded.
         type_name: HDA type name.
     """
     bridge = _get_bridge(ctx)
@@ -75,7 +75,7 @@ async def install_hda(
 
     Args:
         ctx: MCP context.
-        file_path: HDA file path.
+        file_path: HDA file path; variables ($JOB) are expanded.
         force: Force reinstall even if already loaded.
     """
     bridge = _get_bridge(ctx)
@@ -94,7 +94,7 @@ async def uninstall_hda(ctx: Context, file_path: str) -> dict:
 
     Args:
         ctx: MCP context.
-        file_path: HDA file path.
+        file_path: HDA file path; variables ($JOB) are expanded.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("hda.uninstall_hda", {"file_path": file_path})
@@ -106,7 +106,7 @@ async def reload_hda(ctx: Context, file_path: str) -> dict:
 
     Args:
         ctx: MCP context.
-        file_path: HDA file path.
+        file_path: HDA file path; variables ($JOB) are expanded.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute("hda.reload_hda", {"file_path": file_path})
@@ -130,7 +130,7 @@ async def create_hda(
     Args:
         ctx: MCP context.
         node_path: Subnet node path.
-        hda_file: Destination HDA file path.
+        hda_file: Destination HDA file path; variables ($JOB) are expanded.
         type_name: Operator type name.
         label: Human-readable label.
         version: Version string.

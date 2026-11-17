@@ -20,6 +20,8 @@ import re
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.modules.setdefault("hou", MagicMock())
 sys.modules.setdefault("hdefereval", MagicMock())
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "houdini", "scripts", "python"))
@@ -37,6 +39,16 @@ _HANDLER_DIR = os.path.join(
     "fxhoudinimcp_server",
     "handlers",
 )
+
+
+@pytest.fixture(autouse=True)
+def _paths_as_written(monkeypatch):
+    # The shared hou mock would expand a path into a MagicMock, which
+    # os.makedirs then creates as a directory named after the mock.
+    for name in ("rendering_handlers", "viewport_handlers"):
+        module = sys.modules.get("fxhoudinimcp_server.handlers." + name)
+        if module is not None:
+            monkeypatch.setattr(module.hou.text, "expandString", lambda s: s)
 
 
 class TestSizeFlipbook:

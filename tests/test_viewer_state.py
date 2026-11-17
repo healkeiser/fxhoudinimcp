@@ -37,6 +37,17 @@ import fxhoudinimcp_server.handlers.viewport_handlers as viewport  # noqa: E402
 import fxhoudinimcp_server.handlers.workflow_handlers as workflow  # noqa: E402
 import fxhoudinimcp_server.ui as ui  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _paths_as_written(monkeypatch):
+    # The shared hou mock would expand a path into a MagicMock, which
+    # os.makedirs then creates as a directory named after the mock.
+    for name in ("rendering_handlers", "viewport_handlers"):
+        module = sys.modules.get("fxhoudinimcp_server.handlers." + name)
+        if module is not None:
+            monkeypatch.setattr(module.hou.text, "expandString", lambda s: s)
+
+
 _SERVER_DIR = Path(__file__).resolve().parents[1] / "houdini" / "scripts" / "python"
 _SERVER_DIR = _SERVER_DIR / "fxhoudinimcp_server"
 

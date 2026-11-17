@@ -26,6 +26,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "houdini", "scr
 import fxhoudinimcp_server.handlers.viewport_handlers as viewport  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _paths_as_written(monkeypatch):
+    # The shared hou mock would expand a path into a MagicMock, which
+    # os.makedirs then creates as a directory named after the mock.
+    for name in ("rendering_handlers", "viewport_handlers"):
+        module = sys.modules.get("fxhoudinimcp_server.handlers." + name)
+        if module is not None:
+            monkeypatch.setattr(module.hou.text, "expandString", lambda s: s)
+
+
 def _rect(xmin, ymin, xmax, ymax):
     rect = MagicMock()
     rect.min.return_value = (xmin, ymin)

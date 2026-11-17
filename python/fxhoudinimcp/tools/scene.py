@@ -130,7 +130,8 @@ async def save_scene(ctx: Context, file_path: str | None = None) -> dict:
     """Save the current Houdini scene to disk.
 
     Args:
-        file_path: Destination path; defaults to the current hip file.
+        file_path: Destination path; defaults to the current hip file. $JOB,
+            $HIP and other variables are expanded.
     """
     bridge = _get_bridge(ctx)
     params: dict = {}
@@ -189,7 +190,7 @@ async def import_file(
     """Import a geometry, USD, or Alembic file into the scene.
 
     Args:
-        file_path: Path to the file to import.
+        file_path: Path to the file to import; variables ($JOB) are expanded.
         parent_path: Network path for the import node.
         node_name: Name for the created node.
     """
@@ -220,8 +221,9 @@ async def export_file(
 
     Args:
         node_path: Path to the node to export.
-        file_path: Destination file path. For a ROP this overrides its output
-            parameter for the duration of the export.
+        file_path: Destination file path; variables ($JOB) are expanded. For a
+            ROP this overrides its output parameter for the duration of the
+            export.
         frame_range: Frame range as [start, end] or [start, end, step].
     """
     bridge = _get_bridge(ctx)

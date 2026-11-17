@@ -192,6 +192,10 @@ def get_hda_info(
         hda_file: Path to an HDA file on disk.
         type_name: Fully qualified HDA type name.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    if hda_file is not None:
+        hda_file = hou.text.expandString(hda_file)
     definition = None
 
     if node_path is not None:
@@ -292,6 +296,9 @@ def install_hda(file_path: str, force: bool = False) -> dict:
     """
     # This guard sat inside the docstring above, where it never ran.
     require_inside_project_root(file_path, "HDA file")
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached HOM or os.path as written and failed.
+    file_path = hou.text.expandString(file_path)
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"HDA file not found: {file_path}")
 
@@ -338,6 +345,9 @@ def uninstall_hda(file_path: str) -> dict:
     # overwhelmingly likely cause is that this file was never installed, so say so
     # and name what IS installed.
     require_inside_project_root(file_path, "HDA file")
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached HOM or os.path as written and failed.
+    file_path = hou.text.expandString(file_path)
     installed: list[str] = []
     with contextlib.suppress(Exception):  # only used to improve the message
         installed = list(hou.hda.loadedFiles())
@@ -371,6 +381,9 @@ def reload_hda(file_path: str) -> dict:
         file_path: Path to the HDA file to reload.
     """
     require_inside_project_root(file_path, "HDA file")
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached HOM or os.path as written and failed.
+    file_path = hou.text.expandString(file_path)
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"HDA file not found: {file_path}")
 
@@ -530,6 +543,8 @@ def create_hda(
         version: Version string (default "1.0").
     """
     require_inside_project_root(hda_file, "HDA file")
+    # Expanded so the reply names the file written, not "$JOB/...".
+    hda_file = hou.text.expandString(hda_file)
     node = _get_node(node_path)
 
     # Verify the node is a subnet

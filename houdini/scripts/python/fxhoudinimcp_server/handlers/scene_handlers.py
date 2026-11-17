@@ -117,6 +117,9 @@ def save_scene(file_path: str = None) -> dict:
     """
     if file_path is not None:
         require_inside_project_root(file_path, "hip file")
+        # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+        # "$JOB/..." path reached HOM or os.path as written and failed.
+        file_path = hou.text.expandString(file_path)
         hou.hipFile.save(file_name=file_path)
     else:
         require_inside_project_root(hou.hipFile.path(), "hip file")
@@ -417,6 +420,9 @@ def import_file(
         node_name: Optional explicit node name.
     """
     require_inside_project_root(file_path, "import file")
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached HOM or os.path as written and failed.
+    file_path = hou.text.expandString(file_path)
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -506,6 +512,9 @@ def export_file(
     if node is None:
         raise ValueError(f"Node not found: {node_path}")
     require_inside_project_root(file_path, "export file")
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached HOM or os.path as written and failed.
+    file_path = hou.text.expandString(file_path)
 
     category = node.type().category().name()
 
