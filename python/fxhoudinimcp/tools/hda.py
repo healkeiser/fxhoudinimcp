@@ -271,7 +271,8 @@ async def set_hda_interface(
         ramp_float / ramp_color types: default is the keys,
         [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
         look (logarithmic|angle|vector|color|huecircle) for numbers,
-        label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+        label_hidden (or is_label_hidden), hidden, join_with_next, tags; a ramp
+        refuses label_hidden and join_with_next, which Houdini does not store.
         from_parm ("/path/node/parm"): copy that parameter's template under
         `name` (label, help, conditionals still apply; the source's own
         conditionals and callback are dropped, and type/default/min/max/
