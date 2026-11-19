@@ -308,14 +308,34 @@ def viewer_stays_out_of_dops() -> Iterator[None]:
                         tab.cd(path)
 
 
+def _sop_subnet_note(network) -> str | None:
+    """What the viewer misses inside SOP *network* (a subnet), or None if nothing."""
+    obj = network.parent()
+    while obj is not None and obj.type().category() != hou.objNodeTypeCategory():
+        obj = obj.parent()
+    if obj is None:
+        return None
+    shown = network.displayNode()
+    output = obj.displayNode()
+    return (
+        f"The Scene Viewer is inside the SOP subnet {network.path()} and draws only its "
+        f"display node ({shown.path() if shown is not None else 'none'}), not the output of "
+        f"{obj.path()} ({output.path() if output is not None else 'none'}). "
+        f"set_current_network to {obj.path()} to capture the object's result."
+    )
+
+
 def viewer_context(scene_viewer) -> dict:
-    """The network *scene_viewer* draws, and a note when that is a DOP network.
+    """The network *scene_viewer* draws, and a note when that is not the object's output.
 
     For a viewport capture's reply. In a DOP network the viewer draws the
     simulation's objects (a collider solid, particles as points), not the
     object's SOP display, and a session judged particle trails off such a
-    frame: no reply had said what the viewer was showing. Best effort, empty
-    when the viewer cannot say.
+    frame: no reply had said what the viewer was showing. Inside a SOP subnet
+    it draws the subnet's display node only: a node created or wired there
+    takes the network editor, and the viewer with it, into the subnet, and the
+    next capture showed a fragment of the object. Best effort,
+    empty when the viewer cannot say.
     """
     context: dict = {}
     with contextlib.suppress(Exception):
@@ -333,6 +353,10 @@ def viewer_context(scene_viewer) -> dict:
                 + (f" ({parent.path()})" if parent is not None else "")
                 + " to capture the SOP result."
             )
+        elif network.type().category() == hou.sopNodeTypeCategory():
+            note = _sop_subnet_note(network)
+            if note:
+                context["viewer_note"] = note
     hidden = [
         entry
         for entry in hidden_by_visible_objects(scene_viewer)
