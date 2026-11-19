@@ -245,7 +245,8 @@ async def capture_screenshot(
     in, so the frame shows none of it.
 
     Args:
-        output_path: Image file path. Default: a new PNG in the temp dir.
+        output_path: Image file path; variables ($JOB) are expanded. Default: a
+            new PNG in the temp dir.
         pane_name: Pane tab name.
         settle_seconds: Wait this long before capturing, without blocking
             Houdini, so a Karma viewport can converge after a change. Use
@@ -277,7 +278,8 @@ async def capture_network_editor(
     node connections unless visual confirmation of wiring is genuinely needed.
 
     Args:
-        output_path: Image file path. Default: a new PNG in the temp dir.
+        output_path: Image file path; variables ($JOB) are expanded. Default: a
+            new PNG in the temp dir.
         node_path: Node path to frame before capture.
     """
     bridge = _get_bridge(ctx)

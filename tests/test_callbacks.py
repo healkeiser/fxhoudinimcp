@@ -272,6 +272,9 @@ class TestHandlersPressThroughCallbacks:
         container = parent.createNode.return_value
         container.path.return_value = "/obj/alembic_import"
         monkeypatch.setattr(scene.hou, "node", lambda path: parent)
+        # The path is expanded before the existence check.
+        monkeypatch.setattr(scene.hou.text, "expandString", lambda s: s)
+        monkeypatch.setattr(scene, "require_inside_project_root", lambda path, what="": path)
         pressed = []
         monkeypatch.setattr(scene, "press", pressed.append)
 

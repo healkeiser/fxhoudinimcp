@@ -35,7 +35,8 @@ async def render_viewport(
     """Capture the current 3D viewport to an image file.
 
     Args:
-        output_path: Image file path. Default: a new PNG in the temp dir.
+        output_path: Image file path; variables ($JOB) are expanded. Default: a
+            new PNG in the temp dir.
         resolution: [width, height] in pixels. Default: the viewport's own size.
         camera: Camera node path.
         settle_seconds: Wait this long before capturing, without blocking
@@ -62,7 +63,8 @@ async def render_quad_view(
     """Capture all four viewport panes to separate images.
 
     Args:
-        output_path: Base image path; viewport names are appended.
+        output_path: Base image path; viewport names are appended, variables
+            ($JOB) are expanded.
             Default: a new PNG in the temp dir.
         resolution: [width, height] in pixels. Default: the viewport's own size.
     """
@@ -230,7 +232,8 @@ async def render_node_network(
 
     Args:
         node_path: Node path to focus on.
-        output_path: Image file path. Default: a new PNG in the temp dir.
+        output_path: Image file path; variables ($JOB) are expanded. Default: a
+            new PNG in the temp dir.
     """
     bridge = _get_bridge(ctx)
     return await bridge.execute(

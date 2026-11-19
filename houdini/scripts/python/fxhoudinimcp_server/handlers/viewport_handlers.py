@@ -911,6 +911,9 @@ def capture_screenshot(
         pane_name: Name of the pane tab to capture. If not provided,
             captures the first Scene Viewer found.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    output_path = hou.text.expandString(output_path)
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
@@ -1019,6 +1022,9 @@ def capture_network_editor(
     and, with *node_path*, ``node_bounds`` and ``node_in_view``, so what the
     image holds can be checked without opening it.
     """
+    # Houdini variables ($JOB, $HIP) are expanded, as load_scene does: a
+    # "$JOB/..." path reached os.makedirs or os.path as written and failed.
+    output_path = hou.text.expandString(output_path)
     out_dir = os.path.dirname(output_path)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
