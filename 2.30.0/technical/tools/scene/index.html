@@ -3395,7 +3395,8 @@ via the HTTP bridge.</p>
 pointed at file_path and executed (its own output path is restored
 afterwards). Reports <code>wrote_files</code>, so <code>success: True</code> means a file appeared
 or changed -- not merely that the call returned. A frame_range writes
-<code>name.0001.ext</code> per frame and leaves the playbar where it was.</p>
+<code>name.0001.ext</code> per frame and leaves the playbar where it was. A missing
+directory is created, as a ROP or a USD export does.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
