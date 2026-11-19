@@ -28,6 +28,9 @@ class TestExportMakesTheDirectory:
         import fxhoudinimcp_server.handlers.scene_handlers as scene
 
         monkeypatch.setattr(scene, "require_inside_project_root", lambda path, what="": path)
+        # The shared hou mock would expand the path into a MagicMock, which
+        # os.makedirs then creates as a directory named after the mock.
+        monkeypatch.setattr(scene.hou.text, "expandString", lambda s: s, raising=False)
         node = MagicMock()
         node.type.return_value.category.return_value.name.return_value = "Sop"
         written = []
