@@ -341,6 +341,24 @@ def move_node(node_path: str, dest_parent: str) -> dict:
 # Parameter kinds that carry no value: pressing, grouping, decorating.
 _VALUELESS_PARM_TYPES = frozenset({"Button", "Folder", "FolderSet", "Separator", "Label"})
 
+# Folders whose value the node cooks with: a radio folder's index is a choice
+# (an Add SOP's By Pattern / By Group is switcher1), a multiparm's is its count.
+# A tab folder's index is only the tab left open.
+_VALUED_FOLDER_TYPES = frozenset(
+    {"RadioButtons", "MultiparmBlock", "ScrollingMultiparmBlock", "TabbedMultiparmBlock"}
+)
+
+
+def _is_valueless(template: hou.ParmTemplate) -> bool:
+    """Whether a parm of *template* has no value to report as set or changed."""
+    type_name = template.type().name()
+    if type_name not in _VALUELESS_PARM_TYPES:
+        return False
+    if type_name in ("Folder", "FolderSet"):
+        with contextlib.suppress(Exception):
+            return template.folderType().name() not in _VALUED_FOLDER_TYPES
+    return True
+
 
 def _component_default(parm: hou.Parm) -> Any:
     """The default of *parm* itself, not of the tuple it belongs to.
@@ -423,9 +441,9 @@ def _non_default_parms(node: hou.Node, parms: list[hou.Parm]) -> list[dict[str, 
         try:
             template = parm.parmTemplate()
             type_name = template.type().name()
+            if _is_valueless(template):
+                continue
         except Exception:
-            continue
-        if type_name in _VALUELESS_PARM_TYPES:
             continue
         expression = _cook_local_expression(parm)
         if expression is not None:
