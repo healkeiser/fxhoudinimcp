@@ -3434,8 +3434,9 @@ or changed -- not merely that the call returned. A frame_range writes
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Destination file path. For a ROP this overrides its output
-parameter for the duration of the export.</p>
+                <p>Destination file path; variables ($JOB) are expanded. For a
+ROP this overrides its output parameter for the duration of the
+export.</p>
               </div>
             </td>
             <td>
@@ -3619,7 +3620,7 @@ before live viewport workflows when Houdini may have restarted.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Path to the file to import.</p>
+                <p>Path to the file to import; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
@@ -3953,7 +3954,8 @@ instead of renaming the merged copy.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Destination path; defaults to the current hip file.</p>
+                <p>Destination path; defaults to the current hip file. $JOB,
+$HIP and other variables are expanded.</p>
               </div>
             </td>
             <td>

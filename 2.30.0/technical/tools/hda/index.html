@@ -4165,7 +4165,7 @@ parms (inputtype#/outputtype#, labels): a cable output stays Cable.
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Destination HDA file path.</p>
+                <p>Destination HDA file path; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
@@ -4444,7 +4444,7 @@ names one whose help the definition did not keep.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>HDA file path.</p>
+                <p>HDA file path; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
@@ -4691,7 +4691,7 @@ names one whose help the definition did not keep.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>HDA file path.</p>
+                <p>HDA file path; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
@@ -4940,7 +4940,7 @@ fragment). <code>truncated</code> says when <code>limit</code> cut the list.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>HDA file path.</p>
+                <p>HDA file path; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
@@ -4994,7 +4994,8 @@ thing: it adds parameters to one node instance and never reaches the type.</p>
     ramp_float / ramp_color types: default is the keys,
     [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
     look (logarithmic|angle|vector|color|huecircle) for numbers,
-    label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+    label_hidden (or is_label_hidden), hidden, join_with_next, tags; a ramp
+    refuses label_hidden and join_with_next, which Houdini does not store.
     from_parm ("/path/node/parm"): copy that parameter's template under
     <code>name</code> (label, help, conditionals still apply; the source's own
     conditionals and callback are dropped, and type/default/min/max/
@@ -5304,7 +5305,7 @@ hou. or import is marked Python. <code>script_language</code> reads it back.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>HDA file path.</p>
+                <p>HDA file path; variables ($JOB) are expanded.</p>
               </div>
             </td>
             <td>
