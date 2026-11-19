@@ -820,6 +820,22 @@ def _look(spec: dict):
     return getattr(hou.parmLook, _LOOKS[value])
 
 
+def _refuse_ramp_layout(keys: dict, name: str) -> None:
+    """Refuse join_with_next / label_hidden on a ramp: Houdini does not keep them.
+
+    A ramp template takes both, but the DialogScript Houdini writes drops
+    `joinnext` and `nolabel` from a ramp_flt / ramp_rgb parm (it keeps them on
+    a Float), so the verb answered success over a definition without them
+    (22.0.466). Spare parms on a node lose them the same way.
+    """
+    asked = [key for key in ("join_with_next", "label_hidden") if keys.get(key)]
+    if asked:
+        raise ValueError(
+            f"{name!r}: Houdini does not store {' or '.join(asked)} on a ramp parameter "
+            "(its dialog script drops them). Drop the key; nothing was written."
+        )
+
+
 def _ramp_default_tag(spec: dict, color: bool) -> tuple[str, int]:
     """The rampfloatdefault / rampcolordefault string from `default` keys."""
     keys = spec.get("default")
@@ -883,6 +899,8 @@ def _cloned_template(spec: dict, name: str):
         template.setLabel(str(spec["label"]))
     if spec.get("hidden"):
         template.hide(True)
+    if template.type() == hou.parmTemplateType.Ramp:
+        _refuse_ramp_layout(spec, name)
     if spec.get("join_with_next"):
         template.setJoinWithNext(True)
     if spec.get("label_hidden"):
@@ -945,6 +963,7 @@ def _build_parm_template(spec: dict, seen: set):
     if spec.get("from_parm"):
         template = _cloned_template(spec, name)
     elif kind in _RAMP_TYPES:
+        _refuse_ramp_layout(spec, name)
         color = _RAMP_TYPES[kind] == "Color"
         tag, count = _ramp_default_tag(spec, color)
         template = hou.RampParmTemplate(
@@ -953,17 +972,13 @@ def _build_parm_template(spec: dict, seen: set):
             getattr(hou.rampParmType, _RAMP_TYPES[kind]),
             default_value=count,
             # RampParmTemplate takes no join_with_next or is_label_hidden
-            # keyword (a TypeError); those are set on the template below.
+            # keyword (a TypeError), and Houdini would not keep them anyway.
             **{
                 k: v
                 for k, v in common.items()
                 if k in ("is_hidden", "script_callback", "script_callback_language")
             },
         )
-        if spec.get("join_with_next"):
-            template.setJoinWithNext(True)
-        if spec.get("label_hidden"):
-            template.hideLabel(True)
         tags = dict(template.tags())
         tags["rampcolordefault" if color else "rampfloatdefault"] = tag
         template.setTags(tags)
@@ -1286,7 +1301,8 @@ def set_hda_interface(
         ramp_float / ramp_color types: default is the keys,
         [{"pos": 0, "value": 0 (or [r, g, b]), "interp": "linear"}, ...].
         look (logarithmic|angle|vector|color|huecircle) for numbers,
-        label_hidden (or is_label_hidden), hidden, join_with_next, tags.
+        label_hidden (or is_label_hidden), hidden, join_with_next, tags; a ramp
+        refuses label_hidden and join_with_next, which Houdini does not store.
         from_parm ("/path/node/parm"): copy that parameter's template under
         `name` (label, help, conditionals still apply; the source's own conditionals and
         callback are dropped). A stock node's ramp
@@ -1513,6 +1529,8 @@ def _modify_template(template, op: dict) -> list[str]:
         template.hide(bool(op["hidden"]))
         changed.append("hidden")
     if "join_with_next" in op:
+        if template.type() == hou.parmTemplateType.Ramp:
+            _refuse_ramp_layout(op, template.name())
         template.setJoinWithNext(bool(op["join_with_next"]))
         changed.append("join_with_next")
     for key, cond_type in (("hide_when", "HideWhen"), ("disable_when", "DisableWhen")):
