@@ -217,7 +217,8 @@ async def export_file(
     pointed at file_path and executed (its own output path is restored
     afterwards). Reports `wrote_files`, so `success: True` means a file appeared
     or changed -- not merely that the call returned. A frame_range writes
-    `name.0001.ext` per frame and leaves the playbar where it was.
+    `name.0001.ext` per frame and leaves the playbar where it was. A missing
+    directory is created, as a ROP or a USD export does.
 
     Args:
         node_path: Path to the node to export.
