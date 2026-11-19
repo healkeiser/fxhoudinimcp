@@ -179,6 +179,8 @@ async def get_node_card(
 
     A menu carries `menu_labels` (same order as `menu`) whenever its labels
     differ from its tokens: "0"/"1"/"2" = Surface Scatter/Keep Input/Volume Scatter.
+    `default` is a list per component; a toggle's is true/false and a menu's
+    the index of its item. A ramp gives `ramp_default` (its keys) instead.
 
     Args:
         node_type: Type name (e.g. "scatter", "rbdbulletsolver").
