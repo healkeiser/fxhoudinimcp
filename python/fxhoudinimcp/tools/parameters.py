@@ -432,7 +432,7 @@ async def create_spare_parameter(
     parm_name: str,
     parm_type: str,
     label: str,
-    default_value: Value | None = None,
+    default_value: Value | list[dict[str, Any]] | None = None,
     min_val: float | None = None,
     max_val: float | None = None,
     menu_items: list[str | list[str]] | None = None,
@@ -446,10 +446,14 @@ async def create_spare_parameter(
     Args:
         node_path: Node path.
         parm_name: Internal parameter name.
-        parm_type: "float", "int", "string", "toggle", or "menu".
+        parm_type: "float", "int", "string", "toggle", "menu", "vector",
+            "color", "ramp_float" or "ramp_color". vector and color are three
+            floats with the Vector / color look, as set_hda_interface makes
+            them; a float with a list default_value is a plain float tuple.
         label: UI label.
         default_value: Default value. For a menu, the default item by value
-            or index.
+            or index. For a ramp, its keys: [{"pos": 0, "value": 0,
+            "interp": "linear"}, ...] (a color key's value is [r, g, b]).
         min_val: Minimum value (float/int only).
         max_val: Maximum value (float/int only).
         menu_items: A menu's items, as set_hda_interface takes them: plain
@@ -491,8 +495,9 @@ async def create_spare_parameters(
     Args:
         node_path: Node path.
         parameters: List of parameter specs. Each dict has keys:
-            parm_name (str), parm_type (str: "float"/"int"/"string"/"toggle"/"menu"),
-            label (str), default_value (optional), min_val (optional), max_val (optional),
+            parm_name (str), parm_type (str: "float"/"int"/"string"/"toggle"/"menu"/
+            "vector"/"color"/"ramp_float"/"ramp_color", as in create_spare_parameter),
+            label (str), default_value (optional; a ramp's keys), min_val (optional), max_val (optional),
             menu_items (a menu's items: strings or [value, label] pairs, as
             in create_spare_parameter; default_value then picks one).
         folder_name: If provided, wraps all parameters in a named folder tab.

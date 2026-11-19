@@ -1585,63 +1585,16 @@ def _create_spare_parameter(
 ) -> dict[str, Any]:
     """Add a custom spare parameter to a node."""
     node = _resolve_node(node_path)
-
-    # Map string type names to ParmTemplate constructors
-    type_map: dict[str, type] = {
-        "float": hou.FloatParmTemplate,
-        "int": hou.IntParmTemplate,
-        "string": hou.StringParmTemplate,
-        "toggle": hou.ToggleParmTemplate,
-        "menu": hou.MenuParmTemplate,
-    }
-
-    template_cls = type_map.get(parm_type.lower())
-    if template_cls is None:
-        raise ValueError(
-            f"Unsupported parm_type '{parm_type}'. Supported types: {list(type_map.keys())}"
-        )
-
-    # Build keyword arguments for the template constructor
-    kwargs: dict[str, Any] = {}
-
-    if template_cls in (hou.FloatParmTemplate, hou.IntParmTemplate):
-        # Cast to the correct numeric type for the template
-        _cast = int if template_cls is hou.IntParmTemplate else float
-
-        # These require num_components; default to 1
-        if default_value is not None:
-            if not isinstance(default_value, (list, tuple)):
-                default_value = [default_value]
-            kwargs["num_components"] = len(default_value)
-            kwargs["default_value"] = tuple(_cast(v) for v in default_value)
-        else:
-            kwargs["num_components"] = 1
-
-        if min_val is not None:
-            kwargs["min"] = _cast(min_val)
-            kwargs["min_is_strict"] = False
-        if max_val is not None:
-            kwargs["max"] = _cast(max_val)
-            kwargs["max_is_strict"] = False
-
-        pt = template_cls(parm_name, label, **kwargs)
-
-    elif template_cls is hou.StringParmTemplate:
-        kwargs["num_components"] = 1
-        if default_value is not None:
-            if not isinstance(default_value, (list, tuple)):
-                default_value = [default_value]
-            kwargs["default_value"] = tuple(str(v) for v in default_value)
-        pt = template_cls(parm_name, label, **kwargs)
-
-    elif template_cls is hou.ToggleParmTemplate:
-        dv = bool(default_value) if default_value is not None else False
-        pt = template_cls(parm_name, label, default_value=dv)
-
-    elif template_cls is hou.MenuParmTemplate:
-        pt = _menu_template(parm_name, label, menu_items, default_value)
-    else:
-        pt = template_cls(parm_name, label, **kwargs)
+    spec: dict[str, Any] = {"parm_name": parm_name, "parm_type": parm_type, "label": label}
+    for key, value in (
+        ("default_value", default_value),
+        ("min_val", min_val),
+        ("max_val", max_val),
+        ("menu_items", menu_items),
+    ):
+        if value is not None:
+            spec[key] = value
+    pt = _build_parm_template(spec)
 
     # Add to node
     ptg = node.parmTemplateGroup()
@@ -1655,7 +1608,7 @@ def _create_spare_parameter(
         "label": label,
         "created": True,
     }
-    if template_cls is hou.MenuParmTemplate:
+    if parm_type.lower() == "menu":
         with contextlib.suppress(Exception):
             result.update(_menu_readback(node.parm(parm_name)))
     return result
@@ -1667,8 +1620,33 @@ register_handler("parameters.create_spare_parameter", _create_spare_parameter)
 ###### Handler: parameters.create_spare_parameters
 
 
+#: Built by the HDA interface's builder, so a spare parameter of these types
+#: is the one set_hda_interface makes: a vector or a color has its look and
+#: three components, a ramp takes its default keys.
+_HDA_BUILT_TYPES = ("vector", "color", "ramp_float", "ramp_color", "rampfloat", "rampcolor")
+
+_SPARE_TYPES = (
+    "float",
+    "int",
+    "string",
+    "toggle",
+    "menu",
+    "vector",
+    "color",
+    "ramp_float",
+    "ramp_color",
+)
+
+
 def _build_parm_template(spec: dict) -> hou.ParmTemplate:
     """Build a single ParmTemplate from a specification dict."""
+    if str(spec.get("parm_type", "")).lower() in _HDA_BUILT_TYPES:
+        from fxhoudinimcp_server.handlers.hda_handlers import (
+            _build_parm_template as _interface_template,
+        )
+
+        return _interface_template(dict(spec), set())
+
     type_map: dict[str, type] = {
         "float": hou.FloatParmTemplate,
         "int": hou.IntParmTemplate,
@@ -1686,7 +1664,10 @@ def _build_parm_template(spec: dict) -> hou.ParmTemplate:
 
     template_cls = type_map.get(parm_type)
     if template_cls is None:
-        raise ValueError(f"Unsupported parm_type '{parm_type}' for parameter '{parm_name}'.")
+        raise ValueError(
+            f"Unsupported parm_type '{parm_type}' for parameter '{parm_name}'. "
+            f"Supported: {', '.join(_SPARE_TYPES)}."
+        )
 
     kwargs: dict[str, Any] = {}
 
