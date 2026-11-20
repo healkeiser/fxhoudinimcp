@@ -245,9 +245,10 @@ async def capture_screenshot(
     capture.
     A Scene Viewer capture names the network it shows (`viewer_network`);
     `viewer_note` says when that is a DOP network, drawn as the simulation's
-    objects rather than the SOP display; `visible_objects_note`, when the
-    viewport's Visible Objects pattern leaves out the object the viewer is
-    in, so the frame shows none of it.
+    objects rather than the SOP display, or a SOP subnet, drawn as its own
+    display node rather than the object's output; `visible_objects_note`,
+    when the viewport's Visible Objects pattern leaves out the object the
+    viewer is in, so the frame shows none of it.
 
     Args:
         output_path: Image file path; variables ($JOB) are expanded. Default: a
