@@ -4080,11 +4080,17 @@ opened the plugin to remote clients; pass a shared path then.</p>
 <p>The image is written to disk only; open <code>output_path</code> with your file
 reader to look at it. Prefer get_geometry_info, get_node_info or
 get_scene_summary unless visual confirmation is genuinely needed.
+The frame is the viewport's own size and view. For a set size,
+render_viewport(resolution=...); to frame one object first,
+frame_all(node_paths=...), and for frames of one scale across a
+comparison sheet, frame_all(bounds=...) with the same box before each
+capture.
 A Scene Viewer capture names the network it shows (<code>viewer_network</code>);
 <code>viewer_note</code> says when that is a DOP network, drawn as the simulation's
-objects rather than the SOP display; <code>visible_objects_note</code>, when the
-viewport's Visible Objects pattern leaves out the object the viewer is
-in, so the frame shows none of it.</p>
+objects rather than the SOP display, or a SOP subnet, drawn as its own
+display node rather than the object's output; <code>visible_objects_note</code>,
+when the viewport's Visible Objects pattern leaves out the object the
+viewer is in, so the frame shows none of it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
