@@ -238,6 +238,11 @@ async def capture_screenshot(
     The image is written to disk only; open ``output_path`` with your file
     reader to look at it. Prefer get_geometry_info, get_node_info or
     get_scene_summary unless visual confirmation is genuinely needed.
+    The frame is the viewport's own size and view. For a set size,
+    render_viewport(resolution=...); to frame one object first,
+    frame_all(node_paths=...), and for frames of one scale across a
+    comparison sheet, frame_all(bounds=...) with the same box before each
+    capture.
     A Scene Viewer capture names the network it shows (`viewer_network`);
     `viewer_note` says when that is a DOP network, drawn as the simulation's
     objects rather than the SOP display; `visible_objects_note`, when the
