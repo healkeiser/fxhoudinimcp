@@ -107,3 +107,42 @@ class TestSpareTypesAreTheInterfaceTypes:
         default = next(a for a in tool.args.args if a.arg == "default_value")
         assert "list[dict[str, Any]]" in ast.unparse(default.annotation)
         assert "ramp_float" in ast.get_docstring(tool)
+
+
+def _kind(name):
+    kind = MagicMock()
+    kind.name.return_value = name
+    return kind
+
+
+class TestRampKindChangeIsRefused:
+    """A float and a color ramp share hou.parmTemplateType.Ramp: the batch
+    verb's type check let one replace the other, and every key was dropped
+    (found live on Houdini 22.0.368)."""
+
+    def _run(self, monkeypatch, existing_kind, new_kind):
+        ramp = parms.hou.parmTemplateType.Ramp
+        existing = MagicMock()
+        existing.type.return_value = ramp
+        existing.parmType.return_value = existing_kind
+        new = MagicMock()
+        new.type.return_value = ramp
+        new.parmType.return_value = new_kind
+        node = MagicMock()
+        node.parm.return_value = None
+        node.parmTuple.return_value = None
+        node.parmTemplateGroup.return_value.find.return_value = existing
+        monkeypatch.setattr(parms, "_resolve_node", lambda path: node)
+        monkeypatch.setattr(parms, "_build_parm_template", lambda spec: new)
+        spec = {"parm_name": "prio", "parm_type": "ramp_color", "label": "P"}
+        return parms._create_spare_parameters("/obj/g", [spec]), node
+
+    def test_a_float_ramp_does_not_become_a_color_ramp(self, monkeypatch):
+        with pytest.raises(ValueError, match="without losing its keys"):
+            self._run(monkeypatch, _kind("Float"), _kind("Color"))
+
+    def test_the_same_kind_is_updated_in_place(self, monkeypatch):
+        kind = _kind("Float")
+        result, node = self._run(monkeypatch, kind, kind)
+        assert result["updated"] == ["prio"]
+        node.setParmTemplateGroup.assert_called_once()

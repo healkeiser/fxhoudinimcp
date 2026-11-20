@@ -1762,6 +1762,13 @@ def _create_spare_parameters(
                 f"'{spec['parm_name']}' exists as {existing.type().name()}; "
                 f"cannot change it to {pt.type().name()} without losing its value."
             )
+        # A float and a color ramp share the Ramp type; swapping one for the
+        # other drops every key.
+        if pt.type() == hou.parmTemplateType.Ramp and existing.parmType() != pt.parmType():
+            raise ValueError(
+                f"'{spec['parm_name']}' exists as a {existing.parmType().name()} ramp; "
+                f"cannot change it to a {pt.parmType().name()} ramp without losing its keys."
+            )
         ptg.replace(spec["parm_name"], pt)
         updated.append(spec["parm_name"])
 
